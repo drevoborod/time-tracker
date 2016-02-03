@@ -69,25 +69,26 @@ class TaskFrame(Frame):
     def get_task_name(self):
         """Функция для получения имени задачи."""
         task_name = self.entry.get()
-        # Пытаемся вытащить значение счётчика для данной задачи из БД.
-        db_time = self.db_act.find_record(task_name)
-        # Если такая задача не обнаруживается, то создаём запись для неё
-        if db_time is None:
-            self.db_act.add_record(task_name)
-            self.prepare_task(task_name)
-        else:
-            # А если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
-            if task_name not in Params.tasks:
-                # Проверяем, не было ли запущено уже что-то в этом окне. Если было, удаляем из списка запущенных:
-                if self.task_name:
-                    Params.tasks.remove(self.task_name)
-                    # Останавливаем таймер старой задачи и сохраняем состояние:
-                    self.timer_stop()
-                # Создаём новую задачу:
-                self.prepare_task(task_name, db_time[0])
+        if len(task_name) > 0:
+            # Пытаемся вытащить значение счётчика для данной задачи из БД.
+            db_time = self.db_act.find_record(task_name)
+            # Если такая задача не обнаруживается, то создаём запись для неё
+            if db_time is None:
+                self.db_act.add_record(task_name)
+                self.prepare_task(task_name)
             else:
-                # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
-                self.dialogue_window.destroy()
+                # А если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
+                if task_name not in Params.tasks:
+                    # Проверяем, не было ли запущено уже что-то в этом окне. Если было, удаляем из списка запущенных:
+                    if self.task_name:
+                        Params.tasks.remove(self.task_name)
+                        # Останавливаем таймер старой задачи и сохраняем состояние:
+                        self.timer_stop()
+                    # Создаём новую задачу:
+                    self.prepare_task(task_name, db_time[0])
+                else:
+                    # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
+                    self.dialogue_window.destroy()
 
     def prepare_task(self, taskname, running_time=0):
         """Функция подготавливает счётчик к работе с новой таской."""
@@ -164,4 +165,5 @@ run.mainloop()
 
 # TODo: В окне открытия таски сделать выбор таски из списка. Также должна быть возможность добавлять
 # новые таски и удалять старые.
+
 
