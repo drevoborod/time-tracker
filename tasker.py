@@ -118,7 +118,7 @@ class TaskFrame(Frame):
         """Обновление окошка счётчика. Обновляется раз в полсекунды."""
         self.running_time = time.time() - self.start_time
         # Собственно изменение надписи в окошке счётчика.
-        self.timer_window.config(text=time.strftime("%H:%M:%S", time.gmtime(self.running_time)))
+        self.timer_window.config(text=self.time_format(self.running_time))
         # Откладываем действие на полсекунды.
         # В переменную self.timer пишется ID, создаваемое методом after().
         self.timer = self.timer_window.after(500, self.timer_update)
@@ -146,8 +146,14 @@ class TaskFrame(Frame):
         tasks = self.db_act.find_records()
         tasks_list = []
         for task in tasks:
-            tasks_list.append(' '.join(map(str, task)))
+            tasks_list.append("{:<s}{:>80s}".format(task[0], self.time_format(task[1])))
         return tasks_list
+
+    def time_format(self, sec):
+        if sec < 86400:
+            return time.strftime("%H:%M:%S", time.gmtime(sec))
+        else:
+            return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""

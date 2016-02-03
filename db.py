@@ -20,7 +20,7 @@ class Db():
             cur.executescript("""\
                 create table tasks (id text unique,
                 timer int,
-                task_name text);
+                extra text);
                 create table config (id text unique,
                 value text);"""
                              )
@@ -49,6 +49,9 @@ class Db():
 
     def update_record(self, id, field="timer", value=0, table="tasks"):
         self.exec_script("update {3} set {1}={2} where id='{0}'".format(id, field, value, table))
+
+    def delete_record(self, id, table="tasks"):
+        self.exec_script("delete from {1} where id='{0}'".format(id, table))
 
     def close(self):
         self.cur.close()
