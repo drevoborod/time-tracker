@@ -59,12 +59,18 @@ class TaskFrame(Frame):
         """ Диалоговое окно выбора задачи.
         """
         self.dialogue_window = Toplevel(master=self)
-        Label(self.dialogue_window, text="Enter task name:").pack()
-        self.entry = Entry(self.dialogue_window, width=50)
+        self.dialogue_window.title("Task selection")
+        frame1 = Frame(self.dialogue_window)
+        frame1.pack()
+        tasklist = TaskList(frame1, self.tasks_list(), width=50)
+        frame2 = Frame(self.dialogue_window)
+        frame2.pack()
+        Label(frame2, text="Enter task name:").pack()
+        self.entry = Entry(frame2, width=50)
         self.entry.pack()
         self.entry.focus_set()
-        TaskButton(self.dialogue_window, "OK", LEFT, command=self.get_task_name)
-        TaskButton(self.dialogue_window, "Cancel", RIGHT, command=self.dialogue_window.destroy)
+        TaskButton(frame2, "OK", LEFT, command=self.get_task_name)
+        TaskButton(frame2, "Cancel", RIGHT, command=self.dialogue_window.destroy)
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
@@ -136,6 +142,13 @@ class TaskFrame(Frame):
             # Записываем текущее значение таймера в БД.
             self.db_act.update_record(self.task_name, value=self.running_time)
 
+    def tasks_list(self):
+        tasks = self.db_act.find_records()
+        tasks_list = []
+        for task in tasks:
+            tasks_list.append(' '.join(map(str, task)))
+        return tasks_list
+
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
         self.timer_stop()
@@ -153,11 +166,21 @@ class TaskButton(Button):
         Button.__init__(self, master=parent, text=text, **kwargs)
         self.pack(side=position)
 
+class TaskList(Listbox):
+    def __init__(self, parent, list, position=None, **kwargs):
+        Listbox.__init__(self, master=parent, **kwargs)
+        for u in list:
+            self.insert(END, u)
+        self.pack(side=position)
 
-class Params: pass
 
-Params.tasks = set()
+class Params:
+    """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
+    pass
+
+Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
 run = Tk()
+run.title("Tasker")
 TaskFrame(parent=run)
 TaskFrame(parent=run)
 TaskFrame(parent=run)
