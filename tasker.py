@@ -73,7 +73,7 @@ class TaskFrame(Frame):
         db_time = self.db_act.find_record(task_name)
         # Если такая задача не обнаруживается, то создаём запись для неё
         if db_time is None:
-            self.db_act.add_record(task_name, 0)
+            self.db_act.add_record(task_name)
             self.prepare_task(task_name)
         else:
             # А если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
@@ -133,7 +133,7 @@ class TaskFrame(Frame):
             self.running = False
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
-            self.db_act.update_record(self.task_name, self.running_time)
+            self.db_act.update_record(self.task_name, value=self.running_time)
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""

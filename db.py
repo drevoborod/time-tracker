@@ -18,11 +18,12 @@ class Db():
         with sqlite3.connect(self.db_filename) as con:
             cur = con.cursor()
             cur.executescript("""\
-                create table tasks (id integer primary key autoincrement,
-                task_name text unique,
+                create table tasks (id text unique,
                 timer int,
-                some_data text);"""
-                              )
+                task_name text);
+                create table config (id text unique,
+                value text);"""
+                             )
             cur.close()
 
     def exec_script(self, script):
@@ -33,15 +34,21 @@ class Db():
         else:
             self.db_file.commit()
 
-    def add_record(self, name, timer):
-        self.exec_script("insert into tasks (task_name, timer) values ('{0}', {1})".format(name, timer))
+    def add_record(self, id, field="timer", value=0, table="tasks"):
+        self.exec_script("insert into {3} (id, {1}) values ('{0}', {2})".format(id, field, value, table))
+        # ToDo: Убедиться, что нормально создаются текстовые поля, если type(value) == str.
 
-    def find_record(self, name):
-        self.exec_script("select timer from tasks where task_name='%s'" % name)
+    def find_record(self, id, field="timer", table="tasks"):
+        """Возвращает значение для поля field из записи со значением поля "id", равным id."""
+        self.exec_script("select {1} from {2} where id='{0}'".format(id, field, table))
         return self.cur.fetchone()
 
-    def update_record(self, name, timer):
-        self.exec_script("update tasks set timer={1} where task_name='{0}'".format(name, timer))
+    def find_records(self, table="tasks"):
+        self.exec_script("select * from {0}".format(table))
+        return self.cur.fetchall()
+
+    def update_record(self, id, field="timer", value=0, table="tasks"):
+        self.exec_script("update {3} set {1}={2} where id='{0}'".format(id, field, value, table))
 
     def close(self):
         self.cur.close()
