@@ -37,12 +37,13 @@ class TaskFrame(Frame):
         self.running = False
         # Окошко счётчика.
         self.timer_window = TaskLabel(frame2, width=10, state=DISABLED)
-        self.big_font(self.timer_window)
+        big_font(self.timer_window)
         self.clearbutton = TaskButton(frame2, "Clear", RIGHT, state=DISABLED, command=self.clear)
         # Кнопка "Стоп".
         self.stopbutton = TaskButton(frame2, "Stop", RIGHT, state=DISABLED, command=self.timer_stop)
 
     def clear(self):
+        """Пересоздание содержимого окна."""
         for w in self.winfo_children():
             w.destroy()
         Params.tasks.remove(self.task_name)
@@ -50,19 +51,16 @@ class TaskFrame(Frame):
         self.db_act.close()
         self.create_content()
 
-    def big_font(self, unit):
-        """Увеличение размера шрифта выбранного элемента до 20."""
-        fontname = fonter.Font(font=unit['font']).actual()['family']
-        unit.config(font=(fontname, 20))
-
     def name_dialogue(self):
         """ Диалоговое окно выбора задачи.
         """
         self.dialogue_window = Toplevel(master=self)
         self.dialogue_window.title("Task selection")
+        self.dialogue_window.grab_set()     # Блокируем юзера в диалоговом окошке.
         frame1 = Frame(self.dialogue_window)
         frame1.pack()
-        tasklist = TaskList(frame1, self.tasks_list(), width=50)
+        Label(frame1, text="Select task:").pack()
+        tasklist = TaskList(frame1, self.db_act.find_records(), width=50)
         frame2 = Frame(self.dialogue_window)
         frame2.pack()
         Label(frame2, text="Enter task name:").pack()
@@ -105,7 +103,7 @@ class TaskFrame(Frame):
         # Или задаём его значение согласно взятому из БД:
         self.running_time = running_time
         # Прописываем значение счётчика в окошке счётчика.
-        self.timer_window.config(text=time.strftime("%H:%M:%S", time.gmtime(self.running_time)))
+        self.timer_window.config(text=time_format(self.running_time))
         self.dialogue_window.destroy()
         # В поле для имени задачи прописываем имя.
         self.tasklabel.config(text=self.task_name)
@@ -118,7 +116,7 @@ class TaskFrame(Frame):
         """Обновление окошка счётчика. Обновляется раз в полсекунды."""
         self.running_time = time.time() - self.start_time
         # Собственно изменение надписи в окошке счётчика.
-        self.timer_window.config(text=self.time_format(self.running_time))
+        self.timer_window.config(text=time_format(self.running_time))
         # Откладываем действие на полсекунды.
         # В переменную self.timer пишется ID, создаваемое методом after().
         self.timer = self.timer_window.after(500, self.timer_update)
@@ -142,19 +140,6 @@ class TaskFrame(Frame):
             # Записываем текущее значение таймера в БД.
             self.db_act.update_record(self.task_name, value=self.running_time)
 
-    def tasks_list(self):
-        tasks = self.db_act.find_records()
-        tasks_list = []
-        for task in tasks:
-            tasks_list.append("{:<s}{:>80s}".format(task[0], self.time_format(task[1])))
-        return tasks_list
-
-    def time_format(self, sec):
-        if sec < 86400:
-            return time.strftime("%H:%M:%S", time.gmtime(sec))
-        else:
-            return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
-
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
         self.timer_stop()
@@ -173,16 +158,34 @@ class TaskButton(Button):
         self.pack(side=position)
 
 class TaskList(Listbox):
-    def __init__(self, parent, list, position=None, **kwargs):
-        Listbox.__init__(self, master=parent, **kwargs)
-        for u in list:
-            self.insert(END, u)
-        self.pack(side=position)
+    def __init__(self, parent, tasks_tuples, position=None, **kwargs):
+        frame = Frame(parent)
+        frame.pack(side=position)
+        Listbox.__init__(self, master=frame, selectmode=SINGLE, **kwargs)
+        ### Здесь будет скроллбар.
+        for task in tasks_tuples:
+            self.insert(END, "{:<s}{:>80s}".format(task[0], time_format(task[1])))
+        self.pack()
+        self.delbutton = Button(frame, text="Delete", state=DISABLED)
+        self.delbutton.pack(side=RIGHT)
 
 
 class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
     pass
+
+
+def time_format(sec):
+    """Функция возвращает время в удобочитаемом формате. Принимает секунды."""
+    if sec < 86400:
+        return time.strftime("%H:%M:%S", time.gmtime(sec))
+    else:
+        return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
+
+def big_font(unit):
+    """Увеличение размера шрифта выбранного элемента до 20."""
+    fontname = fonter.Font(font=unit['font']).actual()['family']
+    unit.config(font=(fontname, 20))
 
 Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
 run = Tk()
