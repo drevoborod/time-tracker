@@ -54,9 +54,14 @@ class TaskFrame(Frame):
     def name_dialogue(self):
         """ Диалоговое окно выбора задачи.
         """
-        self.dialogue_window = Toplevel(master=self)
-        self.dialogue_window.title("Task selection")
-        self.dialogue_window.grab_set()     # Блокируем юзера в диалоговом окошке.
+        self.dialogue_window = TaskSelectionWindow(self.db_act.find_records(), self)
+        self.dialogue_window.selectbutton = Button(self.dialogue_window, text="Select")
+        self.dialogue_window.selectbutton.pack(side=LEFT)
+        Button(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).pack(side=RIGHT)
+        self.dialogue_window.config(command=self.get_task_name)
+
+        """
+
         frame1 = Frame(self.dialogue_window)
         frame1.pack()
         Label(frame1, text="Select task:").pack()
@@ -68,13 +73,14 @@ class TaskFrame(Frame):
         self.entry.pack()
         self.entry.focus_set()
         TaskButton(frame2, "OK", LEFT, command=self.get_task_name)
-        TaskButton(frame2, "Cancel", RIGHT, command=self.dialogue_window.destroy)
+        TaskButton(frame2, "Cancel", RIGHT, command=self.dialogue_window.destroy)"""
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
-        task_name = self.entry.get()
+        task_name = self.dialogue_window.addentry.get()
         if len(task_name) > 0:
             # Пытаемся вытащить значение счётчика для данной задачи из БД.
+#####
             db_time = self.db_act.find_record(task_name)
             # Если такая задача не обнаруживается, то создаём запись для неё
             if db_time is None:
@@ -157,17 +163,54 @@ class TaskButton(Button):
         Button.__init__(self, master=parent, text=text, **kwargs)
         self.pack(side=position)
 
-class TaskList(Listbox):
-    def __init__(self, parent, tasks_tuples, position=None, **kwargs):
-        frame = Frame(parent)
-        frame.pack(side=position)
-        Listbox.__init__(self, master=frame, selectmode=SINGLE, **kwargs)
-        ### Здесь будет скроллбар.
-        for task in tasks_tuples:
-            self.insert(END, "{:<s}{:>80s}".format(task[0], time_format(task[1])))
-        self.pack()
-        self.delbutton = Button(frame, text="Delete", state=DISABLED)
+class TaskList(Frame):
+    def __init__(self, parent=None, **options):
+        Frame.__init__(self, master=parent, **options)
+        self.taskslist = Listbox(self, selectmode=EXTENDED)
+        scroller = Scrollbar(self)
+        scroller.config(command=self.taskslist.yview)
+        self.taskslist.config(yscrollcommand=scroller.set)
+        scroller.pack(side=RIGHT, fill=Y)
+        self.taskslist.pack(fill=BOTH, expand=YES)
+
+
+class TaskSelectionWindow(Toplevel):
+    def __init__(self, tlist, parent=None, **options):
+        print(tlist)
+        Toplevel.__init__(self, master=parent, **options)
+        self.title("Task selection")
+        self.grab_set()
+        addframe = Frame(self)
+        addframe.pack(expand=YES, fill=BOTH)
+        Label(addframe, text="Enter taskname:").pack(side=LEFT)
+        self.addentry = Entry(addframe)
+        self.addentry.pack(side=LEFT, expand=YES, fill=X)
+        self.addbutton = Button(addframe, text="Add task")
+        self.addbutton.pack(side=RIGHT)
+        taskframe = Frame(self)
+        self.listframe = TaskList(taskframe)     # список тасок со скроллом.
+        self.selbutton = Button(taskframe, text="Select all", command=self.select_all)
+        self.delbutton = Button(taskframe, text="Remove", command=self.delete)
+        self.clearbutton = Button(taskframe, text="Clear all", command=self.clear_all)
+        self.listframe.pack(fill=BOTH, expand=YES)
+        taskframe.pack(fill=BOTH, expand=YES)
+        self.selbutton.pack(side=LEFT)
+        self.clearbutton.pack(side=LEFT)
+        Frame(taskframe, width=300).pack()
         self.delbutton.pack(side=RIGHT)
+        Frame(taskframe, height=100).pack()
+        for t in tlist:
+            self.listframe.taskslist.insert(END, t[0])
+
+
+    def select_all(self):
+        pass
+
+    def clear_all(self):
+        pass
+
+    def delete(self):
+        pass
 
 
 class Params:
