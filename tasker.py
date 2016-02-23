@@ -58,47 +58,38 @@ class TaskFrame(Frame):
         self.dialogue_window.selectbutton = Button(self.dialogue_window, text="Select")
         self.dialogue_window.selectbutton.pack(side=LEFT)
         Button(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).pack(side=RIGHT)
-        self.dialogue_window.config(command=self.get_task_name)
+        self.dialogue_window.addbutton.bind("<Button-1>", lambda event: self.add_new_task())
+        self.dialogue_window.selectbutton.bind("<Button-1>", lambda event: self.get_task_name())
 
-        """
 
-        frame1 = Frame(self.dialogue_window)
-        frame1.pack()
-        Label(frame1, text="Select task:").pack()
-        tasklist = TaskList(frame1, self.db_act.find_records(), width=50)
-        frame2 = Frame(self.dialogue_window)
-        frame2.pack()
-        Label(frame2, text="Enter task name:").pack()
-        self.entry = Entry(frame2, width=50)
-        self.entry.pack()
-        self.entry.focus_set()
-        TaskButton(frame2, "OK", LEFT, command=self.get_task_name)
-        TaskButton(frame2, "Cancel", RIGHT, command=self.dialogue_window.destroy)"""
+    def add_new_task(self):
+        """Добавление новой задачи в БД."""
+        task_name = self.dialogue_window.addentry.get()
+        if len(task_name) > 0:
+            if self.db_act.find_record(task_name) is None:  # проверяем, есть ли такая задача.
+                self.db_act.add_record(task_name)
+                self.dialogue_window.listframe.taskslist.insert(0, task_name)
+
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
-        task_name = self.dialogue_window.addentry.get()
-        if len(task_name) > 0:
+        self.dialogue_window.get_selection()
+        if len(self.dialogue_window.selection) == 1:
+            task_name = self.dialogue_window.selection[0]
             # Пытаемся вытащить значение счётчика для данной задачи из БД.
-#####
             db_time = self.db_act.find_record(task_name)
-            # Если такая задача не обнаруживается, то создаём запись для неё
-            if db_time is None:
-                self.db_act.add_record(task_name)
-                self.prepare_task(task_name)
+            # Если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
+            if task_name not in Params.tasks:
+                # Проверяем, не было ли запущено уже что-то в этом окне. Если было, удаляем из списка запущенных:
+                if self.task_name:
+                    Params.tasks.remove(self.task_name)
+                    # Останавливаем таймер старой задачи и сохраняем состояние:
+                    self.timer_stop()
+                # Создаём новую задачу:
+                self.prepare_task(task_name, db_time[0])
             else:
-                # А если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
-                if task_name not in Params.tasks:
-                    # Проверяем, не было ли запущено уже что-то в этом окне. Если было, удаляем из списка запущенных:
-                    if self.task_name:
-                        Params.tasks.remove(self.task_name)
-                        # Останавливаем таймер старой задачи и сохраняем состояние:
-                        self.timer_stop()
-                    # Создаём новую задачу:
-                    self.prepare_task(task_name, db_time[0])
-                else:
-                    # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
-                    self.dialogue_window.destroy()
+                # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
+                self.dialogue_window.destroy()
 
     def prepare_task(self, taskname, running_time=0):
         """Функция подготавливает счётчик к работе с новой таской."""
@@ -191,7 +182,7 @@ class TaskSelectionWindow(Toplevel):
         self.listframe = TaskList(taskframe)     # список тасок со скроллом.
         self.selbutton = Button(taskframe, text="Select all", command=self.select_all)
         self.delbutton = Button(taskframe, text="Remove", command=self.delete)
-        self.clearbutton = Button(taskframe, text="Clear all", command=self.clear_all)
+        self.clearbutton = Button(taskframe, text="Clear selection", command=self.clear_all)
         self.listframe.pack(fill=BOTH, expand=YES)
         taskframe.pack(fill=BOTH, expand=YES)
         self.selbutton.pack(side=LEFT)
@@ -202,6 +193,11 @@ class TaskSelectionWindow(Toplevel):
         for t in tlist:
             self.listframe.taskslist.insert(END, t[0])
 
+    def get_selection(self):
+        index = [int(x) for x in self.listframe.taskslist.curselection()]
+        self.selection = [self.listframe.taskslist.get(x) for x in index]
+        return index
+
 
     def select_all(self):
         pass
@@ -210,7 +206,13 @@ class TaskSelectionWindow(Toplevel):
         pass
 
     def delete(self):
-        pass
+        indexes = self.get_selection()
+        bd = db.Db()
+        for task in self.selection:
+            bd.delete_record(task)
+        bd.close()
+        for i in indexes:
+            self.listframe.taskslist.delete(i)
 
 
 class Params:
