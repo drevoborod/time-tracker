@@ -167,7 +167,6 @@ class TaskList(Frame):
 
 class TaskSelectionWindow(Toplevel):
     def __init__(self, tlist, parent=None, **options):
-        print(tlist)
         Toplevel.__init__(self, master=parent, **options)
         self.title("Task selection")
         self.grab_set()
@@ -240,7 +239,9 @@ TaskFrame(parent=run)
 TaskFrame(parent=run)
 run.mainloop()
 
-# TODo: В окне открытия таски сделать выбор таски из списка. Также должна быть возможность добавлять
-# новые таски и удалять старые.
+# ToDo: Задокументировать новые функции.
+# TODo: Сделать работоспособными кнопки "Выделить всё" и "Снять выделение".
+# ToDO: Сделать диалоговое окно с предупреждением об удалении.
+# ToDo: Привести в порядок внешний вид, включая корректное поведение при ресайзе.
 
 
