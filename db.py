@@ -48,7 +48,7 @@ class Db():
         return self.cur.fetchall()
 
     def update_record(self, id, field="timer", value=0, table="tasks"):
-        self.exec_script("update {3} set {1}={2} where id='{0}'".format(id, field, value, table))
+        self.exec_script("update {3} set {1}='{2}' where id='{0}'".format(id, field, value, table))
 
     def delete_record(self, id, table="tasks"):
         self.exec_script("delete from {1} where id='{0}'".format(id, table))

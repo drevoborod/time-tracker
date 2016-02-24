@@ -54,22 +54,11 @@ class TaskFrame(Frame):
     def name_dialogue(self):
         """ Диалоговое окно выбора задачи.
         """
-        self.dialogue_window = TaskSelectionWindow(self.db_act.find_records(), self)
+        self.dialogue_window = TaskSelectionWindow(self)
         self.dialogue_window.selectbutton = Button(self.dialogue_window, text="Select")
         self.dialogue_window.selectbutton.pack(side=LEFT)
         Button(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).pack(side=RIGHT)
-        self.dialogue_window.addbutton.bind("<Button-1>", lambda event: self.add_new_task())
         self.dialogue_window.selectbutton.bind("<Button-1>", lambda event: self.get_task_name())
-
-
-    def add_new_task(self):
-        """Добавление новой задачи в БД."""
-        task_name = self.dialogue_window.addentry.get()
-        if len(task_name) > 0:
-            if self.db_act.find_record(task_name) is None:  # проверяем, есть ли такая задача.
-                self.db_act.add_record(task_name)
-                self.dialogue_window.listframe.taskslist.insert(0, task_name)
-
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
@@ -166,9 +155,8 @@ class TaskList(Frame):
 
 
 class TaskSelectionWindow(Toplevel):
-    def __init__(self, tlist, parent=None, **options):
+    def __init__(self, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
-        self.tlist = tlist
         self.title("Task selection")
         self.minsize(width=600, height=550)
         self.grab_set()
@@ -177,7 +165,7 @@ class TaskSelectionWindow(Toplevel):
         Label(addframe, text="Enter taskname:").pack(side=LEFT)
         self.addentry = Entry(addframe)
         self.addentry.pack(side=LEFT, expand=YES, fill=X)
-        self.addbutton = Button(addframe, text="Add task")
+        self.addbutton = Button(addframe, text="Add task", command=self.add_new_task)
         self.addbutton.pack(side=RIGHT)
         taskframe = Frame(self)
         self.listframe = TaskList(taskframe)     # список тасок со скроллом.
@@ -193,8 +181,25 @@ class TaskSelectionWindow(Toplevel):
         self.delbutton.pack(side=RIGHT)
         self.editbutton.pack(side=RIGHT)
         Frame(taskframe, height=100).pack()
-        for t in tlist:
+        self.update_list()
+
+    def add_new_task(self):
+        """Добавление новой задачи в БД."""
+        task_name = self.addentry.get()
+        if len(task_name) > 0:
+            bd = db.Db()
+            if bd.find_record(task_name) is None:  # проверяем, есть ли такая задача.
+                bd.add_record(task_name)
+                self.update_list()
+            bd.close()
+
+    def update_list(self):
+        self.listframe.taskslist.delete(0, END)
+        bd = db.Db()
+        self.tlist = bd.find_records()
+        for t in self.tlist:
             self.listframe.taskslist.insert(END, t[0])
+        bd.close()
 
     def get_selection(self):
         index = [int(x) for x in self.listframe.taskslist.curselection()]
@@ -221,6 +226,17 @@ class TaskSelectionWindow(Toplevel):
         index = self.listframe.taskslist.curselection()
         if len(index) > 0:
             self.editwindow = TaskEditWindow(self.tlist[index[0]], self)
+            Button(self.editwindow, text='Ok', command=self.update_task).pack(side=LEFT)
+            Button(self.editwindow, text='Cancel', command=self.editwindow.destroy).pack(side=RIGHT)
+
+    def update_task(self):
+        taskdata = (self.editwindow.taskname.get(1.0, END).rstrip(), self.editwindow.description.get(1.0, END).rstrip())
+        bd = db.Db()
+        bd.update_record(taskdata[0], field='extra', value=taskdata[1])
+        bd.close()
+        self.editwindow.destroy()
+        self.update_list()
+
 
 class TaskEditWindow(Toplevel):
     def __init__(self, task, parent=None, **options):
@@ -232,6 +248,7 @@ class TaskEditWindow(Toplevel):
         self.taskname = Text(self, wrap=WORD, width=80, height=2)
         self.taskname.insert(1.0, task[0])
         self.taskname.pack()
+        self.taskname.config(state=DISABLED)
         Label(self, height=5).pack()
         Label(self, text="Description:").pack()
         self.description = Text(self, width=80, height=6)
@@ -242,10 +259,6 @@ class TaskEditWindow(Toplevel):
         Label(self, text='Time spent:').pack(side=LEFT)
         Label(self, text='{}'.format(time_format(task[1])), relief=SUNKEN).pack(side=RIGHT)
         Label(self, height=5).pack()
-
-    def get_task_params(self):
-        return (self.taskname.get(1.0, END), self.description.get(1.0, END))
-
 
 
 class Params:
@@ -274,9 +287,11 @@ TaskFrame(parent=run)
 TaskFrame(parent=run)
 run.mainloop()
 
+# ToDo: запихнуть все обращения к БД в один класс/функцию. (def bd_act(action, **args):)
 # ToDo: Задокументировать новые функции.
 # TODo: Сделать работоспособными кнопки "Выделить всё" и "Снять выделение".
 # ToDO: Сделать диалоговое окно с предупреждением об удалении.
 # ToDo: Привести в порядок внешний вид, включая корректное поведение при ресайзе.
+# ToDo: Предотвращать передачу фокуса в основное окно после того, как закрыто окно редактирования свойств таски.
 
 
