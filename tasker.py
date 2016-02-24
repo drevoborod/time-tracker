@@ -168,7 +168,9 @@ class TaskList(Frame):
 class TaskSelectionWindow(Toplevel):
     def __init__(self, tlist, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
+        self.tlist = tlist
         self.title("Task selection")
+        self.minsize(width=600, height=550)
         self.grab_set()
         addframe = Frame(self)
         addframe.pack(expand=YES, fill=BOTH)
@@ -182,12 +184,14 @@ class TaskSelectionWindow(Toplevel):
         self.selbutton = Button(taskframe, text="Select all", command=self.select_all)
         self.delbutton = Button(taskframe, text="Remove", command=self.delete)
         self.clearbutton = Button(taskframe, text="Clear selection", command=self.clear_all)
+        self.editbutton = Button(taskframe, text="Properties", command=self.edit)
         self.listframe.pack(fill=BOTH, expand=YES)
         taskframe.pack(fill=BOTH, expand=YES)
         self.selbutton.pack(side=LEFT)
         self.clearbutton.pack(side=LEFT)
         Frame(taskframe, width=300).pack()
         self.delbutton.pack(side=RIGHT)
+        self.editbutton.pack(side=RIGHT)
         Frame(taskframe, height=100).pack()
         for t in tlist:
             self.listframe.taskslist.insert(END, t[0])
@@ -213,6 +217,36 @@ class TaskSelectionWindow(Toplevel):
         for i in indexes:
             self.listframe.taskslist.delete(i)
 
+    def edit(self):
+        index = self.listframe.taskslist.curselection()
+        if len(index) > 0:
+            self.editwindow = TaskEditWindow(self.tlist[index[0]], self)
+
+class TaskEditWindow(Toplevel):
+    def __init__(self, task, parent=None, **options):
+        Toplevel.__init__(self, master=parent, **options)
+        self.title("Task properties")
+        self.minsize(width=500, height=400)
+        self.grab_set()
+        Label(self, text="Task name:").pack()
+        self.taskname = Text(self, wrap=WORD, width=80, height=2)
+        self.taskname.insert(1.0, task[0])
+        self.taskname.pack()
+        Label(self, height=5).pack()
+        Label(self, text="Description:").pack()
+        self.description = Text(self, width=80, height=6)
+        if task[2] is not None:
+            self.description.insert(1.0, task[2])
+        self.description.pack()
+        Label(self, height=5).pack()
+        Label(self, text='Time spent:').pack(side=LEFT)
+        Label(self, text='{}'.format(time_format(task[1])), relief=SUNKEN).pack(side=RIGHT)
+        Label(self, height=5).pack()
+
+    def get_task_params(self):
+        return (self.taskname.get(1.0, END), self.description.get(1.0, END))
+
+
 
 class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
@@ -226,14 +260,15 @@ def time_format(sec):
     else:
         return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
 
-def big_font(unit):
+def big_font(unit, size=20):
     """Увеличение размера шрифта выбранного элемента до 20."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
-    unit.config(font=(fontname, 20))
+    unit.config(font=(fontname, size))
 
 Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
 run = Tk()
 run.title("Tasker")
+run.resizable(width=FALSE, height=FALSE)
 TaskFrame(parent=run)
 TaskFrame(parent=run)
 TaskFrame(parent=run)
