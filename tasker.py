@@ -38,7 +38,20 @@ class TaskFrame(Frame):
         big_font(self.timer_window)
         self.clearbutton = TaskButton(frame2, "Clear", RIGHT, state=DISABLED, command=self.clear)
         # Кнопка "Стоп".
-        self.stopbutton = TaskButton(frame2, "Stop", RIGHT, state=DISABLED, command=self.timer_stop)
+        self.properties = TaskButton(frame2, "Properties", RIGHT, state=DISABLED, command=self.properties_window)
+
+    def startstopbutton(self, state):
+        """Изменяет состояние кнопки "Start/Stop". """
+        if state == 0:
+            self.startbutton.config(text="Stop", command=self.timer_stop)
+        elif state == 1:
+            self.startbutton.config(text="Start", command=self.timer_start, state=NORMAL)
+
+    def properties_window(self):
+        """Окно редактирования свойств таски."""
+        self.timer_stop()
+        self.editwindow = TaskEditWindow((self.task_name, database("one", self.task_name),
+                            database("one", self.task_name, field="extra")), self)    # Берём все данные о задаче.
 
     def clear(self):
         """Пересоздание содержимого окна."""
@@ -72,7 +85,7 @@ class TaskFrame(Frame):
                     # Останавливаем таймер старой задачи и сохраняем состояние:
                     self.timer_stop()
                 # Создаём новую задачу:
-                self.prepare_task(task_name, db_time[0])
+                self.prepare_task(task_name, db_time)
             else:
                 # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
                 self.dialogue_window.destroy()
@@ -90,8 +103,8 @@ class TaskFrame(Frame):
         self.dialogue_window.destroy()
         # В поле для имени задачи прописываем имя.
         self.tasklabel.config(text=self.task_name)
-        self.startbutton.config(state=NORMAL)
-        self.stopbutton.config(state=NORMAL)
+        self.startstopbutton(1)
+        self.properties.config(state=NORMAL)
         self.clearbutton.config(state=NORMAL)
         self.timer_window.config(state=NORMAL)
 
@@ -108,9 +121,10 @@ class TaskFrame(Frame):
         """Запуск таймера."""
         if not self.running:
             # Вытаскиваем время из БД - на тот случай, если в ней уже успело обновиться значение.
-            self.start_time = time.time() - database("one", self.task_name)[0]
+            self.start_time = time.time() - database("one", self.task_name)
             self.timer_update()
             self.running = True
+            self.startstopbutton(0)
 
     def timer_stop(self):
         """Пауза таймера и сохранение его значения в БД."""
@@ -122,6 +136,7 @@ class TaskFrame(Frame):
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
             database("update", self.task_name, value=self.running_time)
+            self.startstopbutton(1)
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
@@ -147,7 +162,7 @@ class TaskList(Frame):
         Frame.__init__(self, master=parent, **options)
         self.taskslist = Listbox(self, selectmode=EXTENDED)     # Таблица с включённым режимом множественного выделения по Control/Shift
         scroller = Scrollbar(self)
-        scroller.config(command=self.taskslist.yview)           # Привяязываем скролл к таблице.
+        scroller.config(command=self.taskslist.yview)           # Привязываем скролл к таблице.
         self.taskslist.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
         scroller.pack(side=RIGHT, fill=Y)                       # Сначала нужно ставить скролл!
         self.taskslist.pack(fill=BOTH, expand=YES)              # Таблица - расширяемая во всех направлениях.
@@ -222,25 +237,17 @@ class TaskSelectionWindow(Toplevel):
         """Окно редактирования свойств таски."""
         index = self.listframe.taskslist.curselection()     # Получаем кортеж ИНДЕКСОВ выбранного пользователем.
         if len(index) > 0:
-            self.editwindow = TaskEditWindow(self.tlist[index[0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
-            Button(self.editwindow, text='Ok', command=self.update_task).pack(side=LEFT)   # При нажатии на эту кнопку происходит обновление данных в БД.
-            Button(self.editwindow, text='Cancel', command=self.editwindow.destroy).pack(side=RIGHT)
-
-    def update_task(self):
-        """Обновление параметров таски в БД. Пока обновляет только поле 'extra'."""
-        taskdata = (self.editwindow.taskname.get(1.0, END).rstrip(), self.editwindow.description.get(1.0, END).rstrip())    # Имя (id) и описание задачи.
-        database("update", taskdata[0], field='extra', value=taskdata[1])
-        self.editwindow.destroy()
-        self.update_list()
+            TaskEditWindow(self.tlist[index[0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
+            self.update_list()
 
 
 class TaskEditWindow(Toplevel):
     """Окно редактирования свойств задачи."""
     def __init__(self, task, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
+        self.grab_set()         # Делает все остальные окна неактивными.
         self.title("Task properties")
         self.minsize(width=500, height=400)
-        self.grab_set()
         Label(self, text="Task name:").pack()
         self.taskname = Text(self, wrap=WORD, width=80, height=2)
         self.taskname.insert(1.0, task[0])
@@ -256,6 +263,15 @@ class TaskEditWindow(Toplevel):
         Label(self, text='Time spent:').pack(side=LEFT)
         TaskLabel(self, position=RIGHT, text='{}'.format(time_format(task[1])))
         Label(self, height=5).pack()
+        Button(self, text='Ok', command=self.update_task).pack(side=LEFT)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        Button(self, text='Cancel', command=self.destroy).pack(side=RIGHT)
+        self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
+
+    def update_task(self):
+        """Обновление параметров таски в БД. Пока обновляет только поле 'extra'."""
+        taskdata = (self.taskname.get(1.0, END).rstrip(), self.description.get(1.0, END).rstrip())    # Имя (id) и описание задачи.
+        database("update", taskdata[0], field='extra', value=taskdata[1])
+        self.destroy()
 
 
 class Params:

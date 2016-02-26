@@ -41,7 +41,10 @@ class Db():
     def find_record(self, id, field="timer", table="tasks"):
         """Возвращает значение для поля field из записи со значением поля "id", равным id."""
         self.exec_script("select {1} from {2} where id='{0}'".format(id, field, table))
-        return self.cur.fetchone()
+        try:
+            return self.cur.fetchone()[0]
+        except TypeError:
+            return None
 
     def find_records(self, table="tasks"):
         self.exec_script("select * from {0}".format(table))
