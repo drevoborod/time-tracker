@@ -26,7 +26,7 @@ class TaskFrame(Frame):
         frame2 = Frame(self)
         frame2.pack()
         # Кнопка "Старт"
-        self.startbutton = TaskButton(frame2, "Start", LEFT, state=DISABLED, command=self.timer_start)
+        self.startbutton = TaskButton(frame2, "Start", LEFT, state=DISABLED, command=self.startstopbutton)
         # Начальное значения счётчика времени, потраченного на задачу.
         self.start_time = 0
         # Промежуточное значение счётчика.
@@ -40,12 +40,14 @@ class TaskFrame(Frame):
         # Кнопка "Стоп".
         self.properties = TaskButton(frame2, "Properties", RIGHT, state=DISABLED, command=self.properties_window)
 
-    def startstopbutton(self, state):
+    def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
-        if state == 0:
-            self.startbutton.config(text="Stop", command=self.timer_stop)
-        elif state == 1:
-            self.startbutton.config(text="Start", command=self.timer_start, state=NORMAL)
+        if self.running:
+            self.startbutton.config(text="Start")
+            self.timer_stop()
+        else:
+            self.startbutton.config(text="Stop")
+            self.timer_start()
 
     def properties_window(self):
         """Окно редактирования свойств таски."""
@@ -65,10 +67,8 @@ class TaskFrame(Frame):
         """ Диалоговое окно выбора задачи.
         """
         self.dialogue_window = TaskSelectionWindow(self)
-        self.dialogue_window.selectbutton = Button(self.dialogue_window, text="Select")
-        self.dialogue_window.selectbutton.pack(side=LEFT)
+        Button(self.dialogue_window, text="Select", command=self.get_task_name).pack(side=LEFT)
         Button(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).pack(side=RIGHT)
-        self.dialogue_window.selectbutton.bind("<Button-1>", lambda event: self.get_task_name())
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
@@ -84,6 +84,7 @@ class TaskFrame(Frame):
                     Params.tasks.remove(self.task_name)
                     # Останавливаем таймер старой задачи и сохраняем состояние:
                     self.timer_stop()
+                    self.startbutton.config(text='Start')
                 # Создаём новую задачу:
                 self.prepare_task(task_name, db_time)
             else:
@@ -103,7 +104,7 @@ class TaskFrame(Frame):
         self.dialogue_window.destroy()
         # В поле для имени задачи прописываем имя.
         self.tasklabel.config(text=self.task_name)
-        self.startstopbutton(1)
+        self.startbutton.config(state=NORMAL)
         self.properties.config(state=NORMAL)
         self.clearbutton.config(state=NORMAL)
         self.timer_window.config(state=NORMAL)
@@ -124,7 +125,6 @@ class TaskFrame(Frame):
             self.start_time = time.time() - database("one", self.task_name)
             self.timer_update()
             self.running = True
-            self.startstopbutton(0)
 
     def timer_stop(self):
         """Пауза таймера и сохранение его значения в БД."""
@@ -136,7 +136,6 @@ class TaskFrame(Frame):
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
             database("update", self.task_name, value=self.running_time)
-            self.startstopbutton(1)
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
@@ -304,7 +303,7 @@ def database(action, *args, **kwargs):
     elif action == "update":
         base.update_record(*args, **kwargs)
     elif action == "del":
-        base.add_record(*args, **kwargs)
+        base.delete_record(*args, **kwargs)
     base.close()
     return result
 
