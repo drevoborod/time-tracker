@@ -170,7 +170,7 @@ class TaskSelectionWindow(Toplevel):
     def __init__(self, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
         self.title("Task selection")
-        #self.minsize(width=600, height=550)         # Минимальный размер окна.
+        self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
         Label(self, text="Enter taskname:").grid(row=0, column=0, sticky=W, pady=5)
         self.addentry = Entry(self, width=50)             # Поле для ввода имени новой задачи.
@@ -188,7 +188,7 @@ class TaskSelectionWindow(Toplevel):
         self.delbutton = TaskButton(self, text="Remove", command=self.delete)   # Кнопка "Удалить".
         self.delbutton.grid(row=2, column=4, sticky=E, padx=5, pady=5)
         Frame(self, height=20).grid(row=3, columnspan=5)
-        self.grid_columnconfigure(ALL, weight=1)
+        self.grid_columnconfigure((1, 3), weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
 
