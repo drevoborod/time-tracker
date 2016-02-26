@@ -10,35 +10,34 @@ class TaskFrame(Frame):
     """Класс отвечает за создание рамки таски со всеми элементами."""
     def __init__(self, parent=None):
         Frame.__init__(self, parent)
-        self.pack()
+        self.config(relief=GROOVE)
         self.create_content()
 
     def create_content(self):
         """Создаёт содержимое окна и выполняет всю подготовительную работу."""
-        # Создаём фейковое имя запущенной таски:
-        self.task_name = None
-        frame1 = Frame(self)
-        frame1.pack()
-        # В этом поле будет название задачи.
-        self.tasklabel = TaskLabel(frame1, anchor=W, width=80)
-        # Кнопка открытия списка задач.
-        self.openbutton = TaskButton(frame1, "Task...", RIGHT, command=self.name_dialogue)
-        frame2 = Frame(self)
-        frame2.pack()
-        # Кнопка "Старт"
-        self.startbutton = TaskButton(frame2, "Start", LEFT, state=DISABLED, command=self.startstopbutton)
-        # Начальное значения счётчика времени, потраченного на задачу.
-        self.start_time = 0
-        # Промежуточное значение счётчика.
-        self.running_time = 0
-        # Признак того, что счётчик работает.
-        self.running = False
-        # Окошко счётчика.
-        self.timer_window = TaskLabel(frame2, width=10, state=DISABLED)
+        self.task_name = None       # Создаём фейковое имя запущенной таски.
+        l1 = Label(self, text='Task name:')
+        big_font(l1, size=12)
+        l1.grid(row=0, column=1, columnspan=3)
+        self.tasklabel = TaskLabel(self, anchor=W, width=50)  # В этом поле будет название задачи.
+        big_font(self.tasklabel, size=14)
+        self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
+        self.openbutton = TaskButton(self, "Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
+        self.openbutton.grid(row=1, column=5, padx=5, pady=5)
+        #self.description = Text(width=100, height=3)        # Описание задачи
+        #self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
+        self.startbutton = TaskButton(self, "Start", state=DISABLED, command=self.startstopbutton)  # Кнопка "Старт"
+        self.startbutton.grid(row=3, column=0, sticky=E)
+        self.timer_window = TaskLabel(self, width=10, state=DISABLED)         # Окошко счётчика.
         big_font(self.timer_window)
-        self.clearbutton = TaskButton(frame2, "Clear", RIGHT, state=DISABLED, command=self.clear)
-        # Кнопка "Стоп".
-        self.properties = TaskButton(frame2, "Properties", RIGHT, state=DISABLED, command=self.properties_window)
+        self.timer_window.grid(row=3, column=1, columnspan=3, pady=5)
+        self.properties = TaskButton(self, "Properties", state=DISABLED, command=self.properties_window)   # Кнопка свойств задачи.
+        self.properties.grid(row=3, column=4, sticky=E)
+        self.clearbutton = TaskButton(self, "Clear", state=DISABLED, command=self.clear)  # Кнопка очистки фрейма.
+        self.clearbutton.grid(row=3, column=5)
+        self.start_time = 0     # Начальное значения счётчика времени, потраченного на задачу.
+        self.running_time = 0   # Промежуточное значение счётчика.
+        self.running = False    # Признак того, что счётчик работает.
 
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
@@ -67,8 +66,8 @@ class TaskFrame(Frame):
         """ Диалоговое окно выбора задачи.
         """
         self.dialogue_window = TaskSelectionWindow(self)
-        Button(self.dialogue_window, text="Select", command=self.get_task_name).pack(side=LEFT)
-        Button(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).pack(side=RIGHT)
+        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=4, column=0, padx=5, pady=5, sticky=W)
+        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=4, column=4, padx=5, pady=5, sticky=E)
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
@@ -145,15 +144,14 @@ class TaskFrame(Frame):
 
 class TaskLabel(Label):
     """Простая текстовая метка для отображения значений. Визуально углублённая."""
-    def __init__(self, parent, position=LEFT, **kwargs):
+    def __init__(self, parent, **kwargs):
         Label.__init__(self, master=parent, relief=SUNKEN, **kwargs)
-        self.pack(side=position)
+
 
 class TaskButton(Button):
     """Просто кнопка."""
-    def __init__(self, parent, text, position, **kwargs):
-        Button.__init__(self, master=parent, text=text, **kwargs)
-        self.pack(side=position)
+    def __init__(self, parent, text, **kwargs):
+        Button.__init__(self, master=parent, text=text, width=8, **kwargs)
 
 class TaskList(Frame):
     """Таблица задач со скроллом."""
@@ -172,29 +170,26 @@ class TaskSelectionWindow(Toplevel):
     def __init__(self, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
         self.title("Task selection")
-        self.minsize(width=600, height=550)         # Минимальный размер окна.
+        #self.minsize(width=600, height=550)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
-        addframe = Frame(self)
-        addframe.pack(expand=YES, fill=BOTH)
-        Label(addframe, text="Enter taskname:").pack(side=LEFT)
-        self.addentry = Entry(addframe)             # Поле для ввода имени новой задачи.
-        self.addentry.pack(side=LEFT, expand=YES, fill=X)
-        self.addbutton = Button(addframe, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
-        self.addbutton.pack(side=RIGHT)
-        taskframe = Frame(self)
-        self.listframe = TaskList(taskframe)     # Таблица тасок со скроллом.
-        self.selbutton = Button(taskframe, text="Select all", command=self.select_all)
-        self.delbutton = Button(taskframe, text="Remove", command=self.delete)
-        self.clearbutton = Button(taskframe, text="Clear selection", command=self.clear_all)
-        self.editbutton = Button(taskframe, text="Properties", command=self.edit)
-        self.listframe.pack(fill=BOTH, expand=YES)
-        taskframe.pack(fill=BOTH, expand=YES)
-        self.selbutton.pack(side=LEFT)
-        self.clearbutton.pack(side=LEFT)
-        Frame(taskframe, width=300).pack()
-        self.delbutton.pack(side=RIGHT)
-        self.editbutton.pack(side=RIGHT)
-        Frame(taskframe, height=100).pack()
+        Label(self, text="Enter taskname:").grid(row=0, column=0, sticky=W, pady=5)
+        self.addentry = Entry(self, width=50)             # Поле для ввода имени новой задачи.
+        self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
+        self.addbutton = Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
+        self.addbutton.grid(row=0, column=4, sticky=W, padx=6)
+        self.listframe = TaskList(self)     # Таблица тасок со скроллом.
+        self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
+        self.selbutton = TaskButton(self, text="Select all", command=self.select_all)   # Кнопка "выбрать всё".
+        self.selbutton.grid(row=2, column=0, sticky=W, padx=5, pady=5)
+        self.clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)  # Кнопка "снять выделение".
+        self.clearbutton.grid(row=2, column=1, sticky=W)
+        self.editbutton = TaskButton(self, text="Properties", command=self.edit)    # Кнопка "свойства"
+        self.editbutton.grid(row=2, column=3, sticky=E)
+        self.delbutton = TaskButton(self, text="Remove", command=self.delete)   # Кнопка "Удалить".
+        self.delbutton.grid(row=2, column=4, sticky=E, padx=5, pady=5)
+        Frame(self, height=20).grid(row=3, columnspan=5)
+        self.grid_columnconfigure(ALL, weight=1)
+        self.grid_rowconfigure(1, weight=1)
         self.update_list()
 
     def add_new_task(self):
@@ -260,10 +255,10 @@ class TaskEditWindow(Toplevel):
         self.description.pack()
         Label(self, height=5).pack()
         Label(self, text='Time spent:').pack(side=LEFT)
-        TaskLabel(self, position=RIGHT, text='{}'.format(time_format(task[1])))
+        TaskLabel(self, text='{}'.format(time_format(task[1]))).pack(side=RIGHT)
         Label(self, height=5).pack()
-        Button(self, text='Ok', command=self.update_task).pack(side=LEFT)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        Button(self, text='Cancel', command=self.destroy).pack(side=RIGHT)
+        TaskButton(self, text='Ok', command=self.update_task).pack(side=LEFT)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        TaskButton(self, text='Cancel', command=self.destroy).pack(side=RIGHT)
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
     def update_task(self):
@@ -310,10 +305,12 @@ def database(action, *args, **kwargs):
 Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
 run = Tk()
 run.title("Tasker")
-run.resizable(width=FALSE, height=FALSE)
-TaskFrame(parent=run)
-TaskFrame(parent=run)
-TaskFrame(parent=run)
+run.resizable(width=FALSE, height=FALSE)    # Запрещаем изменение размера основного окна.
+TaskFrame(parent=run).grid(row=0, pady=5)
+Frame(run, height=15).grid(row=1)
+TaskFrame(parent=run).grid(row=2, pady=5)
+Frame(run, height=15).grid(row=3)
+TaskFrame(parent=run).grid(row=4, pady=5)
 run.mainloop()
 
 
