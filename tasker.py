@@ -42,10 +42,8 @@ class TaskFrame(Frame):
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
         if self.running:
-            self.startbutton.config(text="Start")
             self.timer_stop()
         else:
-            self.startbutton.config(text="Stop")
             self.timer_start()
 
     def properties_window(self):
@@ -83,7 +81,6 @@ class TaskFrame(Frame):
                     Params.tasks.remove(self.task_name)
                     # Останавливаем таймер старой задачи и сохраняем состояние:
                     self.timer_stop()
-                    self.startbutton.config(text='Start')
                 # Создаём новую задачу:
                 self.prepare_task(task_name, db_time)
             else:
@@ -124,6 +121,7 @@ class TaskFrame(Frame):
             self.start_time = time.time() - database("one", self.task_name)
             self.timer_update()
             self.running = True
+            self.startbutton.config(text="Stop")
 
     def timer_stop(self):
         """Пауза таймера и сохранение его значения в БД."""
@@ -135,6 +133,7 @@ class TaskFrame(Frame):
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
             database("update", self.task_name, value=self.running_time)
+            self.startbutton.config(text="Start")
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
@@ -241,24 +240,31 @@ class TaskEditWindow(Toplevel):
         Toplevel.__init__(self, master=parent, **options)
         self.grab_set()         # Делает все остальные окна неактивными.
         self.title("Task properties")
-        self.minsize(width=500, height=400)
-        Label(self, text="Task name:").pack()
-        self.taskname = Text(self, wrap=WORD, width=80, height=2)
+        self.minsize(width=400, height=300)
+        taskname = Label(self, text="Task name:")
+        big_font(taskname, 10)
+        taskname.grid(row=0, column=1, columnspan=2, pady=5)
+        self.taskname = Text(self, width=60, height=1)
+        big_font(self.taskname, 9)
         self.taskname.insert(1.0, task[0])
-        self.taskname.pack()
         self.taskname.config(state=DISABLED)
-        Label(self, height=5).pack()
-        Label(self, text="Description:").pack()
-        self.description = Text(self, width=80, height=6)
+        self.taskname.grid(row=1, columnspan=4, sticky='ew', padx=6)
+        Frame(self, height=30).grid(row=2)
+        description = Label(self, text="Description:")
+        big_font(description, 10)
+        description.grid(row=3, column=1, columnspan=2, pady=5)
+        self.description = Text(self, width=60, height=6)
         if task[2] is not None:
             self.description.insert(1.0, task[2])
-        self.description.pack()
-        Label(self, height=5).pack()
-        Label(self, text='Time spent:').pack(side=LEFT)
-        TaskLabel(self, text='{}'.format(time_format(task[1]))).pack(side=RIGHT)
-        Label(self, height=5).pack()
-        TaskButton(self, text='Ok', command=self.update_task).pack(side=LEFT)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        TaskButton(self, text='Cancel', command=self.destroy).pack(side=RIGHT)
+        self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
+        Frame(self, height=15).grid(row=5)
+        Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=6, sticky=E)
+        TaskLabel(self, text='{}'.format(time_format(task[1]))).grid(row=6, column=1, sticky=W)
+        Frame(self, height=40).grid(row=6)
+        TaskButton(self, text='Ok', command=self.update_task).grid(row=7, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        TaskButton(self, text='Cancel', command=self.destroy).grid(row=7, column=3, sticky=SE, padx=5, pady=5)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(4, weight=1)
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
     def update_task(self):
