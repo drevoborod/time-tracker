@@ -4,6 +4,7 @@ import time
 import db
 import tkinter.font as fonter
 from tkinter import *
+from tkinter.messagebox import askquestion
 
 
 class TaskFrame(Frame):
@@ -209,8 +210,7 @@ class TaskSelectionWindow(Toplevel):
     def get_selection(self):
         """Получить список выбранных пользователем пунктов таблицы. Возвращает список названий пунктов."""
         index = [int(x) for x in self.listframe.taskslist.curselection()]   # Сначала получаем список ИНДЕКСОВ выбранных позиций.
-        self.selection = [self.listframe.taskslist.get(x) for x in index]   # А потом на основании этого индекса получаем уже список имён.
-        return index
+        return [self.listframe.taskslist.get(x) for x in index]  # А потом на основании этого индекса получаем уже список имён.
 
     def select_all(self):
         pass
@@ -221,10 +221,12 @@ class TaskSelectionWindow(Toplevel):
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
         names = self.get_selection()
-        for task in self.selection:
-            database("del", task)
-        for name in names:
-            self.listframe.taskslist.delete(name)
+        if len(names) > 0:
+            answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
+            if answer == "yes":
+                for task in names:
+                    database("del", task)
+                self.update_list()
 
     def edit(self):
         """Окно редактирования свойств таски."""
@@ -321,8 +323,7 @@ run.mainloop()
 
 
 # TODo: Сделать работоспособными кнопки "Выделить всё" и "Снять выделение".
-# ToDO: Сделать диалоговое окно с предупреждением об удалении.
-# ToDo: Привести в порядок внешний вид, включая корректное поведение при ресайзе.
-# ToDo: Предотвращать передачу фокуса в основное окно после того, как закрыто окно редактирования свойств таски.
+# ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто окно редактирования свойств таски,
+# вызванное из окна выбора задачи.
 
 
