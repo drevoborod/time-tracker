@@ -28,7 +28,7 @@ class TaskFrame(Frame):
         #self.description = Text(width=100, height=3)        # Описание задачи
         #self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
         self.startbutton = TaskButton(self, "Start", state=DISABLED, command=self.startstopbutton)  # Кнопка "Старт"
-        self.startbutton.grid(row=3, column=0, sticky=E)
+        self.startbutton.grid(row=3, column=0, sticky='esn')
         self.timer_window = TaskLabel(self, width=10, state=DISABLED)         # Окошко счётчика.
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, columnspan=3, pady=5)
@@ -55,10 +55,10 @@ class TaskFrame(Frame):
 
     def clear(self):
         """Пересоздание содержимого окна."""
+        self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
         Params.tasks.remove(self.task_name)
-        self.timer_stop()
         self.create_content()
 
     def name_dialogue(self):
@@ -67,6 +67,7 @@ class TaskFrame(Frame):
         self.dialogue_window = TaskSelectionWindow(self)
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=4, column=0, padx=5, pady=5, sticky=W)
         TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=4, column=4, padx=5, pady=5, sticky=E)
+        self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())   # Также задача открывается по нажатию на Энтер в таблице задач.
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
@@ -175,6 +176,8 @@ class TaskSelectionWindow(Toplevel):
         Label(self, text="Enter taskname:").grid(row=0, column=0, sticky=W, pady=5)
         self.addentry = Entry(self, width=50)             # Поле для ввода имени новой задачи.
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
+        self.addentry.bind('<Return>', lambda event: self.add_new_task())    # По нажатию кнопки Энтер в этом поле добавляется таск.
+        self.addentry.focus_set()
         self.addbutton = Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
         self.addbutton.grid(row=0, column=4, sticky=W, padx=6)
         self.listframe = TaskList(self)     # Таблица тасок со скроллом.
@@ -192,6 +195,11 @@ class TaskSelectionWindow(Toplevel):
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
 
+    def focus(self, index):
+        """Выделяет указанный пункт списка."""
+        self.listframe.taskslist.focus_set()
+        self.listframe.taskslist.selection_set(index)
+
     def add_new_task(self):
         """Добавление новой задачи в БД."""
         task_name = self.addentry.get()
@@ -199,6 +207,7 @@ class TaskSelectionWindow(Toplevel):
             if database("one", task_name) is None:  # проверяем, есть ли такая задача.
                 database("add", task_name)
                 self.update_list()
+                self.focus(END)
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
@@ -234,6 +243,7 @@ class TaskSelectionWindow(Toplevel):
         if len(index) > 0:
             TaskEditWindow(self.tlist[index[0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
             self.update_list()
+            self.focus(index[0])
 
 
 class TaskEditWindow(Toplevel):
@@ -259,6 +269,7 @@ class TaskEditWindow(Toplevel):
         if task[2] is not None:
             self.description.insert(1.0, task[2])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
+        self.description.focus_set()
         Frame(self, height=15).grid(row=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=6, sticky=E)
         TaskLabel(self, text='{}'.format(time_format(task[1]))).grid(row=6, column=1, sticky=W)
@@ -322,7 +333,7 @@ TaskFrame(parent=run).grid(row=4, pady=5)
 run.mainloop()
 
 
-# TODo: Сделать работоспособными кнопки "Выделить всё" и "Снять выделение".
+# ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто окно редактирования свойств таски,
 # вызванное из окна выбора задачи.
 
