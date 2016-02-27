@@ -186,12 +186,13 @@ class TaskSelectionWindow(Toplevel):
         self.selbutton.grid(row=2, column=0, sticky=W, padx=5, pady=5)
         self.clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)  # Кнопка "снять выделение".
         self.clearbutton.grid(row=2, column=1, sticky=W)
+        Frame(self, width=120).grid(row=2, column=2)
         self.editbutton = TaskButton(self, text="Properties", command=self.edit)    # Кнопка "свойства"
         self.editbutton.grid(row=2, column=3, sticky=E)
         self.delbutton = TaskButton(self, text="Remove", command=self.delete)   # Кнопка "Удалить".
         self.delbutton.grid(row=2, column=4, sticky=E, padx=5, pady=5)
         Frame(self, height=20).grid(row=3, columnspan=5)
-        self.grid_columnconfigure((1, 3), weight=1)
+        self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
 
