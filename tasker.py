@@ -173,7 +173,7 @@ class TaskSelectionWindow(Toplevel):
         self.title("Task selection")
         self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
-        Label(self, text="Enter taskname:").grid(row=0, column=0, sticky=W, pady=5)
+        Label(self, text="Enter new task's name:").grid(row=0, column=0, sticky=W, pady=5)
         self.addentry = Entry(self, width=50)             # Поле для ввода имени новой задачи.
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
         self.addentry.bind('<Return>', lambda event: self.add_new_task())    # По нажатию кнопки Энтер в этом поле добавляется таск.
