@@ -70,9 +70,9 @@ class TaskFrame(Frame):
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
-        self.dialogue_window.get_selection()
-        if len(self.dialogue_window.selection) == 1:
-            task_name = self.dialogue_window.selection[0]
+        tasks = self.dialogue_window.get_selection()
+        if len(tasks) == 1:
+            task_name = tasks[0]
             # Пытаемся вытащить значение счётчика для данной задачи из БД.
             db_time = database("one", task_name)
             # Если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
@@ -213,10 +213,10 @@ class TaskSelectionWindow(Toplevel):
         return [self.listframe.taskslist.get(x) for x in index]  # А потом на основании этого индекса получаем уже список имён.
 
     def select_all(self):
-        pass
+        self.listframe.taskslist.selection_set(0, END)
 
     def clear_all(self):
-        pass
+        self.listframe.taskslist.selection_clear(0, END)
 
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
