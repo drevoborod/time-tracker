@@ -198,6 +198,7 @@ class TaskSelectionWindow(Toplevel):
     def focus(self, index):
         """Выделяет указанный пункт списка."""
         self.listframe.taskslist.focus_set()
+        self.listframe.taskslist.see(index)
         self.listframe.taskslist.selection_set(index)
 
     def add_new_task(self):
