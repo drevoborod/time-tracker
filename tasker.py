@@ -11,7 +11,7 @@ class TaskFrame(Frame):
     """Класс отвечает за создание рамки таски со всеми элементами."""
     def __init__(self, parent=None):
         Frame.__init__(self, parent)
-        self.config(relief=GROOVE)
+        self.config(relief=GROOVE, bd=2)
         self.create_content()
 
     def create_content(self):
@@ -327,11 +327,11 @@ Params.tasks = set()    # Глобальный набор запущенных �
 run = Tk()
 run.title("Tasker")
 run.resizable(width=FALSE, height=FALSE)    # Запрещаем изменение размера основного окна.
-TaskFrame(parent=run).grid(row=0, pady=5)
+TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3)
 Frame(run, height=15).grid(row=1)
-TaskFrame(parent=run).grid(row=2, pady=5)
+TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3)
 Frame(run, height=15).grid(row=3)
-TaskFrame(parent=run).grid(row=4, pady=5)
+TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3)
 run.mainloop()
 
 
