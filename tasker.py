@@ -16,6 +16,7 @@ class TaskFrame(Frame):
 
     def create_content(self):
         """Создаёт содержимое окна и выполняет всю подготовительную работу."""
+        colour = self.cget('bg')  # Цвет фона виджетов по умолчанию.
         self.task_name = None       # Создаём фейковое имя запущенной таски.
         l1 = Label(self, text='Task name:')
         big_font(l1, size=12)
@@ -25,8 +26,8 @@ class TaskFrame(Frame):
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
         self.openbutton = TaskButton(self, "Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
         self.openbutton.grid(row=1, column=5, padx=5, pady=5)
-        #self.description = Text(width=100, height=3)        # Описание задачи
-        #self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
+        self.description = Text(self, width=74, height=3, bg=colour, state=DISABLED)        # Описание задачи
+        self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
         self.startbutton = TaskButton(self, "Start", state=DISABLED, command=self.startstopbutton)  # Кнопка "Старт"
         self.startbutton.grid(row=3, column=0, sticky='esn')
         self.timer_window = TaskLabel(self, width=10, state=DISABLED)         # Окошко счётчика.
@@ -40,6 +41,12 @@ class TaskFrame(Frame):
         self.running_time = 0   # Промежуточное значение счётчика.
         self.running = False    # Признак того, что счётчик работает.
 
+    def update_descr(self, text):
+        self.description.config(state=NORMAL)
+        self.description.delete(1.0, END)
+        self.description.insert(1.0, text)
+        self.description.config(state=DISABLED)
+
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
         if self.running:
@@ -52,6 +59,7 @@ class TaskFrame(Frame):
         self.timer_stop()
         self.editwindow = TaskEditWindow((self.task_name, database("one", self.task_name),
                             database("one", self.task_name, field="extra")), self)    # Берём все данные о задаче.
+        self.update_descr(database("one", self.task_name, field="extra"))
 
     def clear(self):
         """Пересоздание содержимого окна."""
@@ -106,6 +114,7 @@ class TaskFrame(Frame):
         self.properties.config(state=NORMAL)
         self.clearbutton.config(state=NORMAL)
         self.timer_window.config(state=NORMAL)
+        self.update_descr(database("one", taskname, field="extra"))
 
     def timer_update(self):
         """Обновление окошка счётчика. Обновляется раз в полсекунды."""
@@ -335,6 +344,7 @@ TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3)
 run.mainloop()
 
 
+# ToDo: Исправить ошибку, роняющую СУБД при попытке добавить спецфимволы в описание.
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто окно редактирования свойств таски,
 # вызванное из окна выбора задачи.
