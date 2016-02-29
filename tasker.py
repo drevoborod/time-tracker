@@ -42,11 +42,12 @@ class TaskFrame(Frame):
         self.running = False    # Признак того, что счётчик работает.
 
     def update_descr(self, text):
+        """Заполнение поля с дескрипшеном."""
+        self.description.config(state=NORMAL)
+        self.description.delete(1.0, END)
         if text is not None:
-            self.description.config(state=NORMAL)
-            self.description.delete(1.0, END)
             self.description.insert(1.0, text)
-            self.description.config(state=DISABLED)
+        self.description.config(state=DISABLED)
 
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
