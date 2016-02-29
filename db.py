@@ -28,15 +28,18 @@ class Db():
 
     def exec_script(self, script):
         try:
-            self.cur.execute(script)
+            if type(script) is not tuple:
+                self.cur.execute(script)
+            else:      # На случай, если вместо простого скрипта передан скрипт + значения для подстановки.
+                self.cur.execute(script[0], script[1])
         except sqlite3.DatabaseError as err:
             raise DbErrors(err)
         else:
             self.db_file.commit()
 
     def add_record(self, id, field="timer", value=0, table="tasks"):
-        self.exec_script("insert into {3} (id, {1}) values ('{0}', {2})".format(id, field, value, table))
-        # ToDo: Убедиться, что нормально создаются текстовые поля, если type(value) == str.
+        self.exec_script(("insert into {0} (id, {1}) values (?, ?)".format(table, field), (id, value)))
+        #self.exec_script("insert into {3} (id, {1}) values ('{0}', {2})".format(id, field, value, table))
 
     def find_record(self, id, field="timer", table="tasks"):
         """Возвращает значение для поля field из записи со значением поля "id", равным id."""
@@ -51,7 +54,8 @@ class Db():
         return self.cur.fetchall()
 
     def update_record(self, id, field="timer", value=0, table="tasks"):
-        self.exec_script("update {3} set {1}='{2}' where id='{0}'".format(id, field, value, table))
+        self.exec_script(("update {0} set {1}=? where id='{2}'".format(table, field, id), (value, )))
+        #self.exec_script("update {3} set {1}='{2}' where id='{0}'".format(id, field, value, table))
 
     def delete_record(self, id, table="tasks"):
         self.exec_script("delete from {1} where id='{0}'".format(id, table))

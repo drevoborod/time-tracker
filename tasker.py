@@ -42,10 +42,11 @@ class TaskFrame(Frame):
         self.running = False    # Признак того, что счётчик работает.
 
     def update_descr(self, text):
-        self.description.config(state=NORMAL)
-        self.description.delete(1.0, END)
-        self.description.insert(1.0, text)
-        self.description.config(state=DISABLED)
+        if text is not None:
+            self.description.config(state=NORMAL)
+            self.description.delete(1.0, END)
+            self.description.insert(1.0, text)
+            self.description.config(state=DISABLED)
 
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
@@ -344,7 +345,6 @@ TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3)
 run.mainloop()
 
 
-# ToDo: Исправить ошибку, роняющую СУБД при попытке добавить спецфимволы в описание.
 # ToDo: Добавить глобальный таймер, который будет идти в течении дня вместе с любой таской.
 # Значение должно быть привязано к дате.
 # Также должна быть возможность просмотра в отдельном списке значения этого таймера по датам.
