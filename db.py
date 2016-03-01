@@ -19,9 +19,16 @@ class Db():
             cur.executescript("""\
                 create table tasks (id text unique,
                 timer int,
-                extra text);
+                extra text,
+                date int,
+                tags text);
                 create table config (id text unique,
-                value text);"""
+                value text);
+                create table dates (id int primary key autoincrement,
+                date int);
+                create table tags (id int primary key autoincrement,
+                tagname text);
+                """
                              )
             cur.close()
 
@@ -38,7 +45,6 @@ class Db():
 
     def add_record(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("insert into {0} (id, {1}) values (?, ?)".format(table, field), (id, value)))
-        #self.exec_script("insert into {3} (id, {1}) values ('{0}', {2})".format(id, field, value, table))
 
     def find_record(self, id, field="timer", table="tasks"):
         """Возвращает значение для поля field из записи со значением поля "id", равным id."""
@@ -54,7 +60,6 @@ class Db():
 
     def update_record(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("update {0} set {1}=? where id='{2}'".format(table, field, id), (value, )))
-        #self.exec_script("update {3} set {1}='{2}' where id='{0}'".format(id, field, value, table))
 
     def delete_record(self, id, table="tasks"):
         self.exec_script("delete from {1} where id='{0}'".format(id, table))
