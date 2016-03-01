@@ -26,7 +26,7 @@ class Db():
                 value text);
                 create table dates (id integer primary key autoincrement,
                 date int);
-                create table tags (tagname text unique);
+                create table tags (id text unique);
                 """
                              )
             cur.close()
