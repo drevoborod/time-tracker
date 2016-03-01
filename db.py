@@ -24,10 +24,9 @@ class Db():
                 tags text);
                 create table config (id text unique,
                 value text);
-                create table dates (id int primary key autoincrement,
+                create table dates (id integer primary key autoincrement,
                 date int);
-                create table tags (id int primary key autoincrement,
-                tagname text);
+                create table tags (tagname text unique);
                 """
                              )
             cur.close()
