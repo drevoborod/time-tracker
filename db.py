@@ -13,7 +13,6 @@ class Db():
         self.db_file = sqlite3.connect(self.db_filename)
         self.cur = self.db_file.cursor()
 
-
     def create_table(self):
         with sqlite3.connect(self.db_filename) as con:
             cur = con.cursor()

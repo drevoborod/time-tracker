@@ -4,7 +4,7 @@ import time
 import db
 import tkinter.font as fonter
 from tkinter import *
-from tkinter.messagebox import askquestion
+from tkinter.messagebox import askquestion, askyesno
 
 
 class TaskFrame(Frame):
@@ -17,6 +17,8 @@ class TaskFrame(Frame):
     def create_content(self):
         """Создаёт содержимое окна и выполняет всю подготовительную работу."""
         colour = self.cget('bg')  # Цвет фона виджетов по умолчанию.
+        self.startstopvar = StringVar()
+        self.startstopvar.set("Start")
         self.task_name = None       # Создаём фейковое имя запущенной таски.
         l1 = Label(self, text='Task name:')
         big_font(l1, size=12)
@@ -24,18 +26,18 @@ class TaskFrame(Frame):
         self.tasklabel = TaskLabel(self, anchor=W, width=50)  # В этом поле будет название задачи.
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
-        self.openbutton = TaskButton(self, "Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
+        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
         self.openbutton.grid(row=1, column=5, padx=5, pady=5)
         self.description = Text(self, width=74, height=3, bg=colour, state=DISABLED)        # Описание задачи
         self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
-        self.startbutton = TaskButton(self, "Start", state=DISABLED, command=self.startstopbutton)  # Кнопка "Старт"
+        self.startbutton = TaskButton(self, state=DISABLED, command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
         self.startbutton.grid(row=3, column=0, sticky='esn')
         self.timer_window = TaskLabel(self, width=10, state=DISABLED)         # Окошко счётчика.
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, columnspan=3, pady=5)
-        self.properties = TaskButton(self, "Properties", state=DISABLED, command=self.properties_window)   # Кнопка свойств задачи.
+        self.properties = TaskButton(self, text="Properties", state=DISABLED, command=self.properties_window)   # Кнопка свойств задачи.
         self.properties.grid(row=3, column=4, sticky=E)
-        self.clearbutton = TaskButton(self, "Clear", state=DISABLED, command=self.clear)  # Кнопка очистки фрейма.
+        self.clearbutton = TaskButton(self, text="Clear", state=DISABLED, command=self.clear)  # Кнопка очистки фрейма.
         self.clearbutton.grid(row=3, column=5)
         self.start_time = 0     # Начальное значения счётчика времени, потраченного на задачу.
         self.running_time = 0   # Промежуточное значение счётчика.
@@ -124,18 +126,22 @@ class TaskFrame(Frame):
         self.running_time = time.time() - self.start_time
         # Собственно изменение надписи в окошке счётчика.
         self.timer_window.config(text=time_format(self.running_time))
-        # Откладываем действие на полсекунды.
-        # В переменную self.timer пишется ID, создаваемое методом after().
-        self.timer = self.timer_window.after(500, self.timer_update)
+        if not Params.stopall:  # Проверка нажатия на кнопку "Stop all"
+            # Откладываем действие на полсекунды.
+            # В переменную self.timer пишется ID, создаваемое методом after(), который вызывает указанную функцию через заданный промежуток.
+            self.timer = self.timer_window.after(250, self.timer_update)
+        else:
+            self.timer_stop()
 
     def timer_start(self):
         """Запуск таймера."""
         if not self.running:
+            Params.stopall = False
             # Вытаскиваем время из БД - на тот случай, если в ней уже успело обновиться значение.
             self.start_time = time.time() - database("one", self.task_name)
             self.timer_update()
             self.running = True
-            self.startbutton.config(text="Stop")
+            self.startstopvar.set("Stop")
 
     def timer_stop(self):
         """Пауза таймера и сохранение его значения в БД."""
@@ -147,7 +153,7 @@ class TaskFrame(Frame):
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
             database("update", self.task_name, value=self.running_time)
-            self.startbutton.config(text="Start")
+            self.startstopvar.set("Start")
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
@@ -163,8 +169,8 @@ class TaskLabel(Label):
 
 class TaskButton(Button):
     """Просто кнопка."""
-    def __init__(self, parent, text, **kwargs):
-        Button.__init__(self, master=parent, text=text, width=8, **kwargs)
+    def __init__(self, parent, **kwargs):
+        Button.__init__(self, master=parent, width=8, **kwargs)
 
 class TaskList(Frame):
     """Таблица задач со скроллом."""
@@ -301,6 +307,16 @@ class TaskEditWindow(Toplevel):
         self.destroy()
 
 
+class HelpWindow(Toplevel):
+    def __init__(self, parent=None, **options):
+        Toplevel.__init__(self, master=parent, **options)
+        self.helptext = Text(self)
+        self.helptext.insert(1.0, "Здесь будет помощь. Когда-нибудь.")
+        self.helptext.config(state=DISABLED)
+        self.helptext.grid(row=0, column=0, sticky='news')
+        TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
+
+
 class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
     pass
@@ -317,6 +333,17 @@ def big_font(unit, size=20):
     """Увеличение размера шрифта выбранного элемента до 20."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
+
+def helpwindow():
+    HelpWindow(run)
+
+def stopall():
+    Params.stopall = True
+
+def quit():
+    answer = askyesno("Quit confirmation", "Do you really want to quit?")
+    if answer:
+        run.destroy()
 
 def database(action, *args, **kwargs):
     """Манипуляции с БД в зависимости от значения текстового аргумента action."""
@@ -336,14 +363,18 @@ def database(action, *args, **kwargs):
     return result
 
 Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
+Params.stopall = False  # Признак остановки всех таймеров сразу.
 run = Tk()
 run.title("Tasker")
 run.resizable(width=FALSE, height=FALSE)    # Запрещаем изменение размера основного окна.
-TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3)
+TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
 Frame(run, height=15).grid(row=1)
-TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3)
+TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3, columnspan=5)
 Frame(run, height=15).grid(row=3)
-TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3)
+TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3, columnspan=5)
+TaskButton(run, text="Help", command=helpwindow).grid(row=5, column=0, sticky='sw', pady=5, padx=5)
+TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
 
