@@ -253,8 +253,7 @@ class TaskSelectionWindow(Toplevel):
         if len(names) > 0:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
-                for task in names:
-                    database("del", task)
+                database("del", tuple(names))
                 self.update_list()
 
     def edit(self):

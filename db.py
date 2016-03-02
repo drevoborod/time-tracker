@@ -20,14 +20,15 @@ class Db():
                 create table tasks (id text unique,
                 timer int,
                 extra text,
-                date int,
+                creation_date int,
+                dates text,
                 tags text);
                 create table config (id text unique,
                 value text);
                 create table dates (id integer primary key autoincrement,
                 date int);
                 create table tags (id integer primary key autoincrement,
-                name text unique);
+                name text);
                 """
                              )
             cur.close()
@@ -61,8 +62,9 @@ class Db():
     def update_record(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("update {0} set {1}=? where id='{2}'".format(table, field, id), (value, )))
 
-    def delete_record(self, id, table="tasks"):
-        self.exec_script("delete from {1} where id='{0}'".format(id, table))
+    def delete_record(self, ids, table="tasks"):
+        """Удаляет несколько записей, поэтому ids должен быть кортежом."""
+        self.exec_script("delete from {1} where id in {0}".format(ids, table))
 
     def close(self):
         self.cur.close()
