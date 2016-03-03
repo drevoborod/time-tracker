@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter.ttk import Treeview
 
+
 def sort(col, reverse):
     # get_children() возвращает список ID каждой строки списка.
     # set(ID, колонка) возвращает имя каждой записи в этой колонке.
@@ -18,13 +19,17 @@ def sort(col, reverse):
 
 tasks = [('task1', 10), ('task2', 6), ('task3', 12)]
 
+cols = {'one': 'Task name', 'two': 'Time spent'}
+
 root = Tk()
 tree = Treeview(root)
-tree.config(columns=('one', 'two'))
-tree.column('one', width=100)
-tree.column('two', width=100)
-tree.heading('one', text="Task name", command=lambda: sort('one', True))
-tree.heading('two', text="Spent time", command=lambda: sort('two', True))
+print(tuple(cols.keys()))
+tree.config(columns=tuple(cols.keys()))
+for col in tuple(cols.keys()):
+    tree.column(col, width=100)
+    tree.heading(col, text=cols[col], command=lambda c=col: sort(c, True))
+#tree.heading('one', text="Task name", command=lambda: sort('one', True))
+#tree.heading('two', text="Spent time", command=lambda: sort('two', True))
 i=0
 for n, t in tasks:
     tree.insert('', i, text="line %d" % (i + 1), values=(n, t))
