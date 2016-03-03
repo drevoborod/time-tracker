@@ -17,22 +17,25 @@ def sort(col, reverse):
     tree.heading(col, command=lambda: sort(col, not reverse))
 
 
+# Строчки в будущей таблице.
 tasks = [('task1', 10), ('task2', 6), ('task3', 12)]
 
-cols = {'one': 'Task name', 'two': 'Time spent'}
+# Будущие колонки: (идентификатор, заголовок)
+cols = [('one', 'Task name'), ('two', 'Time spent')]
 
 root = Tk()
 tree = Treeview(root)
-print(tuple(cols.keys()))
-tree.config(columns=tuple(cols.keys()))
-for col in tuple(cols.keys()):
-    tree.column(col, width=100)
-    tree.heading(col, text=cols[col], command=lambda c=col: sort(c, True))
-#tree.heading('one', text="Task name", command=lambda: sort('one', True))
-#tree.heading('two', text="Spent time", command=lambda: sort('two', True))
+# Создаём колонки и присваиваем им идентификаторы.
+tree.config(columns=tuple([col[0] for col in cols]))
+for index, col in enumerate(cols):
+    # Настраиваем колонки с указанными идентификаторами.
+    tree.column(cols[index][0], width=100)
+    # Настраиваем ЗАГОЛОВКИ колонок с указанными идентификаторами.
+    tree.heading(cols[index][0], text=cols[index][1], command=lambda c=cols[index][0]: sort(c, True))
+# Вставляем в таблицу все строки, собственно значения в виде кортежей передаются в values=.
 i=0
-for n, t in tasks:
-    tree.insert('', i, text="line %d" % (i + 1), values=(n, t))
+for v in tasks:
+    tree.insert('', i, text="line %d" % (i + 1), values=v)
     i += 1
 tree.grid(sticky='news')
 root.grid_columnconfigure(0, weight=1)
