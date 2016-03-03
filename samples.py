@@ -6,7 +6,7 @@ def sort(col, reverse):
     # get_children() возвращает список ID каждой строки списка.
     # set(ID, колонка) возвращает имя каждой записи в этой колонке.
     print(col)
-    if col == 'two':
+    if col == 'time':
         l = [(int(tree.set(k, col)), k) for k in tree.get_children()]
     else:
         l = [(tree.set(k, col), k) for k in tree.get_children()]
@@ -18,10 +18,10 @@ def sort(col, reverse):
 
 
 # Строчки в будущей таблице.
-tasks = [('task1', 10), ('task2', 6), ('task3', 12)]
+tasks = [('task1', 10, '12/02/16'), ('task2', 6, 'Yesterday'), ('task3', 12, '14.12.2008')]
 
 # Будущие колонки: (идентификатор, заголовок)
-cols = [('one', 'Task name'), ('two', 'Time spent')]
+cols = [('taskname', 'Task name'), ('time', 'Time spent'), ('date', 'Start date')]
 
 root = Tk()
 tree = Treeview(root)
