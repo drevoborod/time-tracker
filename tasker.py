@@ -5,6 +5,7 @@ import db
 import tkinter.font as fonter
 from tkinter import *
 from tkinter.messagebox import askquestion, askyesno
+from tkinter import ttk
 
 
 class TaskFrame(Frame):
@@ -16,7 +17,6 @@ class TaskFrame(Frame):
 
     def create_content(self):
         """Создаёт содержимое окна и выполняет всю подготовительную работу."""
-        colour = self.cget('bg')  # Цвет фона виджетов по умолчанию.
         self.startstopvar = StringVar()
         self.startstopvar.set("Start")
         self.task_name = None       # Создаём фейковое имя запущенной таски.
@@ -28,7 +28,7 @@ class TaskFrame(Frame):
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
         self.openbutton.grid(row=1, column=5, padx=5, pady=5)
-        self.description = Text(self, width=74, height=3, bg=colour, state=DISABLED)        # Описание задачи
+        self.description = Description(self)        # Описание задачи
         self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
         self.startbutton = TaskButton(self, state=DISABLED, command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
         self.startbutton.grid(row=3, column=0, sticky='esn')
@@ -43,14 +43,6 @@ class TaskFrame(Frame):
         self.running_time = 0   # Промежуточное значение счётчика.
         self.running = False    # Признак того, что счётчик работает.
 
-    def update_descr(self, text):
-        """Заполнение поля с дескрипшеном."""
-        self.description.config(state=NORMAL)
-        self.description.delete(1.0, END)
-        if text is not None:
-            self.description.insert(1.0, text)
-        self.description.config(state=DISABLED)
-
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
         if self.running:
@@ -63,7 +55,7 @@ class TaskFrame(Frame):
         self.timer_stop()
         self.editwindow = TaskEditWindow((self.task_name, database("one", self.task_name),
                             database("one", self.task_name, field="extra")), self)    # Берём все данные о задаче.
-        self.update_descr(database("one", self.task_name, field="extra"))
+        self.description.update_text(database("one", self.task_name, field="extra"))
 
     def clear(self):
         """Пересоздание содержимого окна."""
@@ -119,7 +111,7 @@ class TaskFrame(Frame):
         self.properties.config(state=NORMAL)
         self.clearbutton.config(state=NORMAL)
         self.timer_window.config(state=NORMAL)
-        self.update_descr(database("one", taskname, field="extra"))
+        self.description.update_text(database("one", taskname, field="extra"))
 
     def timer_update(self):
         """Обновление окошка счётчика. Обновляется раз в полсекунды."""
@@ -176,7 +168,7 @@ class TaskList(Frame):
     """Таблица задач со скроллом."""
     def __init__(self, parent=None, **options):
         Frame.__init__(self, master=parent, **options)
-        self.taskslist = Listbox(self, selectmode=EXTENDED)     # Таблица с включённым режимом множественного выделения по Control/Shift
+        self.taskslist = ttk.Treeview(self)     # Таблица.
         scroller = Scrollbar(self)
         scroller.config(command=self.taskslist.yview)           # Привязываем скролл к таблице.
         self.taskslist.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
@@ -315,6 +307,17 @@ class HelpWindow(Toplevel):
         self.helptext.grid(row=0, column=0, sticky='news')
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
 
+class Description(Text):
+    def __init__(self, parent=None, **options):
+        Text.__init__(self, width=74, height=3, bg=Params.colour, state=DISABLED)
+
+    def update_text(self, text):
+        """Заполнение поля с дескрипшеном."""
+        self.config(state=NORMAL)
+        self.delete(1.0, END)
+        if text is not None:
+            self.insert(1.0, text)
+        self.config(state=DISABLED)
 
 class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
@@ -333,16 +336,20 @@ def big_font(unit, size=20):
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
 
+
 def helpwindow():
     HelpWindow(run)
 
+
 def stopall():
     Params.stopall = True
+
 
 def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
     if answer:
         run.destroy()
+
 
 def database(action, *args, **kwargs):
     """Манипуляции с БД в зависимости от значения текстового аргумента action."""
@@ -361,9 +368,11 @@ def database(action, *args, **kwargs):
     base.close()
     return result
 
+
 Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
 Params.stopall = False  # Признак остановки всех таймеров сразу.
 run = Tk()
+Params.colour = run.cget('bg')  # Цвет фона виджетов по умолчанию.
 run.title("Tasker")
 run.resizable(width=FALSE, height=FALSE)    # Запрещаем изменение размера основного окна.
 TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
