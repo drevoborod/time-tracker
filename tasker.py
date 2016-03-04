@@ -166,7 +166,7 @@ class TaskButton(Button):
 
 class TaskList(Frame):
     """Таблица задач со скроллом."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, columns, parent=None, **options):
         Frame.__init__(self, master=parent, **options)
         self.taskslist = ttk.Treeview(self)     # Таблица.
         scroller = Scrollbar(self)
@@ -174,6 +174,39 @@ class TaskList(Frame):
         self.taskslist.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
         scroller.pack(side=RIGHT, fill=Y)                       # Сначала нужно ставить скролл!
         self.taskslist.pack(fill=BOTH, expand=YES)              # Таблица - расширяемая во всех направлениях.
+        self.taskslist.config(columns=tuple([col[0] for col in columns]))  # Создаём колонки и присваиваем им идентификаторы.
+        for index, col in enumerate(columns):
+            self.taskslist.column(columns[index][0], width=100)   # Настраиваем колонки с указанными идентификаторами.
+            # Настраиваем ЗАГОЛОВКИ колонок с указанными идентификаторами.
+            self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]: self.sortlist(c, True))
+
+    def sortlist(self, col, reverse):
+        """Сортировка по клику в заголовок колонки."""
+        # get_children() возвращает список ID каждой строки списка.
+        # set(ID, колонка) возвращает имя каждой записи в этой колонке.
+        l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
+        l.sort(reverse=reverse)
+        for index, value in enumerate(l):
+            self.taskslist.move(value[1], '', index)
+        self.taskslist.heading(col, command=lambda: self.sortlist(col, not reverse))
+
+    def insert_tasks(self, tasks):
+        # Вставляем в таблицу все строки, собственно значения в виде кортежей передаются в values=.
+        i=0
+        for v in tasks:
+            self.taskslist.insert('', i, text="line %d" % (i + 1), values=v)
+            i += 1
+
+    def update_list(self, tasks):
+        for item in self.taskslist.get_children():
+            self.taskslist.delete(item)
+        self.insert_tasks(tasks)
+
+    def focus_(self, item):
+        """Выделяет указанный пункт списка."""
+        self.taskslist.focus(item)
+        self.taskslist.see(item)
+        self.taskslist.selection_set(item)
 
 
 class TaskSelectionWindow(Toplevel):
@@ -190,7 +223,8 @@ class TaskSelectionWindow(Toplevel):
         self.addentry.focus_set()
         self.addbutton = Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
         self.addbutton.grid(row=0, column=4, sticky=W, padx=6)
-        self.listframe = TaskList(self)     # Таблица тасок со скроллом.
+        columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
+        self.listframe = TaskList(columnnames, self)     # Таблица тасок со скроллом.
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
         self.selbutton = TaskButton(self, text="Select all", command=self.select_all)   # Кнопка "выбрать всё".
         self.selbutton.grid(row=2, column=0, sticky=W, padx=5, pady=5)
@@ -206,12 +240,6 @@ class TaskSelectionWindow(Toplevel):
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
 
-    def focus(self, index):
-        """Выделяет указанный пункт списка."""
-        self.listframe.taskslist.focus_set()
-        self.listframe.taskslist.see(index)
-        self.listframe.taskslist.selection_set(index)
-
     def add_new_task(self):
         """Добавление новой задачи в БД."""
         task_name = self.addentry.get()
@@ -219,14 +247,12 @@ class TaskSelectionWindow(Toplevel):
             if database("one", task_name) is None:  # проверяем, есть ли такая задача.
                 database("add", task_name)
                 self.update_list()
-                self.focus(END)
+                self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
-        self.listframe.taskslist.delete(0, END)     # Сначала удаяем из таблицы всё.
         self.tlist = database("all")
-        for t in self.tlist:                        # А потом добавляем пункты по одному:
-            self.listframe.taskslist.insert(END, t[0])
+        self.listframe.update_list([(f[0], f[1], f[3]) for f in self.tlist])
 
     def get_selection(self):
         """Получить список выбранных пользователем пунктов таблицы. Возвращает список названий пунктов."""
