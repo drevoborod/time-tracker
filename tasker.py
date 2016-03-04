@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+import datetime
 import db
 import tkinter.font as fonter
 from tkinter import *
@@ -245,14 +246,17 @@ class TaskSelectionWindow(Toplevel):
         task_name = self.addentry.get()
         if len(task_name) > 0:
             if database("one", task_name) is None:  # проверяем, есть ли такая задача.
-                database("add", task_name)
+                database("add", task_name)  # Если нет, до добавляем.
+                dateid = update_dates(date_format(datetime.datetime.now()))  # Узнаём id текущей даты в таблице дат.
+                database("upd", task_name, field="dates", value=str([dateid, ]))   # И добавляем его в соответствующее поле таски в виде первого пункта списка.
+                database("upd", task_name, field="creation_date", value=date_format(datetime.datetime.now()))
                 self.update_list()
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
         self.tlist = database("all")
-        self.listframe.update_list([(f[0], f[1], f[3]) for f in self.tlist])
+        self.listframe.update_list([(f[0], time_format(f[1]), f[3]) for f in self.tlist])
 
     def get_selection(self):
         """Получить список выбранных пользователем пунктов таблицы. Возвращает список названий пунктов."""
@@ -345,6 +349,7 @@ class Description(Text):
             self.insert(1.0, text)
         self.config(state=DISABLED)
 
+
 class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
     pass
@@ -357,25 +362,33 @@ def time_format(sec):
     else:
         return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
 
+def date_format(date):
+    """Возвращает дату в формате ДД:ММ:ГГГГ. На вход принимает datetime."""
+    return datetime.datetime.strftime(date, '%d.%m.%Y')
+
 def big_font(unit, size=20):
     """Увеличение размера шрифта выбранного элемента до 20."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
 
-
 def helpwindow():
     HelpWindow(run)
 
-
 def stopall():
     Params.stopall = True
-
 
 def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
     if answer:
         run.destroy()
 
+def update_dates(datestring):
+    """Функция добавляет дату в таблицу дат, если там её ещё нет, и в любом случае возвращает id записи."""
+    dates = database("all", table="dates")
+    for x in dates:
+        if datestring == x[1]:
+            return x[0]
+    return database("id", "date", datestring, "dates")
 
 def database(action, *args, **kwargs):
     """Манипуляции с БД в зависимости от значения текстового аргумента action."""
@@ -383,6 +396,8 @@ def database(action, *args, **kwargs):
     result = None
     if action == "add":
         base.add_record(*args, **kwargs)
+    elif action == "id":
+        result = base.add_get_id(*args)
     elif action == "one":
         result = base.find_record(*args, **kwargs)
     elif action == "all":
@@ -414,7 +429,7 @@ run.mainloop()
 
 # ToDo: вынести в отдельный модуль всякие глобальные переменные и функции.
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
-# ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто окно редактирования свойств таски,
+# ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
 # ToDo: Хоткеи копипаста должны работать в любой раскладке.
 

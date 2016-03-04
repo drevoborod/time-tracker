@@ -20,13 +20,13 @@ class Db():
                 create table tasks (id text unique,
                 timer int,
                 extra text,
-                creation_date int,
+                creation_date text,
                 dates text,
                 tags text);
                 create table config (id text unique,
                 value text);
                 create table dates (id integer primary key autoincrement,
-                date int);
+                date text);
                 create table tags (id integer primary key autoincrement,
                 name text);
                 """
@@ -46,6 +46,13 @@ class Db():
 
     def add_record(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("insert into {0} (id, {1}) values (?, ?)".format(table, field), (id, value)))
+
+    def add_get_id(self, field, value, table):
+        """Функция добавляет запись в таблицу и возвращает значение поля id для неё."""
+        self.exec_script(("insert into {0} ({1}) values (?)".format(table, field), (value,)))
+        rowid = self.cur.lastrowid
+        self.exec_script("select id from {0} where rowid={1}".format(table, rowid))
+        return self.cur.fetchone()[0]
 
     def find_record(self, id, field="timer", table="tasks"):
         """Возвращает значение для поля field из записи со значением поля "id", равным id."""
