@@ -11,7 +11,9 @@ class Db():
         if not os.path.exists(self.db_filename):
             self.create_table()
         self.db_file = sqlite3.connect(self.db_filename)
+        self.db_file.execute('PRAGMA foreign_keys = ON')    # Включить поддержку foreign key.
         self.cur = self.db_file.cursor()
+
 
     def create_table(self):
         with sqlite3.connect(self.db_filename) as con:
