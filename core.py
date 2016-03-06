@@ -9,33 +9,19 @@ class DbErrors(Exception): pass
 
 class Db():
     def __init__(self):
-        self.db_filename = "tasks.db"
+        self.db_filename = table_file
         if not os.path.exists(self.db_filename):
             self.create_table()
-        self.db_file = sqlite3.connect(self.db_filename)
-        self.db_file.execute('PRAGMA foreign_keys = ON')    # Включить поддержку foreign key.
-        self.cur = self.db_file.cursor()
+        self.con = sqlite3.connect(self.db_filename)
+        self.con.execute('PRAGMA foreign_keys = ON')    # Включить поддержку foreign key.
+        self.cur = self.con.cursor()
 
 
     def create_table(self):
         with sqlite3.connect(self.db_filename) as con:
-            cur = con.cursor()
-            cur.executescript("""\
-                create table tasks (id text unique,
-                timer int,
-                extra text,
-                creation_date text,
-                dates text,
-                tags text);
-                create table config (id text unique,
-                value text);
-                create table dates (id integer primary key autoincrement,
-                date text);
-                create table tags (id integer primary key autoincrement,
-                name text);
-                """
-                             )
-            cur.close()
+            con.executescript(table_structure)
+            con.commit()
+            con.close()
 
     def exec_script(self, script):
         try:
@@ -46,7 +32,7 @@ class Db():
         except sqlite3.DatabaseError as err:
             raise DbErrors(err)
         else:
-            self.db_file.commit()
+            self.con.commit()
 
     def add_record(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("insert into {0} (id, {1}) values (?, ?)".format(table, field), (id, value)))
@@ -79,7 +65,7 @@ class Db():
 
     def close(self):
         self.cur.close()
-        self.db_file.close()
+        self.con.close()
 
 
 class Params:
@@ -97,3 +83,20 @@ def time_format(sec):
 def date_format(date):
     """Возвращает дату в формате ДД:ММ:ГГГГ. На вход принимает datetime."""
     return datetime.datetime.strftime(date, '%d.%m.%Y')
+
+
+table_file = 'tasks.db'
+table_structure = """\
+                create table tasks (id integer primary key autoincrement,
+                name text,
+                timer int,
+                description text,
+                creation_date text);
+                create table options (id integer primary key autoincrement,
+                name text,
+                value text);
+                create table dates (id integer primary key autoincrement,
+                name text);
+                create table tags (id integer primary key autoincrement,
+                name text);
+                """
