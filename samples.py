@@ -36,7 +36,7 @@ class Db():
 
     def insert(self, table, fields, values):
         """Добавление записи. Fields и values должны быть кортежами по 2 записи."""
-        return self.exec_script(('insert into {0} ({1}, {2}) values (?, ?)'.format(table, fields[0], fields[1]), (values[0], values[1])))
+        return self.exec_script(('insert into {0} {1} values (?, ?)'.format(table, fields), values))
 
     def update(self, table, ):
         self.exec_script('update ')

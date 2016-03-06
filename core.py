@@ -13,17 +13,15 @@ class Db():
         if not os.path.exists(self.db_filename):
             self.create_table()
         self.con = sqlite3.connect(self.db_filename)
-        self.con.execute('PRAGMA foreign_keys = ON')    # Включить поддержку foreign key.
         self.cur = self.con.cursor()
-
 
     def create_table(self):
         with sqlite3.connect(self.db_filename) as con:
             con.executescript(table_structure)
             con.commit()
-            con.close()
 
     def exec_script(self, script):
+        """Выполняет произвольный скрипт. Возвращает всегда значение lastrowid."""
         try:
             if type(script) is not tuple:
                 self.cur.execute(script)
@@ -33,35 +31,43 @@ class Db():
             raise DbErrors(err)
         else:
             self.con.commit()
+            return self.cur.lastrowid
 
-    def add_record(self, id, field="timer", value=0, table="tasks"):
-        self.exec_script(("insert into {0} (id, {1}) values (?, ?)".format(table, field), (id, value)))
-
-    def add_get_id(self, field, value, table):
-        """Функция добавляет запись в таблицу и возвращает значение поля id для неё."""
-        self.exec_script(("insert into {0} ({1}) values (?)".format(table, field), (value,)))
-        rowid = self.cur.lastrowid
-        self.exec_script("select id from {0} where rowid={1}".format(table, rowid))
-        return self.cur.fetchone()[0]
-
-    def find_record(self, id, field="timer", table="tasks"):
-        """Возвращает значение для поля field из записи со значением поля "id", равным id."""
-        self.exec_script("select {1} from {2} where id='{0}'".format(id, field, table))
-        try:
-            return self.cur.fetchone()[0]
-        except TypeError:
-            return None
-
-    def find_records(self, table="tasks"):
-        self.exec_script("select * from {0}".format(table))
+    def find_by_clause(self, table, field, value, searchfield):
+        """Поиск в поле searchfield по условию field=value. """
+        self.exec_script('select {3} from {0} where {1}="{2}"'.format(table, field, value, searchfield))
         return self.cur.fetchall()
 
-    def update_record(self, id, field="timer", value=0, table="tasks"):
+    def find_all(self, table):
+        self.exec_script('select * from {0}'.format(table))
+        return self.cur.fetchall()
+
+    def insert(self, table, fields, values):
+        """Добавление записи. Fields и values должны быть кортежами по 2 записи."""
+        return self.exec_script(('insert into {0} {1} values (?, ?)'.format(table, fields), values))
+
+    def insert_task(self, name):
+        """Добавление задачи и соотвествующей записи в таблицу dates."""
+        date = date_format(datetime.datetime.now())     # Текущая дата в формате "ДД.ММ.ГГГГ".
+        try:    # Пытаемся создать запись.
+            rowid = self.exec_script(('insert into tasks (id, timer, task_name, date) values (null, 0, ?, ?)', (name, date)))
+        except sqlite3.IntegrityError:   # Если задача с таким именем уже есть, то возбуждаем исключение.
+            raise DbErrors("Task name already exists")
+        else:
+            id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
+            self.insert("dates", ("name", "task_id"), (date, id))
+            return id      # Возвращаем id записи в таблице tasks, которую добавили.
+
+    def update(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("update {0} set {1}=? where id='{2}'".format(table, field, id), (value, )))
 
-    def delete_record(self, ids, table="tasks"):
+    def delete(self, ids, table="tasks"):
         """Удаляет несколько записей, поэтому ids должен быть кортежом."""
-        self.exec_script("delete from {1} where id in {0}".format(ids, table))
+        if len(ids) == 1:
+            i = '(%s)' % ids[0]
+        else:
+            i = ids
+        self.exec_script("delete from {1} where id in {0}".format(i, table))
 
     def close(self):
         self.cur.close()
@@ -87,16 +93,15 @@ def date_format(date):
 
 table_file = 'tasks.db'
 table_structure = """\
-                create table tasks (id integer primary key autoincrement,
-                name text,
+                create table tasks (id integer primary key,
+                task_name text unique,
                 timer int,
                 description text,
-                creation_date text);
-                create table options (id integer primary key autoincrement,
-                name text,
+                date text);
+                create table options (name text unique,
                 value text);
-                create table dates (id integer primary key autoincrement,
-                name text);
-                create table tags (id integer primary key autoincrement,
-                name text);
+                create table dates (name text,
+                task_id int);
+                create table tags (name text,
+                task_id int);
                 """

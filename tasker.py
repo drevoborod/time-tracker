@@ -8,11 +8,16 @@ from tkinter import *
 from tkinter.messagebox import askquestion, askyesno
 from tkinter import ttk
 
+class Db_operations():
+    def __init__(self):
+        self.db = core.Db()
 
-class TaskFrame(Frame):
+
+class TaskFrame(Frame, Db_operations):
     """Класс отвечает за создание рамки таски со всеми элементами."""
     def __init__(self, parent=None):
         Frame.__init__(self, parent)
+        Db_operations.__init__(self)
         self.config(relief=GROOVE, bd=2)
         self.create_content()
 
@@ -54,6 +59,7 @@ class TaskFrame(Frame):
     def properties_window(self):
         """Окно редактирования свойств таски."""
         self.timer_stop()
+        self.editwindow = self.db
         self.editwindow = TaskEditWindow((self.task_name, database("one", self.task_name),
                             database("one", self.task_name, field="extra")), self)    # Берём все данные о задаче.
         self.description.update_text(database("one", self.task_name, field="extra"))
@@ -193,10 +199,8 @@ class TaskList(Frame):
 
     def insert_tasks(self, tasks):
         # Вставляем в таблицу все строки, собственно значения в виде кортежей передаются в values=.
-        i=0
-        for v in tasks:
-            self.taskslist.insert('', i, text="line %d" % (i + 1), values=v)
-            i += 1
+        for i, v in enumerate(tasks):
+            self.taskslist.insert('', i, text=i, values=v)      # item, number, value
 
     def update_list(self, tasks):
         for item in self.taskslist.get_children():
@@ -210,10 +214,11 @@ class TaskList(Frame):
         self.taskslist.selection_set(item)
 
 
-class TaskSelectionWindow(Toplevel):
+class TaskSelectionWindow(Toplevel, Db_operations):
     """Окно выбора и добавления задачи."""
     def __init__(self, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
+        Db_operations.__init__(self)
         self.title("Task selection")
         self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
@@ -245,37 +250,37 @@ class TaskSelectionWindow(Toplevel):
         """Добавление новой задачи в БД."""
         task_name = self.addentry.get()
         if len(task_name) > 0:
-            if database("one", task_name) is None:  # проверяем, есть ли такая задача.
-                database("add", task_name)  # Если нет, до добавляем.
-                dateid = update_dates(core.date_format(datetime.datetime.now()))  # Узнаём id текущей даты в таблице дат.
-                database("upd", task_name, field="dates", value=str([dateid, ]))   # И добавляем его в соответствующее поле таски в виде первого пункта списка.
-                database("upd", task_name, field="creation_date", value=core.date_format(datetime.datetime.now()))
+            try:
+                self.db.insert_task(task_name)
+            except core.DbErrors:
+                pass
+            else:
                 self.update_list()
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
-        self.tlist = database("all")
-        self.listframe.update_list([(f[0], core.time_format(f[1]), f[3]) for f in self.tlist])
+        self.tlist = self.db.find_all("tasks")
+        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in self.tlist])
 
     def get_selection(self):
-        """Получить список выбранных пользователем пунктов таблицы. Возвращает список названий пунктов."""
-        index = [int(x) for x in self.listframe.taskslist.curselection()]   # Сначала получаем список ИНДЕКСОВ выбранных позиций.
-        return [self.listframe.taskslist.get(x) for x in index]  # А потом на основании этого индекса получаем уже список имён.
+        """Получить список выбранных пользователем пунктов таблицы. Возвращает список id."""
+        return [self.listframe.taskslist.index(x) for x in self.listframe.taskslist.selection()]
 
     def select_all(self):
-        self.listframe.taskslist.selection_set(0, END)
+        self.listframe.taskslist.selection_set(self.listframe.taskslist.get_children())
 
     def clear_all(self):
-        self.listframe.taskslist.selection_clear(0, END)
+        self.listframe.taskslist.selection_remove(self.listframe.taskslist.get_children())
 
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
-        names = self.get_selection()
-        if len(names) > 0:
+        ids = self.get_selection()
+        print(ids)
+        if len(ids) > 0:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
-                database("del", tuple(names))
+                self.db.delete(tuple([x[0] for n, x in enumerate(self.tlist) if n in ids]))
                 self.update_list()
 
     def edit(self):
@@ -366,33 +371,6 @@ def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
     if answer:
         run.destroy()
-
-def update_dates(datestring):
-    """Функция добавляет дату в таблицу дат, если там её ещё нет, и в любом случае возвращает id записи."""
-    dates = database("all", table="dates")
-    for x in dates:
-        if datestring == x[1]:
-            return x[0]
-    return database("id", "date", datestring, "dates")
-
-def database(action, *args, **kwargs):
-    """Манипуляции с БД в зависимости от значения текстового аргумента action."""
-    base = core.Db()
-    result = None
-    if action == "add":
-        base.add_record(*args, **kwargs)
-    elif action == "id":
-        result = base.add_get_id(*args)
-    elif action == "one":
-        result = base.find_record(*args, **kwargs)
-    elif action == "all":
-        result = base.find_records(**kwargs)
-    elif action == "update":
-        base.update_record(*args, **kwargs)
-    elif action == "del":
-        base.delete_record(*args, **kwargs)
-    base.close()
-    return result
 
 
 core.Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
