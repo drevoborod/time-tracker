@@ -60,16 +60,14 @@ class TaskFrame(Frame, Db_operations):
         """Окно редактирования свойств таски."""
         self.timer_stop()
         self.editwindow = self.db
-        self.editwindow = TaskEditWindow((self.task_name, database("one", self.task_name),
-                            database("one", self.task_name, field="extra")), self)    # Берём все данные о задаче.
-        self.description.update_text(database("one", self.task_name, field="extra"))
+        self.editwindow = TaskEditWindow(self.task, self)    # Передаём все данные о задаче.
 
     def clear(self):
         """Пересоздание содержимого окна."""
         self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
-        core.Params.tasks.remove(self.task_name)
+        core.Params.tasks.remove(self.task[0])
         self.create_content()
 
     def name_dialogue(self):
@@ -101,13 +99,12 @@ class TaskFrame(Frame, Db_operations):
                 self.dialogue_window.destroy()
 
     def prepare_task(self, task):
-        print(task)
         """Функция подготавливает счётчик к работе с новой таской."""
         # Добавляем имя задачи к списку запущенных:
         core.Params.tasks.add(task[0])
-        self.task = task
+        self.task = list(task)
         # Задаём значение счётчика согласно взятому из БД:
-        self.running_time = task[2]
+        self.running_time = self.task[2]
         # Прописываем значение счётчика в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
         self.dialogue_window.destroy()      # Закрываем диалоговое окно выбора задачи.
@@ -136,7 +133,7 @@ class TaskFrame(Frame, Db_operations):
         if not self.running:
             core.Params.stopall = False
             # Вытаскиваем время из БД - на тот случай, если в ней уже успело обновиться значение.
-            self.start_time = time.time() - database("one", self.task_name)
+            self.start_time = time.time() - self.db.find_by_clause("tasks", "id", self.task[0], "timer")[0][0]
             self.timer_update()
             self.running = True
             self.startstopvar.set("Stop")
@@ -150,7 +147,9 @@ class TaskFrame(Frame, Db_operations):
             self.running = False
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
-            database("update", self.task_name, value=self.running_time)
+            self.db.update(self.task[0], value=self.running_time)
+            self.task.insert(2, self.running_time, )
+            self.task.pop(3)
             self.startstopvar.set("Start")
 
     def destroy(self):
@@ -283,17 +282,18 @@ class TaskSelectionWindow(Toplevel, Db_operations):
 
     def edit(self):
         """Окно редактирования свойств таски."""
-        index = self.listframe.taskslist.curselection()     # Получаем кортеж ИНДЕКСОВ выбранного пользователем.
-        if len(index) > 0:
-            TaskEditWindow(self.tlist[index[0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
+        ids = self.get_selection()     # Получаем список id тасок, выбранных пользователем.
+        if len(ids) > 0:
+            TaskEditWindow(self.tlist[ids[0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
             self.update_list()
-            self.focus(index[0])
+            self.listframe.taskslist.index(ids[0])
 
 
-class TaskEditWindow(Toplevel):
+class TaskEditWindow(Toplevel, Db_operations):
     """Окно редактирования свойств задачи."""
     def __init__(self, task, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
+        Db_operations.__init__(self)
         self.grab_set()         # Делает все остальные окна неактивными.
         self.title("Task properties")
         self.minsize(width=400, height=300)
@@ -302,7 +302,7 @@ class TaskEditWindow(Toplevel):
         taskname.grid(row=0, column=1, columnspan=2, pady=5)
         self.taskname = Text(self, width=60, height=1)
         big_font(self.taskname, 9)
-        self.taskname.insert(1.0, task[0])
+        self.taskname.insert(1.0, task[1])
         self.taskname.config(state=DISABLED)
         self.taskname.grid(row=1, columnspan=4, sticky='ew', padx=6)
         Frame(self, height=30).grid(row=2)
@@ -310,16 +310,17 @@ class TaskEditWindow(Toplevel):
         big_font(description, 10)
         description.grid(row=3, column=1, columnspan=2, pady=5)
         self.description = Text(self, width=60, height=6)
-        if task[2] is not None:
-            self.description.insert(1.0, task[2])
+        if task[3] is not None:
+            self.description.insert(1.0, task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
         Frame(self, height=15).grid(row=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=6, sticky=E)
-        TaskLabel(self, text='{}'.format(core.time_format(task[1]))).grid(row=6, column=1, sticky=W)
+        TaskLabel(self, text='{}'.format(core.time_format(task[2]))).grid(row=6, column=1, sticky=W)
         Frame(self, height=40).grid(row=6)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=7, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=7, column=3, sticky=SE, padx=5, pady=5)
+        self.task = task
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(4, weight=1)
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
@@ -327,7 +328,7 @@ class TaskEditWindow(Toplevel):
     def update_task(self):
         """Обновление параметров таски в БД. Пока обновляет только поле 'extra'."""
         taskdata = (self.taskname.get(1.0, END).rstrip(), self.description.get(1.0, END).rstrip())    # Имя (id) и описание задачи.
-        database("update", taskdata[0], field='extra', value=taskdata[1])
+        self.db.update(self.task[0], field='description', value=taskdata[1])
         self.destroy()
 
 

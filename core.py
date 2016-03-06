@@ -93,7 +93,7 @@ def date_format(date):
 
 table_file = 'tasks.db'
 table_structure = """\
-                create table tasks (id integer primary key,
+                create table tasks (id integer primary key autoincrement,
                 task_name text unique,
                 timer int,
                 description text,
