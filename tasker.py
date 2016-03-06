@@ -31,11 +31,11 @@ class TaskFrame(Frame, Db_operations):
         l1.grid(row=0, column=1, columnspan=3)
         self.tasklabel = TaskLabel(self, anchor=W, width=50)  # В этом поле будет название задачи.
         big_font(self.tasklabel, size=14)
-        self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
+        self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
         self.openbutton.grid(row=1, column=5, padx=5, pady=5)
-        self.description = Description(self)        # Описание задачи
-        self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6)
+        self.description = Description(self, width=85, height=3)        # Описание задачи
+        self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = TaskButton(self, state=DISABLED, command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
         self.startbutton.grid(row=3, column=0, sticky='esn')
         self.timer_window = TaskLabel(self, width=10, state=DISABLED)         # Окошко счётчика.
@@ -59,8 +59,9 @@ class TaskFrame(Frame, Db_operations):
     def properties_window(self):
         """Окно редактирования свойств таски."""
         self.timer_stop()
-        self.editwindow = self.db
         self.editwindow = TaskEditWindow(self.task, self)    # Передаём все данные о задаче.
+        self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
+        self.description.update_text(self.task[3])
 
     def clear(self):
         """Пересоздание содержимого окна."""
@@ -83,13 +84,12 @@ class TaskFrame(Frame, Db_operations):
         """Функция для получения имени задачи."""
         tasks = self.dialogue_window.get_selection()
         if len(tasks) == 1:
-            task_id = self.dialogue_window.tlist[tasks[0]][0]
+            task_id = self.dialogue_window.tlist[tasks[0][0]][0]    # :))
             task = self.db.find_by_clause("tasks", "id", task_id, "*")[0]  # Получаем данные о таске из БД.
             # Проверяем, не открыта ли задача уже в другом окне:
             if task_id not in core.Params.tasks:
-                # Проверяем, не было ли запущено уже что-то в этом окне. Если было, удаляем из списка запущенных:
-                if self.task:
-                    core.Params.tasks.remove(task_id)
+                if self.task:                  # Проверяем, не было ли запущено уже что-то в этом окне.
+                    core.Params.tasks.remove(self.task[0])  # Если было, удаляем из списка запущенных.
                     # Останавливаем таймер старой задачи и сохраняем состояние:
                     self.timer_stop()
                 # Создаём новую задачу:
@@ -148,8 +148,7 @@ class TaskFrame(Frame, Db_operations):
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
             self.db.update(self.task[0], value=self.running_time)
-            self.task.insert(2, self.running_time, )
-            self.task.pop(3)
+            self.task[2] = self.running_time
             self.startstopvar.set("Start")
 
     def destroy(self):
@@ -250,8 +249,8 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         if len(task_name) > 0:
             try:
                 self.db.insert_task(task_name)
-            except core.DbErrors:
-                pass
+            except core.DbErrors as err:
+                print(err)
             else:
                 self.update_list()
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
@@ -262,8 +261,12 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in self.tlist])
 
     def get_selection(self):
-        """Получить список выбранных пользователем пунктов таблицы. Возвращает список id."""
-        return [self.listframe.taskslist.index(x) for x in self.listframe.taskslist.selection()]
+        """Получить список выбранных пользователем пунктов таблицы.
+        Возвращает список кортежей из индексов (точнее, позиции в tlist) и имён задач."""
+        items = self.listframe.taskslist.selection()    # Список items.
+        indexes = [self.listframe.taskslist.index(x) for x in items]    # Список индексов, совпадающих с позициями в tlist.
+        values = [self.listframe.taskslist.item(x, option="value")[0] for x in items]
+        return list(zip(indexes, values))
 
     def select_all(self):
         self.listframe.taskslist.selection_set(self.listframe.taskslist.get_children())
@@ -273,7 +276,7 @@ class TaskSelectionWindow(Toplevel, Db_operations):
 
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
-        ids = self.get_selection()
+        ids = [x[0] for x in self.get_selection()]
         if len(ids) > 0:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
@@ -282,11 +285,14 @@ class TaskSelectionWindow(Toplevel, Db_operations):
 
     def edit(self):
         """Окно редактирования свойств таски."""
-        ids = self.get_selection()     # Получаем список id тасок, выбранных пользователем.
+        ids = self.get_selection()     # Получаем список id тасок, выбранных пользователем, и их индексов.
         if len(ids) > 0:
-            TaskEditWindow(self.tlist[ids[0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
+            TaskEditWindow(self.tlist[ids[0][0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
             self.update_list()
-            self.listframe.taskslist.index(ids[0])
+            for i in self.listframe.taskslist.get_children():
+                if self.listframe.taskslist.item(i)["values"][0] == ids[0][1]:
+                    self.listframe.focus_(i)
+                    break
 
 
 class TaskEditWindow(Toplevel, Db_operations):
@@ -300,7 +306,7 @@ class TaskEditWindow(Toplevel, Db_operations):
         taskname = Label(self, text="Task name:")
         big_font(taskname, 10)
         taskname.grid(row=0, column=1, columnspan=2, pady=5)
-        self.taskname = Text(self, width=60, height=1)
+        self.taskname = Text(self, width=60, height=1, bg=core.Params.colour)
         big_font(self.taskname, 9)
         self.taskname.insert(1.0, task[1])
         self.taskname.config(state=DISABLED)
@@ -343,7 +349,7 @@ class HelpWindow(Toplevel):
 
 class Description(Text):
     def __init__(self, parent=None, **options):
-        Text.__init__(self, width=74, height=3, bg=core.Params.colour, state=DISABLED)
+        Text.__init__(self, master=parent, bg=core.Params.colour, state=DISABLED, wrap=WORD, **options)
 
     def update_text(self, text):
         """Заполнение поля с дескрипшеном."""

@@ -50,12 +50,12 @@ class Db():
         """Добавление задачи и соотвествующей записи в таблицу dates."""
         date = date_format(datetime.datetime.now())     # Текущая дата в формате "ДД.ММ.ГГГГ".
         try:    # Пытаемся создать запись.
-            rowid = self.exec_script(('insert into tasks (id, timer, task_name, date) values (null, 0, ?, ?)', (name, date)))
+            rowid = self.exec_script(('insert into tasks (id, timer, task_name, creation_date) values (null, 0, ?, ?)', (name, date)))
         except sqlite3.IntegrityError:   # Если задача с таким именем уже есть, то возбуждаем исключение.
             raise DbErrors("Task name already exists")
         else:
             id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
-            self.insert("dates", ("name", "task_id"), (date, id))
+            self.insert("dates", ("date", "task_id"), (date, id))
             return id      # Возвращаем id записи в таблице tasks, которую добавили.
 
     def update(self, id, field="timer", value=0, table="tasks"):
@@ -97,11 +97,11 @@ table_structure = """\
                 task_name text unique,
                 timer int,
                 description text,
-                date text);
-                create table options (name text unique,
+                creation_date text);
+                create table options (option_name text unique,
                 value text);
-                create table dates (name text,
+                create table dates (date text,
                 task_id int);
-                create table tags (name text,
+                create table tags (tag_name text,
                 task_id int);
                 """

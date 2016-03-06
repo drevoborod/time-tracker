@@ -44,12 +44,12 @@ class Db():
     def insert_task(self, name):
         date = date_format(datetime.datetime.now())     # Текущая дата в формате "ДД.ММ.ГГГГ".
         try:    # Пытаемся создать запись.
-            rowid = self.exec_script(('insert into tasks (id, task_name, date) values (null, ?, ?)', (name, date)))
+            rowid = self.exec_script(('insert into tasks (id, task_name, creation_date) values (null, ?, ?)', (name, date)))
         except sqlite3.IntegrityError:   # Если задача с таким именем уже есть, то возбуждаем исключение.
             raise DbErrors("Task name already exists")
         else:
             id = self.find("tasks", "rowid", rowid, "id")[0][0]
-            self.insert("dates", ("name", "task_id"), values=(date, id))
+            self.insert("dates", ("date", "task_id"), values=(date, id))
             return id      # Возвращаем id записи в таблице tasks, которую добавили.
 
 
@@ -64,12 +64,12 @@ table_structure = """\
                 task_name text unique,
                 timer int,
                 description text,
-                date text);
+                creation_date text);
                 create table options (name text unique,
                 value text);
-                create table dates (name text,
+                create table dates (date text,
                 task_id int);
-                create table tags (name text,
+                create table tags (tag_name text,
                 task_id int);
                 """
 
@@ -78,14 +78,17 @@ db = Db()
 db.insert_task("task1")
 db.insert_task("task2")
 db.insert_task("task3")
-#db.exec_script("insert into tasks")
-db.exec_script("select name from dates join tasks on dates.task_id = tasks.id")
+db.exec_script("insert into dates values ('12.13.2014', 3);")
+#db.exec_script("select name from dates join tasks on dates.task_id = tasks.id")
+db.exec_script("select * from tasks join dates on dates.task_id = tasks.id")
 res = db.cur.fetchall()
 print(res)
-date_id = db.find("dates", "name", date_format(datetime.datetime.now()), "task_id")
+date_id = db.find("dates", "date", date_format(datetime.datetime.now()), "task_id")
 print(date_id)
 ids = tuple([x[0] for x in date_id])
 db.exec_script("select * from tasks where id in {0}".format(ids))
+print(db.cur.fetchall())
+db.exec_script("select * from dates")
 print(db.cur.fetchall())
 
 
