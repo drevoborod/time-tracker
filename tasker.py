@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import time
-import datetime
 import core
 import tkinter.font as fonter
 from tkinter import *
