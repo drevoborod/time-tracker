@@ -2,7 +2,7 @@
 
 import time
 import datetime
-import db
+import core
 import tkinter.font as fonter
 from tkinter import *
 from tkinter.messagebox import askquestion, askyesno
@@ -63,7 +63,7 @@ class TaskFrame(Frame):
         self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
-        Params.tasks.remove(self.task_name)
+        core.Params.tasks.remove(self.task_name)
         self.create_content()
 
     def name_dialogue(self):
@@ -83,10 +83,10 @@ class TaskFrame(Frame):
             # Пытаемся вытащить значение счётчика для данной задачи из БД.
             db_time = database("one", task_name)
             # Если задача в базе есть, то проверяем, не открыта ли она уже в другом окне:
-            if task_name not in Params.tasks:
+            if task_name not in core.Params.tasks:
                 # Проверяем, не было ли запущено уже что-то в этом окне. Если было, удаляем из списка запущенных:
                 if self.task_name:
-                    Params.tasks.remove(self.task_name)
+                    core.Params.tasks.remove(self.task_name)
                     # Останавливаем таймер старой задачи и сохраняем состояние:
                     self.timer_stop()
                 # Создаём новую задачу:
@@ -98,13 +98,13 @@ class TaskFrame(Frame):
     def prepare_task(self, taskname, running_time=0):
         """Функция подготавливает счётчик к работе с новой таской."""
         # Добавляем имя задачи к списку запущенных:
-        Params.tasks.add(taskname)
+        core.Params.tasks.add(taskname)
         self.task_name = taskname
         # сбрасываем текущее значение счётчика (на случай, если перед этой была открыта другая задача и счётчик уже что-то для неё показал).
         # Или задаём его значение согласно взятому из БД:
         self.running_time = running_time
         # Прописываем значение счётчика в окошке счётчика.
-        self.timer_window.config(text=time_format(self.running_time))
+        self.timer_window.config(text=core.time_format(self.running_time))
         self.dialogue_window.destroy()
         # В поле для имени задачи прописываем имя.
         self.tasklabel.config(text=self.task_name)
@@ -118,8 +118,8 @@ class TaskFrame(Frame):
         """Обновление окошка счётчика. Обновляется раз в полсекунды."""
         self.running_time = time.time() - self.start_time
         # Собственно изменение надписи в окошке счётчика.
-        self.timer_window.config(text=time_format(self.running_time))
-        if not Params.stopall:  # Проверка нажатия на кнопку "Stop all"
+        self.timer_window.config(text=core.time_format(self.running_time))
+        if not core.Params.stopall:  # Проверка нажатия на кнопку "Stop all"
             # Откладываем действие на полсекунды.
             # В переменную self.timer пишется ID, создаваемое методом after(), который вызывает указанную функцию через заданный промежуток.
             self.timer = self.timer_window.after(250, self.timer_update)
@@ -129,7 +129,7 @@ class TaskFrame(Frame):
     def timer_start(self):
         """Запуск таймера."""
         if not self.running:
-            Params.stopall = False
+            core.Params.stopall = False
             # Вытаскиваем время из БД - на тот случай, если в ней уже успело обновиться значение.
             self.start_time = time.time() - database("one", self.task_name)
             self.timer_update()
@@ -247,16 +247,16 @@ class TaskSelectionWindow(Toplevel):
         if len(task_name) > 0:
             if database("one", task_name) is None:  # проверяем, есть ли такая задача.
                 database("add", task_name)  # Если нет, до добавляем.
-                dateid = update_dates(date_format(datetime.datetime.now()))  # Узнаём id текущей даты в таблице дат.
+                dateid = update_dates(core.date_format(datetime.datetime.now()))  # Узнаём id текущей даты в таблице дат.
                 database("upd", task_name, field="dates", value=str([dateid, ]))   # И добавляем его в соответствующее поле таски в виде первого пункта списка.
-                database("upd", task_name, field="creation_date", value=date_format(datetime.datetime.now()))
+                database("upd", task_name, field="creation_date", value=core.date_format(datetime.datetime.now()))
                 self.update_list()
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
         self.tlist = database("all")
-        self.listframe.update_list([(f[0], time_format(f[1]), f[3]) for f in self.tlist])
+        self.listframe.update_list([(f[0], core.time_format(f[1]), f[3]) for f in self.tlist])
 
     def get_selection(self):
         """Получить список выбранных пользователем пунктов таблицы. Возвращает список названий пунктов."""
@@ -313,7 +313,7 @@ class TaskEditWindow(Toplevel):
         self.description.focus_set()
         Frame(self, height=15).grid(row=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=6, sticky=E)
-        TaskLabel(self, text='{}'.format(time_format(task[1]))).grid(row=6, column=1, sticky=W)
+        TaskLabel(self, text='{}'.format(core.time_format(task[1]))).grid(row=6, column=1, sticky=W)
         Frame(self, height=40).grid(row=6)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=7, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=7, column=3, sticky=SE, padx=5, pady=5)
@@ -339,7 +339,7 @@ class HelpWindow(Toplevel):
 
 class Description(Text):
     def __init__(self, parent=None, **options):
-        Text.__init__(self, width=74, height=3, bg=Params.colour, state=DISABLED)
+        Text.__init__(self, width=74, height=3, bg=core.Params.colour, state=DISABLED)
 
     def update_text(self, text):
         """Заполнение поля с дескрипшеном."""
@@ -350,21 +350,6 @@ class Description(Text):
         self.config(state=DISABLED)
 
 
-class Params:
-    """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
-    pass
-
-
-def time_format(sec):
-    """Функция возвращает время в удобочитаемом формате. Принимает секунды."""
-    if sec < 86400:
-        return time.strftime("%H:%M:%S", time.gmtime(sec))
-    else:
-        return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
-
-def date_format(date):
-    """Возвращает дату в формате ДД:ММ:ГГГГ. На вход принимает datetime."""
-    return datetime.datetime.strftime(date, '%d.%m.%Y')
 
 def big_font(unit, size=20):
     """Увеличение размера шрифта выбранного элемента до 20."""
@@ -375,7 +360,7 @@ def helpwindow():
     HelpWindow(run)
 
 def stopall():
-    Params.stopall = True
+    core.Params.stopall = True
 
 def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -392,7 +377,7 @@ def update_dates(datestring):
 
 def database(action, *args, **kwargs):
     """Манипуляции с БД в зависимости от значения текстового аргумента action."""
-    base = db.Db()
+    base = core.Db()
     result = None
     if action == "add":
         base.add_record(*args, **kwargs)
@@ -410,10 +395,10 @@ def database(action, *args, **kwargs):
     return result
 
 
-Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
-Params.stopall = False  # Признак остановки всех таймеров сразу.
+core.Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
+core.Params.stopall = False  # Признак остановки всех таймеров сразу.
 run = Tk()
-Params.colour = run.cget('bg')  # Цвет фона виджетов по умолчанию.
+core.Params.colour = run.cget('bg')  # Цвет фона виджетов по умолчанию.
 run.title("Tasker")
 run.resizable(width=FALSE, height=FALSE)    # Запрещаем изменение размера основного окна.
 TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
@@ -427,7 +412,7 @@ TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pa
 run.mainloop()
 
 
-# ToDo: вынести в отдельный модуль всякие глобальные переменные и функции.
+
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.

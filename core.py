@@ -2,6 +2,8 @@
 
 import sqlite3
 import os
+import time
+import datetime
 
 class DbErrors(Exception): pass
 
@@ -78,3 +80,20 @@ class Db():
     def close(self):
         self.cur.close()
         self.db_file.close()
+
+
+class Params:
+    """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
+    pass
+
+
+def time_format(sec):
+    """Функция возвращает время в удобочитаемом формате. Принимает секунды."""
+    if sec < 86400:
+        return time.strftime("%H:%M:%S", time.gmtime(sec))
+    else:
+        return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
+
+def date_format(date):
+    """Возвращает дату в формате ДД:ММ:ГГГГ. На вход принимает datetime."""
+    return datetime.datetime.strftime(date, '%d.%m.%Y')
