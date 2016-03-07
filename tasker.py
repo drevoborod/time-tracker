@@ -58,9 +58,8 @@ class TaskFrame(Frame, Db_operations):
     def properties_window(self):
         """Окно редактирования свойств таски."""
         self.timer_stop()
-        self.editwindow = TaskEditWindow(self.task, self)    # Передаём все данные о задаче.
-        self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
-        self.description.update_text(self.task[3])
+        self.editwindow = TaskEditWindow(self.task[0], self)    # Передаём id задачи.
+        self.update_description()
 
     def clear(self):
         """Пересоздание содержимого окна."""
@@ -149,6 +148,11 @@ class TaskFrame(Frame, Db_operations):
             self.db.update(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
+            self.update_description()
+
+    def update_description(self):
+        self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
+        self.description.update_text(self.task[3])
 
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
@@ -303,7 +307,7 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         """Окно редактирования свойств таски."""
         ids = self.get_selection()     # Получаем список id тасок, выбранных пользователем, и их индексов.
         if len(ids) > 0:
-            TaskEditWindow(self.tlist[ids[0][0]], self)    # Берём первый пункт из выбранных, остальные игнорим :)
+            TaskEditWindow(self.tlist[ids[0][0]][0], self)    # Берём первый пункт из выбранных, остальные игнорим :)
             self.update_list()
             for i in self.listframe.taskslist.get_children():
                 if self.listframe.taskslist.item(i)["values"][0] == ids[0][1]:
@@ -313,9 +317,10 @@ class TaskSelectionWindow(Toplevel, Db_operations):
 
 class TaskEditWindow(Toplevel, Db_operations):
     """Окно редактирования свойств задачи."""
-    def __init__(self, task, parent=None, **options):
+    def __init__(self, taskid, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
+        task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
         self.grab_set()         # Делает все остальные окна неактивными.
         self.title("Task properties")
         self.minsize(width=400, height=300)
