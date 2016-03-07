@@ -74,8 +74,8 @@ class TaskFrame(Frame, Db_operations):
         """ Диалоговое окно выбора задачи.
         """
         self.dialogue_window = TaskSelectionWindow(self)
-        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=4, column=0, padx=5, pady=5, sticky=W)
-        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=4, column=4, padx=5, pady=5, sticky=E)
+        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky=W)
+        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky=E)
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())   # Также задача открывается по нажатию на Энтер в таблице задач.
         self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())   # И по даблклику.
 
@@ -218,26 +218,34 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         self.title("Task selection")
         self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
-        Label(self, text="Enter new task's name:").grid(row=0, column=0, sticky=W, pady=5)
+        Label(self, text="New task:").grid(row=0, column=0, sticky=W, pady=5, padx=5)
         self.addentry = Entry(self, width=50)             # Поле для ввода имени новой задачи.
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
         self.addentry.bind('<Return>', lambda event: self.add_new_task())    # По нажатию кнопки Энтер в этом поле добавляется таск.
         self.addentry.focus_set()
         self.addbutton = Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
-        self.addbutton.grid(row=0, column=4, sticky=W, padx=6)
+        self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         self.listframe = TaskList(columnnames, self)     # Таблица тасок со скроллом.
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
+        Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        self.fulltime = TaskLabel(self, width=10)       # Общее время
+        self.fulltime.grid(row=2, column=1, padx=6, pady=5, sticky='e')
+        self.description = Description(self, height=4)      # Описание выбранной задачи.
+        self.description.grid(row=2, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         self.selbutton = TaskButton(self, text="Select all", command=self.select_all)   # Кнопка "выбрать всё".
-        self.selbutton.grid(row=2, column=0, sticky=W, padx=5, pady=5)
+        self.selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
         self.clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)  # Кнопка "снять выделение".
-        self.clearbutton.grid(row=2, column=1, sticky=W)
-        Frame(self, width=120).grid(row=2, column=2)
+        self.clearbutton.grid(row=3, column=1, sticky='e', padx=5, pady=5)
         self.editbutton = TaskButton(self, text="Properties", command=self.edit)    # Кнопка "свойства"
-        self.editbutton.grid(row=2, column=3, sticky=E)
+        self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
         self.delbutton = TaskButton(self, text="Remove", command=self.delete)   # Кнопка "Удалить".
-        self.delbutton.grid(row=2, column=4, sticky=E, padx=5, pady=5)
-        Frame(self, height=20).grid(row=3, columnspan=5)
+        self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
+        self.exportbutton = TaskButton(self, text="Export...")      # Кнопка экспорта.
+        self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
+        self.filterbutton = TaskButton(self, text="Filter...")      # Кнопка фильтра.
+        self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
+        Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
@@ -253,11 +261,13 @@ class TaskSelectionWindow(Toplevel, Db_operations):
             else:
                 self.update_list()
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
+                self.listframe.taskslist.focus_set()
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
         self.tlist = self.db.find_all("tasks")
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in self.tlist])
+        self.fulltime.config(text=core.time_format(sum([x[2] for x in self.tlist])))
 
     def get_selection(self):
         """Получить список выбранных пользователем пунктов таблицы.
