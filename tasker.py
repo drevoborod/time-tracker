@@ -44,7 +44,7 @@ class TaskFrame(Frame, Db_operations):
         self.properties.grid(row=3, column=4, sticky=E)
         self.clearbutton = TaskButton(self, text="Clear", state=DISABLED, command=self.clear)  # Кнопка очистки фрейма.
         self.clearbutton.grid(row=3, column=5)
-        self.start_time = 0     # Начальное значения счётчика времени, потраченного на задачу.
+        self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
         self.running_time = 0   # Промежуточное значение счётчика.
         self.running = False    # Признак того, что счётчик работает.
 
@@ -121,7 +121,7 @@ class TaskFrame(Frame, Db_operations):
         # Собственно изменение надписи в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
         if not core.Params.stopall:  # Проверка нажатия на кнопку "Stop all"
-            # Откладываем действие на полсекунды.
+            # Откладываем действие на заданный интервал.
             # В переменную self.timer пишется ID, создаваемое методом after(), который вызывает указанную функцию через заданный промежуток.
             self.timer = self.timer_window.after(250, self.timer_update)
         else:
@@ -249,6 +249,7 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
+        self.update_description()
 
     def add_new_task(self):
         """Добавление новой задачи в БД."""
@@ -268,6 +269,12 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         self.tlist = self.db.find_all("tasks")
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in self.tlist])
         self.fulltime.config(text=core.time_format(sum([x[2] for x in self.tlist])))
+
+    def update_description(self):
+        sel = self.get_selection()
+        if len(sel) > 0:
+            self.description.update_text(self.tlist[sel[0][0]][3])      # :)))
+        self.timer = self.description.after(250, self.update_description)
 
     def get_selection(self):
         """Получить список выбранных пользователем пунктов таблицы.
