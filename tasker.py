@@ -114,15 +114,21 @@ class TaskFrame(Frame, Db_operations):
         self.timer_window.config(state=NORMAL)
         self.description.update_text(self.task[3])
 
-    def timer_update(self):
+    def timer_update(self, counter=0):
         """Обновление окошка счётчика. Обновляется раз в полсекунды."""
+        interval = 250      # Задержка в мс, происходящая перед очередным запуском функции.
         self.running_time = time.time() - self.start_time
         # Собственно изменение надписи в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
         if not core.Params.stopall:  # Проверка нажатия на кнопку "Stop all"
+            if counter >= 60000:    # Раз в минуту сохраняем значение таймера в БД.
+                self.db.update_task(self.task[0], value=self.running_time)
+                counter = 0
+            else:
+                counter += interval
             # Откладываем действие на заданный интервал.
             # В переменную self.timer пишется ID, создаваемое методом after(), который вызывает указанную функцию через заданный промежуток.
-            self.timer = self.timer_window.after(250, self.timer_update)
+            self.timer = self.timer_window.after(250, self.timer_update, counter)
         else:
             self.timer_stop()
 
@@ -145,7 +151,7 @@ class TaskFrame(Frame, Db_operations):
             self.running = False
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
-            self.db.update(self.task[0], value=self.running_time)
+            self.db.update_task(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
             self.update_description()
@@ -309,7 +315,7 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         if len(ids) > 0:
             TaskEditWindow(self.tlist[ids[0][0]][0], self)    # Берём первый пункт из выбранных, остальные игнорим :)
             self.update_list()
-            for i in self.listframe.taskslist.get_children():
+            for i in self.listframe.taskslist.get_children():   # Находим строчку с таким же именем и выделяем её.
                 if self.listframe.taskslist.item(i)["values"][0] == ids[0][1]:
                     self.listframe.focus_(i)
                     break
@@ -347,6 +353,8 @@ class TaskEditWindow(Toplevel, Db_operations):
         Frame(self, height=40).grid(row=6)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=7, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=7, column=3, sticky=SE, padx=5, pady=5)
+#        self.tags = Tagslist(self)     # Список тегов. Будущий :)
+#        self.tags.grid()
         self.task = task
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(4, weight=1)
@@ -355,7 +363,7 @@ class TaskEditWindow(Toplevel, Db_operations):
     def update_task(self):
         """Обновление параметров таски в БД. Пока обновляет только поле 'extra'."""
         taskdata = (self.taskname.get(1.0, END).rstrip(), self.description.get(1.0, END).rstrip())    # Имя (id) и описание задачи.
-        self.db.update(self.task[0], field='description', value=taskdata[1])
+        self.db.update_task(self.task[0], field='description', value=taskdata[1])
         self.destroy()
 
 
@@ -380,6 +388,36 @@ class Description(Text):
             self.insert(1.0, text)
         self.config(state=DISABLED)
 
+
+class ScrolledList(Frame):
+    """Список со скроллом."""
+    def __init__(self, parent=None, **options):
+        Frame.__init__(self, master=parent, **options)
+        self.table = Listbox(self, selectmode=EXTENDED)     # Таблица с включённым режимом множественного выделения по Control/Shift
+        scroller = Scrollbar(self)
+        scroller.config(command=self.table.yview)           # Привязываем скролл к таблице.
+        self.table.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
+        scroller.pack(side=RIGHT, fill=Y)                   # Сначала нужно ставить скролл!
+        self.table.pack(fill=BOTH, expand=YES)
+
+
+class Tagslist(Frame, Db_operations):
+    """Заготовка для списка тегов."""
+    def __init__(self, parent=None, **options):
+        Frame.__init__(self, master=parent, **options)
+        Db_operations.__init__(self)
+        temp = ['aaa', 'bbb', 'ccc']
+        self.vars = []
+        for key in temp:
+            var = IntVar()
+            Checkbutton(self, text=key, variable=var).pack(side=BOTTOM)
+            self.vars.append(var)
+        Button(self, text='Check...', command=self.report).pack(side=BOTTOM)
+
+    def report(self):
+        for var in self.vars:
+            print(var.get(), end=' ') # Текущее значение флажков: 0/1.
+        print()
 
 
 def big_font(unit, size=20):

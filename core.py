@@ -61,6 +61,14 @@ class Db():
     def update(self, id, field="timer", value=0, table="tasks"):
         self.exec_script(("update {0} set {1}=? where id='{2}'".format(table, field, id), (value, )))
 
+    def update_task(self, id, field="timer", value=0):
+        """Обновить запись в таблице задач. Если для этой задачи нет записи на текущую дату, добавляем такую запись."""
+        date = date_format(datetime.datetime.now())
+        if date not in [x[0] for x in self.find_by_clause(table="dates", field="task_id", value=id, searchfield="date")]:
+            self.insert("dates", ("date", "task_id"), (date, id))
+        self.update(id, field=field, value=value)
+
+
     def delete(self, ids, table="tasks"):
         """Удаляет несколько записей, поэтому ids должен быть кортежом."""
         if len(ids) == 1:
