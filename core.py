@@ -68,14 +68,19 @@ class Db():
             self.insert("dates", ("date", "task_id"), (date, id))
         self.update(id, field=field, value=value)
 
-
-    def delete(self, ids, table="tasks"):
+    def delete(self, ids, field="id", table="tasks"):
         """Удаляет несколько записей, поэтому ids должен быть кортежом."""
+        # ToDo: Попробовать сделать нормальную подстановку в скрипт, без необходимости проверки длины ids.
         if len(ids) == 1:
             i = '(%s)' % ids[0]
         else:
             i = ids
-        self.exec_script("delete from {1} where id in {0}".format(i, table))
+        self.exec_script("delete from {1} where {2} in {0}".format(i, table, field))
+
+    def delete_tasks(self, ids):
+        """Удаление задач."""
+        self.delete(ids)
+        self.delete(ids, field="task_id", table="dates")
 
     def close(self):
         self.cur.close()

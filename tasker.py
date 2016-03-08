@@ -306,7 +306,7 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         if len(ids) > 0:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
-                self.db.delete(tuple([x[0] for n, x in enumerate(self.tlist) if n in ids]))
+                self.db.delete_tasks(tuple([x[0] for n, x in enumerate(self.tlist) if n in ids]))
                 self.update_list()
 
     def edit(self):
