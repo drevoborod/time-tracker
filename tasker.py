@@ -349,7 +349,9 @@ class TaskEditWindow(Toplevel, Db_operations):
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
-        Frame(self, height=15).grid(row=5)
+        self.tags = Tagslist(taskid, self)  # Список тегов с возможностью их включения.
+    ##### Реализовать привязку тегов в БД!
+        self.tags.grid(row=5, column=0, columnspan=4, pady=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
@@ -425,17 +427,34 @@ class ScrolledList(Frame):
 
 
 class Tagslist(Frame, Db_operations):
-    """Заготовка для списка тегов."""
-    def __init__(self, parent=None, **options):
-        Frame.__init__(self, master=parent, **options)
+    """Список тегов."""
+    def __init__(self, taskid, parent=None, **options):
+        Frame.__init__(self, master=parent)
         Db_operations.__init__(self)
-        temp = ['aaa', 'bbb', 'ccc']
-        self.vars = []
-        for key in temp:
-            var = IntVar()
-            Checkbutton(self, text=key, variable=var).pack(side=BOTTOM)
-            self.vars.append(var)
-        Button(self, text='Check...', command=self.report).pack(side=BOTTOM)
+        self.textbox = Text(self, **options)
+        scroller = Scrollbar(self)
+        scroller.config(command=self.textbox.yview)
+        self.textbox.config(yscrollcommand=scroller.set)
+        self.textbox.grid(row=0, column=0, sticky='news')
+        scroller.grid(row=0, column=1, sticky='sn')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure('all', weight=1)
+        tagnames = self.db.find_all("tagnames")     # [(tagname, 1), (tagname, 2)]
+        self.db.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
+        actual_tags = [x[0] for x in self.db.cur.fetchall()]    # [1, 3, ...]
+        self.states_dict = {}   #  {1: (1, 'tag1')  2: (0, 'tag2'), 3: (1, 'tag3')} - словарь актуальных состояний для тегов для данной таски.
+        for k in tagnames:
+            if k[1] in actual_tags:
+                self.states_dict[k[1]] = [1, k[0]]
+            else:
+                self.states_dict[k[1]] = [0, k[0]]
+        for key in self.states_dict:
+            state = self.states_dict[key][0]
+            self.states_dict[key][0] = IntVar()
+            cb = Checkbutton(text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            self.textbox.window_create('end', window=cb)
+            self.textbox.insert('end', '\n')
+            self.states_dict[key][0].set(state)
 
     def report(self):
         for var in self.vars:
