@@ -350,15 +350,15 @@ class TaskEditWindow(Toplevel, Db_operations):
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
         Frame(self, height=15).grid(row=5)
-        Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=6, sticky=E)
-        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, sticky=W)
+        Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
+        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
-        datlist = Description(self, height=1, width=50, pady=5)
+        datlist = Description(self, height=3, width=30)
         datlist.update_text(', '.join(dates))
-        datlist.grid(row=6, column=3, sticky='news', padx=5, pady=5)
-        Frame(self, height=40).grid(row=6)
-        TaskButton(self, text='Ok', command=self.update_task).grid(row=7, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        TaskButton(self, text='Cancel', command=self.destroy).grid(row=7, column=3, sticky=SE, padx=5, pady=5)
+        datlist.grid(row=6, column=3, rowspan=3, sticky='ew', padx=5, pady=5)
+        Frame(self, height=40).grid(row=9)
+        TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=3, sticky=SE, padx=5, pady=5)
 #        self.tags = Tagslist(self)     # Список тегов. Будущий :)
 #        self.tags.grid()
         self.grid_columnconfigure(1, weight=1)
@@ -389,8 +389,10 @@ class Description(Frame):
         scroller = Scrollbar(self)
         scroller.config(command=self.text.yview)           # Привязываем скролл к тексту.
         self.text.config(yscrollcommand=scroller.set)      # Привязываем текст к скроллу :)
-        scroller.pack(side=RIGHT, fill=Y)                   # Сначала нужно ставить скролл!
-        self.text.pack(fill=BOTH, expand=YES)
+        scroller.grid(row=0, column=1, sticky='ns')
+        self.text.grid(row=0, column=0, sticky='news')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure('all', weight=1)
 
     def config(self, cnf=None, **kw):
         self.text.config(cnf=cnf, **kw)
