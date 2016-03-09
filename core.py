@@ -115,6 +115,8 @@ table_structure = """\
                 value text);
                 create table dates (date text,
                 task_id int);
-                create table tags (tag_name text,
+                create table tags (tag_id int,
                 task_id int);
+                create table tagnames (tag_name text unique,
+                tag_id integer primary key autoincrement);
                 """
