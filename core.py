@@ -47,7 +47,7 @@ class Db():
         return self.exec_script(('insert into {0} {1} values (?, ?)'.format(table, fields), values))
 
     def insert_task(self, name):
-        """Добавление задачи и соотвествующей записи в таблицу dates."""
+        """Добавление задачи и соотвествующей записи в таблицы dates и tags."""
         date = date_format(datetime.datetime.now())     # Текущая дата в формате "ДД.ММ.ГГГГ".
         try:    # Пытаемся создать запись.
             rowid = self.exec_script(('insert into tasks (id, timer, task_name, creation_date) values (null, 0, ?, ?)', (name, date)))
@@ -56,6 +56,7 @@ class Db():
         else:
             id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
             self.insert("dates", ("date", "task_id"), (date, id))
+            self.insert("tags", ("tag_id", "task_id"), (1, id))
             return id      # Возвращаем id записи в таблице tasks, которую добавили.
 
     def update(self, id, field="timer", value=0, table="tasks"):
@@ -119,4 +120,5 @@ table_structure = """\
                 task_id int);
                 create table tagnames (tag_name text unique,
                 tag_id integer primary key autoincrement);
+                insert into tagnames values ('default', 1);
                 """
