@@ -326,43 +326,49 @@ class TaskEditWindow(Toplevel, Db_operations):
     def __init__(self, taskid, parent=None, **options):
         Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
-        task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
+        self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
+        dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
         self.grab_set()         # Делает все остальные окна неактивными.
         self.title("Task properties")
         self.minsize(width=400, height=300)
         taskname = Label(self, text="Task name:")
         big_font(taskname, 10)
-        taskname.grid(row=0, column=1, columnspan=2, pady=5)
+        taskname.grid(row=0, column=0, pady=5)
         self.taskname = Text(self, width=60, height=1, bg=core.Params.colour)
         big_font(self.taskname, 9)
-        self.taskname.insert(1.0, task[1])
+        self.taskname.insert(1.0, self.task[1])
         self.taskname.config(state=DISABLED)
         self.taskname.grid(row=1, columnspan=4, sticky='ew', padx=6)
         Frame(self, height=30).grid(row=2)
         description = Label(self, text="Description:")
         big_font(description, 10)
-        description.grid(row=3, column=1, columnspan=2, pady=5)
-        self.description = Text(self, width=60, height=6)
-        if task[3] is not None:
-            self.description.insert(1.0, task[3])
+        description.grid(row=3, column=0, pady=5)
+        self.description = Description(self, width=60, height=6)
+        self.description.config(state='normal', bg='white')
+        if self.task[3] is not None:
+            self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
         Frame(self, height=15).grid(row=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=6, sticky=E)
-        TaskLabel(self, text='{}'.format(core.time_format(task[2]))).grid(row=6, column=1, sticky=W)
+        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, sticky=W)
+        Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
+        datlist = Description(self, height=1, width=50, pady=5)
+        datlist.update_text(', '.join(dates))
+        datlist.grid(row=6, column=3, sticky='news', padx=5, pady=5)
         Frame(self, height=40).grid(row=6)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=7, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=7, column=3, sticky=SE, padx=5, pady=5)
 #        self.tags = Tagslist(self)     # Список тегов. Будущий :)
 #        self.tags.grid()
-        self.task = task
         self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
     def update_task(self):
-        """Обновление параметров таски в БД. Пока обновляет только поле 'extra'."""
-        taskdata = (self.taskname.get(1.0, END).rstrip(), self.description.get(1.0, END).rstrip())    # Имя (id) и описание задачи.
+        """Обновление параметров таски в БД. Пока обновляет только поле 'description'."""
+        taskdata = (self.taskname.get(1.0, END).rstrip(), self.description.get().rstrip())    # Имя (id) и описание задачи.
         self.db.update_task(self.task[0], field='description', value=taskdata[1])
         self.destroy()
 
@@ -376,16 +382,31 @@ class HelpWindow(Toplevel):
         self.helptext.grid(row=0, column=0, sticky='news')
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
 
-class Description(Text):
+class Description(Frame):
     def __init__(self, parent=None, **options):
-        Text.__init__(self, master=parent, bg=core.Params.colour, state=DISABLED, wrap=WORD, **options)
+        Frame.__init__(self, master=parent)
+        self.text = Text(self, bg=core.Params.colour, state=DISABLED, wrap=WORD, **options)
+        scroller = Scrollbar(self)
+        scroller.config(command=self.text.yview)           # Привязываем скролл к тексту.
+        self.text.config(yscrollcommand=scroller.set)      # Привязываем текст к скроллу :)
+        scroller.pack(side=RIGHT, fill=Y)                   # Сначала нужно ставить скролл!
+        self.text.pack(fill=BOTH, expand=YES)
+
+    def config(self, cnf=None, **kw):
+        self.text.config(cnf=cnf, **kw)
+
+    def insert(self, text):
+        self.text.insert(1.0, text)
+
+    def get(self):
+        return self.text.get(1.0, 'end')
 
     def update_text(self, text):
         """Заполнение поля с дескрипшеном."""
         self.config(state=NORMAL)
-        self.delete(1.0, END)
+        self.text.delete(1.0, END)
         if text is not None:
-            self.insert(1.0, text)
+            self.text.insert(1.0, text)
         self.config(state=DISABLED)
 
 
@@ -459,6 +480,6 @@ run.mainloop()
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
 # ToDo: Хоткеи копипаста должны работать в любой раскладке.
-
+# ToDo: Сделать так, чтобы в окне выбора задачи можно было скроллить Description (он обновляется по таймеру, поэтому скроллить невозможно).
 
 
