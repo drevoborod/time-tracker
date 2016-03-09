@@ -104,3 +104,15 @@ print(db.cur.fetchall())
 # Окно фильтра, список тегов: select tag_name from tagnames
 # Список задач с условием: select id, task_name, timer, description, creation_date from tasks join dates on dates.task_id = tasks.id where dates.date = '09.03.2016'
 # Или так: select id, task_name, timer, description, creation_date from tasks join dates on dates.task_id = tasks.id left join tags on tags.task_id = tasks.id where dates.date in ('09.03.2016', '08.03.2016') and tags.task_id in (1,3);
+
+# Tcl error:
+"""
+can't embed .19551680 in .19474248.19511280.19512568
+can't read "::tcl_pkgPath": no such variable
+    while executing
+"foreach Dir $::tcl_pkgPath {
+	    if {$Dir ni $::auto_path} {
+		lappend ::auto_path $Dir
+	    }
+	}"
+"""

@@ -33,7 +33,7 @@ class TaskFrame(Frame, Db_operations):
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
         self.openbutton.grid(row=1, column=5, padx=5, pady=5)
-        self.description = Description(self, width=85, height=3)        # Описание задачи
+        self.description = Description(self, width=60, height=3)        # Описание задачи
         self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = TaskButton(self, state=DISABLED, command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
         self.startbutton.grid(row=3, column=0, sticky='esn')
@@ -333,7 +333,7 @@ class TaskEditWindow(Toplevel, Db_operations):
         self.minsize(width=400, height=300)
         taskname = Label(self, text="Task name:")
         big_font(taskname, 10)
-        taskname.grid(row=0, column=0, pady=5)
+        taskname.grid(row=0, column=0, pady=5, sticky='w')
         self.taskname = Text(self, width=60, height=1, bg=core.Params.colour)
         big_font(self.taskname, 9)
         self.taskname.insert(1.0, self.task[1])
@@ -342,14 +342,14 @@ class TaskEditWindow(Toplevel, Db_operations):
         Frame(self, height=30).grid(row=2)
         description = Label(self, text="Description:")
         big_font(description, 10)
-        description.grid(row=3, column=0, pady=5)
+        description.grid(row=3, column=0, pady=5, sticky='w')
         self.description = Description(self, width=60, height=6)
         self.description.config(state='normal', bg='white')
         if self.task[3] is not None:
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
-        self.tags = Tagslist(taskid, self)  # Список тегов с возможностью их включения.
+        self.tags = Tagslist_Test(taskid, self)  # Список тегов с возможностью их включения.
     ##### Реализовать привязку тегов в БД!
         self.tags.grid(row=5, column=0, columnspan=4, pady=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
@@ -361,12 +361,10 @@ class TaskEditWindow(Toplevel, Db_operations):
         Frame(self, height=40).grid(row=9)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=3, sticky=SE, padx=5, pady=5)
-#        self.tags = Tagslist(self)     # Список тегов. Будущий :)
-#        self.tags.grid()
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
-        self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
+        #self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
     def update_task(self):
         """Обновление параметров таски в БД. Пока обновляет только поле 'description'."""
@@ -435,10 +433,6 @@ class Tagslist(Frame, Db_operations):
         scroller = Scrollbar(self)
         scroller.config(command=self.textbox.yview)
         self.textbox.config(yscrollcommand=scroller.set)
-        self.textbox.grid(row=0, column=0, sticky='news')
-        scroller.grid(row=0, column=1, sticky='sn')
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure('all', weight=1)
         tagnames = self.db.find_all("tagnames")     # [(tagname, 1), (tagname, 2)]
         self.db.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
         actual_tags = [x[0] for x in self.db.cur.fetchall()]    # [1, 3, ...]
@@ -448,19 +442,68 @@ class Tagslist(Frame, Db_operations):
                 self.states_dict[k[1]] = [1, k[0]]
             else:
                 self.states_dict[k[1]] = [0, k[0]]
+        #print(self.states_dict)
         for key in self.states_dict:
             state = self.states_dict[key][0]
             self.states_dict[key][0] = IntVar()
             cb = Checkbutton(text=self.states_dict[key][1], variable=self.states_dict[key][0])
-            self.textbox.window_create('end', window=cb)
+            print(cb)
+            try:
+                self.textbox.window_create('end', window=cb)
+            except TclError as err:
+                print(err)
+                tcl = Tcl()
+                errorInfo = tcl.eval("set ::errorInfo")
+                print(errorInfo)
             self.textbox.insert('end', '\n')
             self.states_dict[key][0].set(state)
+        scroller.grid(row=0, column=1, sticky='sn')
+        self.textbox.grid(row=0, column=0, sticky='news')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure('all', weight=1)
 
     def report(self):
-        for var in self.vars:
-            print(var.get(), end=' ') # Текущее значение флажков: 0/1.
+        for var in self.states_dict:
+            print(var[1][0].get()) # Текущее значение флажков: 0/1.
         print()
 
+
+class Tagslist_Test(Text, Db_operations):
+    """Список тегов."""
+    def __init__(self, taskid, parent=None, **options):
+        Text.__init__(self, master=parent, **options)
+        Db_operations.__init__(self)
+        scroller = Scrollbar(parent)
+        scroller.config(command=self.yview)
+        self.config(yscrollcommand=scroller.set)
+        tagnames = self.db.find_all("tagnames")     # [(tagname, 1), (tagname, 2)]
+        self.db.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
+        actual_tags = [x[0] for x in self.db.cur.fetchall()]    # [1, 3, ...]
+        self.states_dict = {}   #  {1: (1, 'tag1')  2: (0, 'tag2'), 3: (1, 'tag3')} - словарь актуальных состояний для тегов для данной таски.
+        for k in tagnames:
+            if k[1] in actual_tags:
+                self.states_dict[k[1]] = [1, k[0]]
+            else:
+                self.states_dict[k[1]] = [0, k[0]]
+        #print(self.states_dict)
+        for key in self.states_dict:
+            state = self.states_dict[key][0]
+            self.states_dict[key][0] = IntVar()
+            cb = Checkbutton(text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            print(cb)
+            try:
+                self.window_create('end', window=cb)
+            except TclError as err:
+                print(err)
+                tcl = Tcl()
+                errorInfo = tcl.eval("set ::errorInfo")
+                print(errorInfo)
+            self.insert('end', '\n')
+            self.states_dict[key][0].set(state)
+        scroller.grid(row=5, column=1, sticky='sn')
+        self.grid(row=5, column=0, sticky='news')
+        #self.grid_columnconfigure(0, weight=1)
+        #self.grid_rowconfigure('all', weight=1)
 
 def big_font(unit, size=20):
     """Увеличение размера шрифта выбранного элемента до 20."""
