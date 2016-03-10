@@ -349,7 +349,7 @@ class TaskEditWindow(Toplevel, Db_operations):
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
-        self.tags = Tagslist_Test(self)  # Список тегов с возможностью их включения.
+        self.tags = Tagslist_Test(taskid, self)  # Список тегов с возможностью их включения.
     ##### Реализовать привязку тегов в БД!
         self.tags.grid(row=5, column=0, columnspan=4, pady=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
@@ -462,7 +462,7 @@ class Tagslist(Frame, Db_operations):
 
 class Tagslist_Test(Frame):
     """Отладочный класс."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, conf, parent=None, **options):
         Frame.__init__(self, master=parent)
         self.textbox = Text(self, **options)
         scroller = Scrollbar(self)
