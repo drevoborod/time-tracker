@@ -118,7 +118,7 @@ table_structure = """\
                 task_id int);
                 create table tags (tag_id int,
                 task_id int);
-                create table tagnames (tag_name text unique,
+                create table tagnames (tag_name text,
                 tag_id integer primary key autoincrement);
                 insert into tagnames values ('default', 1);
                 """
