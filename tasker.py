@@ -22,7 +22,7 @@ class TaskFrame(Frame, Db_operations):
 
     def create_content(self):
         """Создаёт содержимое окна и выполняет всю подготовительную работу."""
-        self.startstopvar = StringVar()
+        self.startstopvar = StringVar()     # Надпись на кнопке "Start".
         self.startstopvar.set("Start")
         self.task = None       # Создаём фейковое имя запущенной таски.
         l1 = Label(self, text='Task name:')
@@ -349,9 +349,9 @@ class TaskEditWindow(Toplevel, Db_operations):
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
-        self.tags = Tagslist_Test(taskid, self)  # Список тегов с возможностью их включения.
+        #self.tags = Tagslist_Test(taskid, self)  # Список тегов с возможностью их включения.
     ##### Реализовать привязку тегов в БД!
-        self.tags.grid(row=5, column=0, columnspan=4, pady=5)
+        #self.tags.grid(row=5, column=0, columnspan=4, pady=5)
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
