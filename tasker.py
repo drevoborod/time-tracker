@@ -260,6 +260,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
+        self.current_task = ''      # Текущая выбранная задача.
         self.update_description()
 
     def add_new_task(self):
@@ -287,9 +288,13 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.fulltime.config(text=core.time_format(sum([x[2] for x in tlist])))
 
     def update_description(self):
+        """Заполнение окошка с описанием выбранной задачи."""
         sel = self.listframe.taskslist.selection()
         if len(sel) > 0:
-            self.description.update_text(self.tdict[sel[0]][3])
+            item = sel[0]
+            if item != self.current_task:
+                self.current_task = item
+                self.description.update_text(self.tdict[item][3])
         self.timer = self.description.after(250, self.update_description)
 
     def select_all(self):
@@ -506,6 +511,6 @@ run.mainloop()
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
 # ToDo: Хоткеи копипаста должны работать в любой раскладке.
-# ToDo: Сделать так, чтобы в окне выбора задачи можно было скроллить Description (он обновляется по таймеру, поэтому скроллить невозможно).
+
 
 
