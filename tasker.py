@@ -80,9 +80,9 @@ class TaskFrame(tk.Frame, Db_operations):
 
     def get_task_name(self):
         """Функция для получения имени задачи."""
-        tasks = self.dialogue_window.get_selection()
+        tasks = self.dialogue_window.listframe.taskslist.selection()
         if len(tasks) == 1:
-            task_id = self.dialogue_window.tlist[tasks[0][0]][0]    # :))
+            task_id = self.dialogue_window.tdict[tasks[0]][0]    # :))
             task = self.db.find_by_clause("tasks", "id", task_id, "*")[0]  # Получаем данные о таске из БД.
             # Проверяем, не открыта ли задача уже в другом окне:
             if task_id not in core.Params.tasks:
@@ -277,23 +277,20 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
-        self.tlist = self.db.find_all("tasks")
-        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in self.tlist])
-        self.fulltime.config(text=core.time_format(sum([x[2] for x in self.tlist])))
+        tlist = self.db.find_all("tasks")
+        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
+        self.tdict = {}     # Словарь соответствий индексов строчек в таблице и инфы о тасках.
+        i = 0
+        for id in self.listframe.taskslist.get_children():
+            self.tdict[id] = tlist[i]
+            i += 1
+        self.fulltime.config(text=core.time_format(sum([x[2] for x in tlist])))
 
     def update_description(self):
-        sel = self.get_selection()
+        sel = self.listframe.taskslist.selection()
         if len(sel) > 0:
-            self.description.update_text(self.tlist[sel[0][0]][3])      # :)))
+            self.description.update_text(self.tdict[sel[0]][3])
         self.timer = self.description.after(250, self.update_description)
-
-    def get_selection(self):
-        """Получить список выбранных пользователем пунктов таблицы.
-        Возвращает список кортежей из индексов (точнее, позиции в tlist) и имён задач."""
-        items = self.listframe.taskslist.selection()    # Список items.
-        indexes = [self.listframe.taskslist.index(x) for x in items]    # Список индексов, совпадающих с позициями в tlist.
-        values = [self.listframe.taskslist.item(x, option="value")[0] for x in items]
-        return list(zip(indexes, values))
 
     def select_all(self):
         self.listframe.taskslist.selection_set(self.listframe.taskslist.get_children())
@@ -303,21 +300,21 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
-        ids = [x[0] for x in self.get_selection()]
+        ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection()]
         if len(ids) > 0:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
-                self.db.delete_tasks(tuple([x[0] for n, x in enumerate(self.tlist) if n in ids]))
+                self.db.delete_tasks(tuple(ids))
                 self.update_list()
 
     def edit(self):
         """Окно редактирования свойств таски."""
-        ids = self.get_selection()     # Получаем список id тасок, выбранных пользователем, и их индексов.
-        if len(ids) > 0:
-            TaskEditWindow(self.tlist[ids[0][0]][0], self)    # Берём первый пункт из выбранных, остальные игнорим :)
+        id_name = [(self.tdict[x][0], self.tdict[x][1]) for x in self.listframe.taskslist.selection()]     # Получаем список из кортежей id тасок, выбранных пользователем, и их имён.
+        if len(id_name) > 0:
+            TaskEditWindow(id_name[0][0], self)    # Берём первый пункт из выбранных, остальные игнорим :)
             self.update_list()
             for i in self.listframe.taskslist.get_children():   # Находим строчку с таким же именем и выделяем её.
-                if self.listframe.taskslist.item(i)["values"][0] == ids[0][1]:
+                if self.listframe.taskslist.item(i)["values"][0] == id_name[0][1]:
                     self.listframe.focus_(i)
                     break
 
