@@ -83,6 +83,19 @@ class Db():
         self.delete(ids)
         self.delete(ids, field="task_id", table="dates")
 
+    def tags_dict(self, taskid):
+        """Создание словаря тегов для задачи с taskid."""
+        tagnames = self.find_all("tagnames")     # [(tagname, 1), (tagname, 2)]
+        self.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
+        actual_tags = [x[0] for x in self.cur.fetchall()]    # [1, 3, ...]
+        states_dict = {}   #  {1: [1, 'tag1'],  2: [0, 'tag2'], 3: [1, 'tag3']} - словарь актуальных состояний для тегов для данной таски.
+        for k in tagnames:
+            if k[1] in actual_tags:
+                states_dict[k[1]] = [1, k[0]]
+            else:
+                states_dict[k[1]] = [0, k[0]]
+        return states_dict
+
     def close(self):
         self.cur.close()
         self.con.close()

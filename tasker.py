@@ -8,6 +8,7 @@ from tkinter.messagebox import askquestion, askyesno
 from tkinter import ttk
 
 class Db_operations():
+    """Класс-мостик для работы с БД."""
     def __init__(self):
         self.db = core.Db()
 
@@ -350,7 +351,7 @@ class TaskEditWindow(Toplevel, Db_operations):
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
         Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
-        self.tags = Tagslist(taskid, self)  # Список тегов с возможностью их включения.
+        self.tags = Tagslist(taskid, self, orientation='horizontal')  # Список тегов с возможностью их включения.
     ##### Реализовать привязку тегов в БД!
         self.tags.grid(row=5, column=1, columnspan=2, pady=5, sticky='w')
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
@@ -425,73 +426,47 @@ class ScrolledList(Frame):
         self.table.pack(fill=BOTH, expand=YES)
 
 
-class Tagslist(Frame, Db_operations):
-    """Список тегов."""
-    def __init__(self, taskid, parent=None, **options):
-        Frame.__init__(self, master=parent)
-        Db_operations.__init__(self)
-        self.canvbox = Canvas(self, width=300, height=30)
-        scroller = Scrollbar(self, orient='horizontal')
-        scroller.config(command=self.canvbox.xview)
-        self.canvbox.config(xscrollcommand=scroller.set)
+class ScrolledCanvas(Frame):
+    """Прокручиваемый Canvas."""
+    def __init__(self, parent=None, orientation="vertical", **options):
+        super().__init__(master=parent, **options)
+        scroller = Scrollbar(self, orient=orientation)
+        self.canvbox = Canvas(self, width=(300 if orientation == "horizontal" else 100),
+                              height=(30 if orientation == "horizontal" else 100))
+        scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
+        if orientation == "horizontal":
+            self.canvbox.config(xscrollcommand=scroller.set)
+            scroller.grid(row=1, column=0, sticky='ew')
+            self.grid_rowconfigure(0, weight=1)
+            self.grid_columnconfigure('all', weight=1)
+        else:
+            self.canvbox.config(yscrollcommand=scroller.set)
+            scroller.grid(row=0, column=1, sticky='ns')
+            self.grid_rowconfigure('all', weight=1)
+            self.grid_columnconfigure(0, weight=1)
         self.content_frame = Frame(self.canvbox)
         self.content_frame.pack(fill='both', expand=1)
         self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
         self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
-        # Здесь - работа с БД :)
-        tagnames = self.db.find_all("tagnames")     # [(tagname, 1), (tagname, 2)]
-        self.db.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
-        actual_tags = [x[0] for x in self.db.cur.fetchall()]    # [1, 3, ...]
-        self.states_dict = {}   #  {1: [1, 'tag1'],  2: [0, 'tag2'], 3: [1, 'tag3']} - словарь актуальных состояний для тегов для данной таски.
-        for k in tagnames:
-            if k[1] in actual_tags:
-                self.states_dict[k[1]] = [1, k[0]]
-            else:
-                self.states_dict[k[1]] = [0, k[0]]
-        ###
-        for key in self.states_dict:
-            state = self.states_dict[key][0]
-            self.states_dict[key][0] = IntVar()
-            cb = Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
-            cb.pack(side='left', anchor='w')
-            self.states_dict[key][0].set(state)
-        scroller.grid(row=1, column=0, sticky='ew')
         self.canvbox.grid(row=0, column=0, sticky='news')
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure('all', weight=1)
 
     def reconf_canvas(self):
         """Изменение размера области прокрутки Canvas."""
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
 
 
-class Tagslist_Test(Frame):
-    """Отладочный класс."""
-    def __init__(self, conf, parent=None, **options):
-        Frame.__init__(self, master=parent)
-        self.textbox = Text(self, **options)
-        scroller = Scrollbar(self)
-        scroller.config(command=self.textbox.yview)
-        self.textbox.config(yscrollcommand=scroller.set)
-        self.states_dict = {1: [1, 'tag1'],  2: [0, 'tag2'], 3: [1, 'tag3']}
+class Tagslist(ScrolledCanvas, Db_operations):
+    """Список тегов."""
+    def __init__(self, taskid, parent=None, orientation="vertical", **options):
+        ScrolledCanvas.__init__(self, parent=parent, orientation=orientation, **options)
+        Db_operations.__init__(self)
+        self.states_dict = self.db.tags_dict(taskid)    # Словарь id тегов с состояниями для данной таски и именами.
         for key in self.states_dict:
             state = self.states_dict[key][0]
             self.states_dict[key][0] = IntVar()
-            cb = Checkbutton(text=self.states_dict[key][1], variable=self.states_dict[key][0])
-            try:
-                self.textbox.window_create('end', window=cb)
-            except TclError as err:
-                print(err)
-                tcl = Tcl()
-                errorInfo = tcl.eval("set ::errorInfo")
-                print(errorInfo)
-            self.textbox.insert('end', '\n')
+            cb = Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             self.states_dict[key][0].set(state)
-        scroller.grid(row=0, column=1, sticky='sn')
-        self.textbox.grid(row=0, column=0, sticky='news')
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure('all', weight=1)
-
 
 
 def big_font(unit, size=20):
