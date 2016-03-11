@@ -261,7 +261,9 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
         self.current_task = ''      # Текущая выбранная задача.
-        self.update_description()
+        self.listframe.taskslist.bind("<Down>", lambda e: self.descr_down())
+        self.listframe.taskslist.bind("<Up>", lambda e: self.descr_up())
+        self.listframe.taskslist.bind("<Button-1>", self.descr_click)
 
     def add_new_task(self):
         """Добавление новой задачи в БД."""
@@ -287,15 +289,34 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
             i += 1
         self.fulltime.config(text=core.time_format(sum([x[2] for x in tlist])))
 
-    def update_description(self):
+    def descr_click(self, event):
+        """Передаёт item, на котором стоит курсор мыши."""
+        self.update_descr(self.listframe.taskslist.identify_row(event.y))
+
+    def descr_up(self):
+        """Передаёт id ПРЕДЫДУЩЕГО item относительно выбранного."""
+        item = self.listframe.taskslist.selection()[0]
+        prev_item = self.listframe.taskslist.prev(item)
+        if prev_item == '':
+            self.update_descr(item)
+        else:
+            self.update_descr(prev_item)
+        # Короткая запись, для истории:
+        #self.update_descr(item if self.listframe.taskslist.prev(item) == '' else self.listframe.taskslist.prev(item))
+
+    def descr_down(self):
+        """Передаёт id СЛЕДУЮЩЕГО за выбранным item."""
+        item = self.listframe.taskslist.selection()[0]
+        next_item = self.listframe.taskslist.next(item)
+        if next_item == '':
+            self.update_descr(item)
+        else:
+            self.update_descr(next_item)
+        #self.update_descr(item if self.listframe.taskslist.next(item) == '' else self.listframe.taskslist.next(item))
+
+    def update_descr(self, item):
         """Заполнение окошка с описанием выбранной задачи."""
-        sel = self.listframe.taskslist.selection()
-        if len(sel) > 0:
-            item = sel[0]
-            if item != self.current_task:
-                self.current_task = item
-                self.description.update_text(self.tdict[item][3])
-        self.description.after(250, self.update_description)
+        self.description.update_text(self.tdict[item][3])
 
     def select_all(self):
         self.listframe.taskslist.selection_set(self.listframe.taskslist.get_children())
