@@ -3,7 +3,7 @@
 import time
 import core
 import tkinter.font as fonter
-from tkinter import *
+import tkinter as tk
 from tkinter.messagebox import askquestion, askyesno
 from tkinter import ttk
 
@@ -13,37 +13,36 @@ class Db_operations():
         self.db = core.Db()
 
 
-class TaskFrame(Frame, Db_operations):
+class TaskFrame(tk.Frame, Db_operations):
     """Класс отвечает за создание рамки таски со всеми элементами."""
     def __init__(self, parent=None):
-        Frame.__init__(self, parent)
+        tk.Frame.__init__(self, parent, relief='groove', bd=2)
         Db_operations.__init__(self)
-        self.config(relief=GROOVE, bd=2)
         self.create_content()
 
     def create_content(self):
         """Создаёт содержимое окна и выполняет всю подготовительную работу."""
-        self.startstopvar = StringVar()     # Надпись на кнопке "Start".
+        self.startstopvar = tk.StringVar()     # Надпись на кнопке "Start".
         self.startstopvar.set("Start")
         self.task = None       # Создаём фейковое имя запущенной таски.
-        l1 = Label(self, text='Task name:')
+        l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
-        self.tasklabel = TaskLabel(self, anchor=W, width=50)  # В этом поле будет название задачи.
+        self.tasklabel = TaskLabel(self, anchor='w', width=50)  # В этом поле будет название задачи.
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
         self.openbutton.grid(row=1, column=5, padx=5, pady=5)
         self.description = Description(self, width=60, height=3)        # Описание задачи
-        self.description.grid(row=2, column=0,columnspan=6, padx=5, pady=6, sticky='we')
-        self.startbutton = TaskButton(self, state=DISABLED, command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
+        self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
+        self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
         self.startbutton.grid(row=3, column=0, sticky='esn')
-        self.timer_window = TaskLabel(self, width=10, state=DISABLED)         # Окошко счётчика.
+        self.timer_window = TaskLabel(self, width=10, state='disabled')         # Окошко счётчика.
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, columnspan=3, pady=5)
-        self.properties = TaskButton(self, text="Properties", state=DISABLED, command=self.properties_window)   # Кнопка свойств задачи.
-        self.properties.grid(row=3, column=4, sticky=E)
-        self.clearbutton = TaskButton(self, text="Clear", state=DISABLED, command=self.clear)  # Кнопка очистки фрейма.
+        self.properties = TaskButton(self, text="Properties", state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
+        self.properties.grid(row=3, column=4, sticky='e')
+        self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Кнопка очистки фрейма.
         self.clearbutton.grid(row=3, column=5)
         self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
         self.running_time = 0   # Промежуточное значение счётчика.
@@ -74,8 +73,8 @@ class TaskFrame(Frame, Db_operations):
         """ Диалоговое окно выбора задачи.
         """
         self.dialogue_window = TaskSelectionWindow(self)
-        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky=W)
-        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky=E)
+        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())   # Также задача открывается по нажатию на Энтер в таблице задач.
         self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())   # И по даблклику.
 
@@ -109,10 +108,10 @@ class TaskFrame(Frame, Db_operations):
         self.dialogue_window.destroy()      # Закрываем диалоговое окно выбора задачи.
         # В поле для имени задачи прописываем имя.
         self.tasklabel.config(text=self.task[1])
-        self.startbutton.config(state=NORMAL)
-        self.properties.config(state=NORMAL)
-        self.clearbutton.config(state=NORMAL)
-        self.timer_window.config(state=NORMAL)
+        self.startbutton.config(state='normal')
+        self.properties.config(state='normal')
+        self.clearbutton.config(state='normal')
+        self.timer_window.config(state='normal')
         self.description.update_text(self.task[3])
 
     def timer_update(self, counter=0):
@@ -164,30 +163,31 @@ class TaskFrame(Frame, Db_operations):
     def destroy(self):
         """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
         self.timer_stop()
-        Frame.destroy(self)
+        tk.Frame.destroy(self)
 
 
-class TaskLabel(Label):
+class TaskLabel(tk.Label):
     """Простая текстовая метка для отображения значений. Визуально углублённая."""
     def __init__(self, parent, **kwargs):
-        super().__init__(master=parent, relief=SUNKEN, **kwargs)
+        super().__init__(master=parent, relief='sunken', **kwargs)
 
 
-class TaskButton(Button):
+class TaskButton(tk.Button):
     """Просто кнопка."""
     def __init__(self, parent, **kwargs):
         super().__init__(master=parent, width=8, **kwargs)
 
-class TaskList(Frame):
+
+class TaskList(tk.Frame):
     """Таблица задач со скроллом."""
     def __init__(self, columns, parent=None, **options):
-        Frame.__init__(self, master=parent, **options)
+        super().__init__(master=parent, **options)
         self.taskslist = ttk.Treeview(self)     # Таблица.
-        scroller = Scrollbar(self)
+        scroller = tk.Scrollbar(self)
         scroller.config(command=self.taskslist.yview)           # Привязываем скролл к таблице.
         self.taskslist.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
-        scroller.pack(side=RIGHT, fill=Y)                       # Сначала нужно ставить скролл!
-        self.taskslist.pack(fill=BOTH, expand=YES)              # Таблица - расширяемая во всех направлениях.
+        scroller.pack(side='right', fill='y')                       # Сначала нужно ставить скролл!
+        self.taskslist.pack(fill='both', expand=1)              # Таблица - расширяемая во всех направлениях.
         self.taskslist.config(columns=tuple([col[0] for col in columns]))  # Создаём колонки и присваиваем им идентификаторы.
         for index, col in enumerate(columns):
             self.taskslist.column(columns[index][0], width=100)   # Настраиваем колонки с указанными идентификаторами.
@@ -221,25 +221,25 @@ class TaskList(Frame):
         self.taskslist.selection_set(item)
 
 
-class TaskSelectionWindow(Toplevel, Db_operations):
+class TaskSelectionWindow(tk.Toplevel, Db_operations):
     """Окно выбора и добавления задачи."""
     def __init__(self, parent=None, **options):
-        Toplevel.__init__(self, master=parent, **options)
+        tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
         self.title("Task selection")
         self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
-        Label(self, text="New task:").grid(row=0, column=0, sticky=W, pady=5, padx=5)
-        self.addentry = Entry(self, width=50)             # Поле для ввода имени новой задачи.
+        tk.Label(self, text="New task:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
+        self.addentry = tk.Entry(self, width=50)             # Поле для ввода имени новой задачи.
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
         self.addentry.bind('<Return>', lambda event: self.add_new_task())    # По нажатию кнопки Энтер в этом поле добавляется таск.
         self.addentry.focus_set()
-        self.addbutton = Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
+        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         self.listframe = TaskList(columnnames, self)     # Таблица тасок со скроллом.
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
-        Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
         self.fulltime = TaskLabel(self, width=10)       # Общее время
         self.fulltime.grid(row=2, column=1, padx=6, pady=5, sticky='e')
         self.description = Description(self, height=4)      # Описание выбранной задачи.
@@ -256,7 +256,7 @@ class TaskSelectionWindow(Toplevel, Db_operations):
         self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
         self.filterbutton = TaskButton(self, text="Filter...")      # Кнопка фильтра.
         self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
-        Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
+        tk.Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()
@@ -322,26 +322,26 @@ class TaskSelectionWindow(Toplevel, Db_operations):
                     break
 
 
-class TaskEditWindow(Toplevel, Db_operations):
+class TaskEditWindow(tk.Toplevel, Db_operations):
     """Окно редактирования свойств задачи."""
     def __init__(self, taskid, parent=None, **options):
-        Toplevel.__init__(self, master=parent, **options)
+        tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
         self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
         dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
         self.grab_set()         # Делает все остальные окна неактивными.
         self.title("Task properties")
         self.minsize(width=400, height=300)
-        taskname = Label(self, text="Task name:")
+        taskname = tk.Label(self, text="Task name:")
         big_font(taskname, 10)
         taskname.grid(row=0, column=0, pady=5, sticky='w')
-        self.taskname = Text(self, width=60, height=1, bg=core.Params.colour)
+        self.taskname = tk.Text(self, width=60, height=1, bg=core.Params.colour)
         big_font(self.taskname, 9)
         self.taskname.insert(1.0, self.task[1])
-        self.taskname.config(state=DISABLED)
+        self.taskname.config(state='disabled')
         self.taskname.grid(row=1, columnspan=4, sticky='ew', padx=6)
-        Frame(self, height=30).grid(row=2)
-        description = Label(self, text="Description:")
+        tk.Frame(self, height=30).grid(row=2)
+        description = tk.Label(self, text="Description:")
         big_font(description, 10)
         description.grid(row=3, column=0, pady=5, sticky='w')
         self.description = Description(self, width=60, height=6)
@@ -349,46 +349,46 @@ class TaskEditWindow(Toplevel, Db_operations):
         if self.task[3] is not None:
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
-        self.description.focus_set()
-        Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
+        tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
         self.tags = Tagslist(taskid, self, orientation='horizontal')  # Список тегов с возможностью их включения.
     ##### Реализовать привязку тегов в БД!
         self.tags.grid(row=5, column=1, columnspan=2, pady=5, sticky='w')
-        Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
+        tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
-        Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
+        tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
         datlist = Description(self, height=3, width=30)
         datlist.update_text(', '.join(dates))
         datlist.grid(row=6, column=3, rowspan=3, sticky='ew', padx=5, pady=5)
-        Frame(self, height=40).grid(row=9)
-        TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky=SW, padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=3, sticky=SE, padx=5, pady=5)
+        tk.Frame(self, height=40).grid(row=9)
+        TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=3, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
-        #self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
+        self.description.text.focus_set()       # Ставим фокус в окошко с описанием.
+        self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
     def update_task(self):
         """Обновление параметров таски в БД. Пока обновляет только поле 'description'."""
-        taskdata = (self.taskname.get(1.0, END).rstrip(), self.description.get().rstrip())    # Имя (id) и описание задачи.
+        taskdata = (self.taskname.get(1.0, 'end').rstrip(), self.description.get().rstrip())    # Имя (id) и описание задачи.
         self.db.update_task(self.task[0], field='description', value=taskdata[1])
         self.destroy()
 
 
-class HelpWindow(Toplevel):
+class HelpWindow(tk.Toplevel):
     def __init__(self, parent=None, **options):
-        Toplevel.__init__(self, master=parent, **options)
-        self.helptext = Text(self)
+        super().__init__(master=parent, **options)
+        self.helptext = tk.Text(self)
         self.helptext.insert(1.0, "Здесь будет помощь. Когда-нибудь.")
-        self.helptext.config(state=DISABLED)
+        self.helptext.config(state='disabled')
         self.helptext.grid(row=0, column=0, sticky='news')
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
 
-class Description(Frame):
+class Description(tk.Frame):
     def __init__(self, parent=None, **options):
-        Frame.__init__(self, master=parent)
-        self.text = Text(self, bg=core.Params.colour, state=DISABLED, wrap=WORD, **options)
-        scroller = Scrollbar(self)
+        super().__init__(master=parent)
+        self.text = tk.Text(self, bg=core.Params.colour, state='disabled', wrap='word', **options)
+        scroller = tk.Scrollbar(self)
         scroller.config(command=self.text.yview)           # Привязываем скролл к тексту.
         self.text.config(yscrollcommand=scroller.set)      # Привязываем текст к скроллу :)
         scroller.grid(row=0, column=1, sticky='ns')
@@ -407,31 +407,31 @@ class Description(Frame):
 
     def update_text(self, text):
         """Заполнение поля с дескрипшеном."""
-        self.config(state=NORMAL)
-        self.text.delete(1.0, END)
+        self.config(state='normal')
+        self.text.delete(1.0, 'end')
         if text is not None:
             self.text.insert(1.0, text)
-        self.config(state=DISABLED)
+        self.config(state='disabled')
 
 
-class ScrolledList(Frame):
+class ScrolledList(tk.Frame):
     """Список со скроллом."""
     def __init__(self, parent=None, **options):
-        Frame.__init__(self, master=parent, **options)
-        self.table = Listbox(self, selectmode=EXTENDED)     # Таблица с включённым режимом множественного выделения по Control/Shift
-        scroller = Scrollbar(self)
+        super().__init__(master=parent, **options)
+        self.table = tk.Listbox(self, selectmode='extended')     # Таблица с включённым режимом множественного выделения по Control/Shift
+        scroller = tk.Scrollbar(self)
         scroller.config(command=self.table.yview)           # Привязываем скролл к таблице.
         self.table.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
-        scroller.pack(side=RIGHT, fill=Y)                   # Сначала нужно ставить скролл!
-        self.table.pack(fill=BOTH, expand=YES)
+        scroller.pack(side='right', fill='y')                   # Сначала нужно ставить скролл!
+        self.table.pack(fill='both', expand=1)
 
 
-class ScrolledCanvas(Frame):
+class ScrolledCanvas(tk.Frame):
     """Прокручиваемый Canvas."""
     def __init__(self, parent=None, orientation="vertical", **options):
         super().__init__(master=parent, **options)
-        scroller = Scrollbar(self, orient=orientation)
-        self.canvbox = Canvas(self, width=(300 if orientation == "horizontal" else 100),
+        scroller = tk.Scrollbar(self, orient=orientation)
+        self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 100),
                               height=(30 if orientation == "horizontal" else 100))
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
         if orientation == "horizontal":
@@ -444,7 +444,7 @@ class ScrolledCanvas(Frame):
             scroller.grid(row=0, column=1, sticky='ns')
             self.grid_rowconfigure('all', weight=1)
             self.grid_columnconfigure(0, weight=1)
-        self.content_frame = Frame(self.canvbox)
+        self.content_frame = tk.Frame(self.canvbox)
         self.content_frame.pack(fill='both', expand=1)
         self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
         self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
@@ -463,8 +463,8 @@ class Tagslist(ScrolledCanvas, Db_operations):
         self.states_dict = self.db.tags_dict(taskid)    # Словарь id тегов с состояниями для данной таски и именами.
         for key in self.states_dict:
             state = self.states_dict[key][0]
-            self.states_dict[key][0] = IntVar()
-            cb = Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            self.states_dict[key][0] = tk.IntVar()
+            cb = tk.Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             self.states_dict[key][0].set(state)
 
@@ -488,14 +488,14 @@ def quit():
 
 core.Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
 core.Params.stopall = False  # Признак остановки всех таймеров сразу.
-run = Tk()
+run = tk.Tk()
 core.Params.colour = run.cget('bg')  # Цвет фона виджетов по умолчанию.
 run.title("Tasker")
-run.resizable(width=FALSE, height=FALSE)    # Запрещаем изменение размера основного окна.
+run.resizable(width=0, height=0)    # Запрещаем изменение размера основного окна.
 TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
-Frame(run, height=15).grid(row=1)
+tk.Frame(run, height=15).grid(row=1)
 TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3, columnspan=5)
-Frame(run, height=15).grid(row=3)
+tk.Frame(run, height=15).grid(row=3)
 TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3, columnspan=5)
 TaskButton(run, text="Help", command=helpwindow).grid(row=5, column=0, sticky='sw', pady=5, padx=5)
 TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='sn', pady=5, padx=5)
@@ -503,9 +503,8 @@ TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pa
 run.mainloop()
 
 
-# ToDo: Рефакторинг: убрать импортирование *; для каждого виджета использовать super() в __init__;
-# убрать __init__ везде, где он не нужен.
-# ToDo: Добавить скролл в текстовые окошки.
+
+
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
