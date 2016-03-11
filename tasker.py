@@ -295,7 +295,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
             if item != self.current_task:
                 self.current_task = item
                 self.description.update_text(self.tdict[item][3])
-        self.timer = self.description.after(250, self.update_description)
+        self.description.after(250, self.update_description)
 
     def select_all(self):
         self.listframe.taskslist.selection_set(self.listframe.taskslist.get_children())
