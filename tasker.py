@@ -169,13 +169,13 @@ class TaskFrame(Frame, Db_operations):
 class TaskLabel(Label):
     """Простая текстовая метка для отображения значений. Визуально углублённая."""
     def __init__(self, parent, **kwargs):
-        Label.__init__(self, master=parent, relief=SUNKEN, **kwargs)
+        super().__init__(master=parent, relief=SUNKEN, **kwargs)
 
 
 class TaskButton(Button):
     """Просто кнопка."""
     def __init__(self, parent, **kwargs):
-        Button.__init__(self, master=parent, width=8, **kwargs)
+        super().__init__(master=parent, width=8, **kwargs)
 
 class TaskList(Frame):
     """Таблица задач со скроллом."""
@@ -349,9 +349,10 @@ class TaskEditWindow(Toplevel, Db_operations):
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         self.description.focus_set()
-        #self.tags = Tagslist_Test(taskid, self)  # Список тегов с возможностью их включения.
+        Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
+        self.tags = Tagslist(taskid, self)  # Список тегов с возможностью их включения.
     ##### Реализовать привязку тегов в БД!
-        #self.tags.grid(row=5, column=0, columnspan=4, pady=5)
+        self.tags.grid(row=5, column=1, columnspan=2, pady=5, sticky='w')
         Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
@@ -429,10 +430,15 @@ class Tagslist(Frame, Db_operations):
     def __init__(self, taskid, parent=None, **options):
         Frame.__init__(self, master=parent)
         Db_operations.__init__(self)
-        self.textbox = Text(self, **options)
-        scroller = Scrollbar(self)
-        scroller.config(command=self.textbox.yview)
-        self.textbox.config(yscrollcommand=scroller.set)
+        self.canvbox = Canvas(self, width=300, height=30)
+        scroller = Scrollbar(self, orient='horizontal')
+        scroller.config(command=self.canvbox.xview)
+        self.canvbox.config(xscrollcommand=scroller.set)
+        self.content_frame = Frame(self.canvbox)
+        self.content_frame.pack(fill='both', expand=1)
+        self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
+        self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
+        # Здесь - работа с БД :)
         tagnames = self.db.find_all("tagnames")     # [(tagname, 1), (tagname, 2)]
         self.db.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
         actual_tags = [x[0] for x in self.db.cur.fetchall()]    # [1, 3, ...]
@@ -442,22 +448,21 @@ class Tagslist(Frame, Db_operations):
                 self.states_dict[k[1]] = [1, k[0]]
             else:
                 self.states_dict[k[1]] = [0, k[0]]
+        ###
         for key in self.states_dict:
             state = self.states_dict[key][0]
             self.states_dict[key][0] = IntVar()
-            cb = Checkbutton(text=self.states_dict[key][1], variable=self.states_dict[key][0])
-            self.textbox.window_create('end', window=cb)
-            self.textbox.insert('end', '\n')
+            cb = Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            cb.pack(side='left', anchor='w')
             self.states_dict[key][0].set(state)
-        scroller.grid(row=0, column=1, sticky='sn')
-        self.textbox.grid(row=0, column=0, sticky='news')
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure('all', weight=1)
+        scroller.grid(row=1, column=0, sticky='ew')
+        self.canvbox.grid(row=0, column=0, sticky='news')
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure('all', weight=1)
 
-    def report(self):
-        for var in self.states_dict:
-            print(var[1][0].get()) # Текущее значение флажков: 0/1.
-        print()
+    def reconf_canvas(self):
+        """Изменение размера области прокрутки Canvas."""
+        self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
 
 
 class Tagslist_Test(Frame):
