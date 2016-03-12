@@ -295,7 +295,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def descr_up(self):
         """Передаёт id ПРЕДЫДУЩЕГО item относительно выбранного."""
-        item = self.listframe.taskslist.selection()[0]
+        item = self.listframe.taskslist.focus()
         prev_item = self.listframe.taskslist.prev(item)
         if prev_item == '':
             self.update_descr(item)
@@ -306,7 +306,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def descr_down(self):
         """Передаёт id СЛЕДУЮЩЕГО за выбранным item."""
-        item = self.listframe.taskslist.selection()[0]
+        item = self.listframe.taskslist.focus()
         next_item = self.listframe.taskslist.next(item)
         if next_item == '':
             self.update_descr(item)
@@ -316,7 +316,8 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def update_descr(self, item):
         """Заполнение окошка с описанием выбранной задачи."""
-        self.description.update_text(self.tdict[item][3])
+        if item != '':
+            self.description.update_text(self.tdict[item][3])
 
     def select_all(self):
         self.listframe.taskslist.selection_set(self.listframe.taskslist.get_children())
@@ -335,13 +336,18 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def edit(self):
         """Окно редактирования свойств таски."""
-        id_name = [(self.tdict[x][0], self.tdict[x][1]) for x in self.listframe.taskslist.selection()]     # Получаем список из кортежей id тасок, выбранных пользователем, и их имён.
-        if len(id_name) > 0:
-            TaskEditWindow(id_name[0][0], self)    # Берём первый пункт из выбранных, остальные игнорим :)
+        # Получаем кортеж из id выбранной таски и её имени.
+        try:
+            id_name = (self.tdict[self.listframe.taskslist.focus()][0], self.tdict[self.listframe.taskslist.focus()][1])
+        except KeyError:
+            pass
+        else:
+            TaskEditWindow(id_name[0], self)
             self.update_list()
-            for i in self.listframe.taskslist.get_children():   # Находим строчку с таким же именем и выделяем её.
-                if self.listframe.taskslist.item(i)["values"][0] == id_name[0][1]:
-                    self.listframe.focus_(i)
+            for i in self.listframe.taskslist.get_children():   # Находим строчку с таким же именем
+                if self.listframe.taskslist.item(i)["values"][0] == id_name[1]:
+                    self.listframe.focus_(i)        # и выделяем её.
+                    self.update_descr(i)        # Обновляем описание.
                     break
 
 
@@ -374,7 +380,6 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
         self.tags = Tagslist(taskid, self, orientation='horizontal')  # Список тегов с возможностью их включения.
-    ##### Реализовать привязку тегов в БД!
         self.tags.grid(row=5, column=1, columnspan=2, pady=5, sticky='w')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
@@ -392,9 +397,14 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
     def update_task(self):
-        """Обновление параметров таски в БД. Пока обновляет только поле 'description'."""
-        taskdata = (self.taskname.get(1.0, 'end').rstrip(), self.description.get().rstrip())    # Имя (id) и описание задачи.
-        self.db.update_task(self.task[0], field='description', value=taskdata[1])
+        """Обновление параметров таски в БД."""
+        taskdata = self.description.get().rstrip()    # описание задачи.
+        self.db.update_task(self.task[0], field='description', value=taskdata)
+        for key in self.tags.states_dict:   # Также обновляем набор тегов для таски.
+            if self.tags.states_dict[key][0].get() == 1:
+                self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], key))
+            else:
+                self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], key))
         self.destroy()
 
 
