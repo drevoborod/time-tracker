@@ -99,6 +99,13 @@ class Db():
                 states_list.append([k[1], [0, k[0]]])
         return states_list
 
+    def simple_tagslist(self):
+        """Вовзращает список тегов в таков же формате, как tags_dict, но не привязанных к задаче."""
+        tagslist = self.find_all("tagnames", sortfield="tag_name")
+        res = [[y, [0, x]] for x, y in tagslist]
+        res.reverse()
+        return res
+
     def close(self):
         self.cur.close()
         self.con.close()

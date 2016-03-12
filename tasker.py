@@ -254,7 +254,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         self.exportbutton = TaskButton(self, text="Export...")      # Кнопка экспорта.
         self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
-        self.filterbutton = TaskButton(self, text="Filter...")      # Кнопка фильтра.
+        self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)      # Кнопка фильтра.
         self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
         tk.Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
@@ -350,6 +350,8 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                     self.update_descr(i)        # Обновляем описание.
                     break
 
+    def filterwindow(self):
+        self.filteroptions = FilterWindow(self)
 
 class TaskEditWindow(tk.Toplevel, Db_operations):
     """Окно редактирования свойств задачи."""
@@ -437,8 +439,7 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         """Создание списка тегов."""
         if hasattr(self, 'tags'):
             self.tags.destroy()
-        tagslist = self.db.find_all("tagnames", sortfield="tag_name")
-        self.tags = Tagslist(reversed([[y, [0, x]] for x, y in tagslist]), self)
+        self.tags = Tagslist(self.db.simple_tagslist(), self)
         self.tags.grid(row=1, column=0, columnspan=3)
 
     def add(self):
@@ -558,6 +559,22 @@ class Tagslist(ScrolledCanvas):
             cb = tk.Checkbutton(self.content_frame, text=item[1][1], variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             item[1][0].set(state)     # Передаём динамической перемнной сохранённое ранее состояние.
+
+
+class FilterWindow(tk.Toplevel, Db_operations):
+    """Окно настройки фильтра."""
+    def __init__(self, parent=None, **options):
+        tk.Toplevel.__init__(self, master=parent, **options)
+        Db_operations.__init__(self)
+        self.db.exec_script('select distinct date from dates order by date desc')
+        dates = self.db.cur.fetchall()
+        tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
+        tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
+        self.dateslist = Tagslist([[x[0], [0, x[0]]] for x in dates], self)
+        self.tagslist = Tagslist(self.db.simple_tagslist(), self)
+        self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='nws')
+        self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='nes')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=2, column=1, pady=5, padx=5, sticky='e')
 
 
 def big_font(unit, size=20):
