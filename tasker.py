@@ -410,11 +410,11 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         """Обновление параметров таски в БД."""
         taskdata = self.description.get().rstrip()    # описание задачи.
         self.db.update_task(self.task[0], field='description', value=taskdata)
-        for key in self.tags.states_dict:   # Также обновляем набор тегов для таски.
-            if self.tags.states_dict[key][0].get() == 1:
-                self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], key))
+        for item in self.tags.states_list:   # Также обновляем набор тегов для таски.
+            if item[1][0].get() == 1:
+                self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
-                self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], key))
+                self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], item[0]))
         self.destroy()
 
 
@@ -437,23 +437,27 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         """Создание списка тегов."""
         if hasattr(self, 'tags'):
             self.tags.destroy()
-        tagslist = self.db.find_all("tagnames")
-        self.tags = Tagslist({y: [0, x] for x, y in tagslist}, self)
+        tagslist = self.db.find_all("tagnames", sortfield="tag_name")
+        self.tags = Tagslist(reversed([[y, [0, x]] for x, y in tagslist]), self)
         self.tags.grid(row=1, column=0, columnspan=3)
 
     def add(self):
         """Добавление тега в БД."""
         tagname = self.addfield.get()
         if len(tagname) > 0:
-            self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
-            self.tags_update()
+            try:
+                self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
+            except core.DbErrors:
+                pass
+            else:
+                self.tags_update()
 
     def delete(self):
         """Удаление отмеченных тегов из БД."""
         dellist = []
-        for key in self.tags.states_dict:
-            if self.tags.states_dict[key][0].get() == 1:
-                dellist.append(key)
+        for item in self.tags.states_list:
+            if item[1][0].get() == 1:
+                dellist.append(item[0])
         if len(dellist) > 0:
             answer = askyesno("Really delete?", "Are you sure you want to delete selected tags?")
             if answer:
@@ -542,18 +546,18 @@ class ScrolledCanvas(tk.Frame):
 
 
 class Tagslist(ScrolledCanvas):
-    """Список тегов. Формируется из словаря tagsdict.
-    Он имеет вид {tag_id: [state, 'tagname']}, где state может быть 0 или 1."""
-    def __init__(self, tagsdict, parent=None, orientation="vertical", **options):
+    """Список тегов. Формируется из списка tagslist.
+    Он имеет вид [[tag_id, [state, 'tagname']]], где state может быть 0 или 1."""
+    def __init__(self, tagslist, parent=None, orientation="vertical", **options):
         super().__init__(parent=parent, orientation=orientation, **options)
-        self.states_dict = tagsdict    # Словарь id тегов с состояниями для данной таски и именами.
-        for key in self.states_dict:
-            state = self.states_dict[key][0]    # Сохраняем состояние, заданное для данного тега в словаре.
-            self.states_dict[key][0] = tk.IntVar()  # Подставляем вместо этого состояния динамическую переменную.
+        self.states_list = tagslist    # Словарь id тегов с состояниями для данной таски и именами.
+        for item in self.states_list:
+            state = item[1][0]    # Сохраняем состояние, заданное для данного тега в словаре.
+            item[1][0] = tk.IntVar()  # Подставляем вместо этого состояния динамическую переменную.
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
-            cb = tk.Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            cb = tk.Checkbutton(self.content_frame, text=item[1][1], variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
-            self.states_dict[key][0].set(state)     # Передаём динамической перемнной сохранённое ранее состояние.
+            item[1][0].set(state)     # Передаём динамической перемнной сохранённое ранее состояние.
 
 
 def big_font(unit, size=20):
