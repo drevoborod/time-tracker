@@ -500,7 +500,7 @@ class ScrolledCanvas(tk.Frame):
             self.grid_rowconfigure('all', weight=1)
             self.grid_columnconfigure(0, weight=1)
         self.content_frame = tk.Frame(self.canvbox)
-        self.content_frame.pack(fill='both', expand=1)
+        #self.content_frame.pack(fill='both', expand='yes')     # Похоже, лишнее.
         self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
         self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
         self.canvbox.grid(row=0, column=0, sticky='news')
@@ -517,11 +517,12 @@ class Tagslist(ScrolledCanvas):
         super().__init__(parent=parent, orientation=orientation, **options)
         self.states_dict = tagsdict    # Словарь id тегов с состояниями для данной таски и именами.
         for key in self.states_dict:
-            state = self.states_dict[key][0]
-            self.states_dict[key][0] = tk.IntVar()
+            state = self.states_dict[key][0]    # Сохраняем состояние, заданное для данного тега в словаре.
+            self.states_dict[key][0] = tk.IntVar()  # Подставляем вместо этого состояния динамическую переменную.
+            # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
             cb = tk.Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
-            self.states_dict[key][0].set(state)
+            self.states_dict[key][0].set(state)     # Передаём динамической перемнной сохранённое ранее состояние.
 
 
 def big_font(unit, size=20):
