@@ -278,9 +278,12 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
                 self.listframe.taskslist.focus_set()
 
-    def update_list(self):
+    def update_list(self, query=None):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
-        tlist = self.db.find_all("tasks")
+        if query:
+            pass        # Тут будет tlist на основании хитрого запроса к БД.
+        else:
+            tlist = self.db.find_all("tasks")
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
         self.tdict = {}     # Словарь соответствий индексов строчек в таблице и инфы о тасках.
         i = 0
@@ -352,6 +355,14 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def filterwindow(self):
         self.filteroptions = FilterWindow(self)
+        TaskButton(self.filteroptions, text='Ok', command=self.apply_filter).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+
+    def apply_filter(self):
+        query = None        # Хитрый запрос, собранный из параметров фильтра.
+                            # Также нужно продумать, как сохранять состояние фильтра.
+        self.filteroptions.destroy()
+        self.update_list(query)
+
 
 class TaskEditWindow(tk.Toplevel, Db_operations):
     """Окно редактирования свойств задачи."""
