@@ -423,11 +423,42 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
         self.grab_set()
-        tagslist = self.db.find_all("tagnames")
-        self.tags = Tagslist({y: [0, x] for x, y in tagslist}, self)
-        self.tags.grid()
+        tk.Label(self, text='New tag:').grid(row=0, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
+        self.addfield = tk.Entry(self, width=20)
+        self.addfield.grid(row=0, column=1)
+        self.tags_update()
+        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        self.addfield.focus_set()
         self.wait_window()
 
+    def tags_update(self):
+        """Создание списка тегов."""
+        if hasattr(self, 'tags'):
+            self.tags.destroy()
+        tagslist = self.db.find_all("tagnames")
+        self.tags = Tagslist({y: [0, x] for x, y in tagslist}, self)
+        self.tags.grid(row=1, column=0, columnspan=3)
+
+    def add(self):
+        """Добавление тега в БД."""
+        tagname = self.addfield.get()
+        if len(tagname) > 0:
+            self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
+            self.tags_update()
+
+    def delete(self):
+        """Удаление отмеченных тегов из БД."""
+        dellist = []
+        for key in self.tags.states_dict:
+            if self.tags.states_dict[key][0].get() == 1:
+                dellist.append(key)
+        if len(dellist) > 0:
+            answer = askyesno("Really delete?", "Are you sure you want to delete selected tags?")
+            if answer:
+                self.db.delete(tuple(dellist), field='tag_id', table='tagnames')
+                self.tags_update()
 
 
 class HelpWindow(tk.Toplevel):
@@ -484,7 +515,7 @@ class ScrolledList(tk.Frame):
 class ScrolledCanvas(tk.Frame):
     """Прокручиваемый Canvas."""
     def __init__(self, parent=None, orientation="vertical", **options):
-        super().__init__(master=parent, **options)
+        super().__init__(master=parent, relief='groove', bd=2, **options)
         scroller = tk.Scrollbar(self, orient=orientation)
         self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 100),
                               height=(30 if orientation == "horizontal" else 100))
@@ -560,7 +591,7 @@ run.mainloop()
 
 
 
-# ToDo: Вместо AllTags и TagsList сделать один класс (там весь код дублируется, кроме словаря self.states_dict).
+# ToDo: Сделать кнопку Clear all на главном экране.
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
