@@ -379,8 +379,8 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
-        self.tags = Tagslist(taskid, self, orientation='horizontal')  # Список тегов с возможностью их включения.
-        self.tags.grid(row=5, column=1, columnspan=2, pady=5, sticky='w')
+        self.tags_update()
+        TaskButton(self, text='Edit tags', command=self.tags_edit).grid(row=5, column=3, padx=5, pady=5, sticky='e')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
@@ -396,6 +396,16 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         self.description.text.focus_set()       # Ставим фокус в окошко с описанием.
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
 
+    def tags_edit(self):
+        """Открывает окно редактирования списка тегов."""
+        TagsEditWindow(self)
+        self.tags_update()
+
+    def tags_update(self):
+        """Отображает список тегов."""
+        self.tags = Tagslist(self.task[0], self, orientation='horizontal')  # Список тегов с возможностью их включения.
+        self.tags.grid(row=5, column=1, columnspan=3, pady=5, sticky='w')
+
     def update_task(self):
         """Обновление параметров таски в БД."""
         taskdata = self.description.get().rstrip()    # описание задачи.
@@ -406,6 +416,17 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
             else:
                 self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], key))
         self.destroy()
+
+
+class TagsEditWindow(tk.Toplevel, Db_operations):
+    def __init__(self, parent=None, **options):
+        tk.Toplevel.__init__(self, master=parent, **options)
+        Db_operations.__init__(self)
+        self.grab_set()
+        self.tags = AllTags(self)
+        self.tags.grid()
+        self.wait_window()
+
 
 
 class HelpWindow(tk.Toplevel):
@@ -488,6 +509,20 @@ class ScrolledCanvas(tk.Frame):
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
 
 
+class AllTags(ScrolledCanvas, Db_operations):
+    def __init__(self, parent=None, orientation="vertical", **options):
+        ScrolledCanvas.__init__(self, parent=parent, orientation=orientation, **options)
+        Db_operations.__init__(self)
+        tagslist = self.db.find_all("tagnames")
+        self.states_dict = {y: [0, x] for x, y in tagslist}
+        for key in self.states_dict:
+            state = self.states_dict[key][0]
+            self.states_dict[key][0] = tk.IntVar()
+            cb = tk.Checkbutton(self.content_frame, text=self.states_dict[key][1], variable=self.states_dict[key][0])
+            cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
+            self.states_dict[key][0].set(state)
+
+
 class Tagslist(ScrolledCanvas, Db_operations):
     """Список тегов."""
     def __init__(self, taskid, parent=None, orientation="vertical", **options):
@@ -537,7 +572,7 @@ run.mainloop()
 
 
 
-
+# ToDo: Вместо AllTags и TagsList сделать один класс (там весь код дублируется, кроме словаря self.states_dict).
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
