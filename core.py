@@ -62,8 +62,8 @@ class Db():
             self.insert("tags", ("tag_id", "task_id"), (1, id))
             return id      # Возвращаем id записи в таблице tasks, которую добавили.
 
-    def update(self, id, field="timer", value=0, table="tasks"):
-        self.exec_script(("update {0} set {1}=? where id='{2}'".format(table, field, id), (value, )))
+    def update(self, id, field="timer", value=0, table="tasks", updfiled="id"):
+        self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, id, updfiled), (value, )))
 
     def update_task(self, id, field="timer", value=0):
         """Обновить запись в таблице задач. Если для этой задачи нет записи на текущую дату, добавляем такую запись."""
@@ -93,14 +93,11 @@ class Db():
         actual_tags = [x[0] for x in self.cur.fetchall()]    # [1, 3, ...]
         states_list = []   #  {1: [1, 'tag1'],  2: [0, 'tag2'], 3: [1, 'tag3']} - словарь актуальных состояний для тегов для данной таски.
         for k in tagnames:
-            if k[1] in actual_tags:
-                states_list.append([k[1], [1, k[0]]])
-            else:
-                states_list.append([k[1], [0, k[0]]])
+            states_list.append([k[1], [1 if k[1] in actual_tags else 0, k[0]]])
         return states_list
 
     def simple_tagslist(self):
-        """Вовзращает список тегов в таков же формате, как tags_dict, но не привязанных к задаче."""
+        """Возвращает список тегов в таков же формате, как tags_dict, но не привязанных к какой-то задаче."""
         tagslist = self.find_all("tagnames", sortfield="tag_name")
         res = [[y, [0, x]] for x, y in tagslist]
         res.reverse()
@@ -144,4 +141,5 @@ table_structure = """\
                 create table tagnames (tag_name text,
                 tag_id integer primary key autoincrement);
                 insert into tagnames values ('default', 1);
+                insert into options (option_name) values ('filter');
                 """

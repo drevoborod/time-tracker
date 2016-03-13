@@ -259,7 +259,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         tk.Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
-        self.update_list()
+        self.update_list()      # Заполняем содержимое таблицы.
         self.current_task = ''      # Текущая выбранная задача.
         self.listframe.taskslist.bind("<Down>", lambda e: self.descr_down())
         self.listframe.taskslist.bind("<Up>", lambda e: self.descr_up())
@@ -278,10 +278,12 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                 self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
                 self.listframe.taskslist.focus_set()
 
-    def update_list(self, query=None):
+    def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
+        query = self.db.find_by_clause('options', 'option_name', 'filter', 'value')[0][0]   # Восстанавливаем значение фильтра.
         if query:
-            pass        # Тут будет tlist на основании хитрого запроса к БД.
+            self.db.exec_script(query)
+            tlist = self.db.cur.fetchall()
         else:
             tlist = self.db.find_all("tasks")
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
@@ -315,6 +317,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
             self.update_descr(item)
         else:
             self.update_descr(next_item)
+        # Короткая запись, для истории:
         #self.update_descr(item if self.listframe.taskslist.next(item) == '' else self.listframe.taskslist.next(item))
 
     def update_descr(self, item):
@@ -354,14 +357,31 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                     break
 
     def filterwindow(self):
+        """Открытие окна фильтров."""
         self.filteroptions = FilterWindow(self)
-        TaskButton(self.filteroptions, text='Ok', command=self.apply_filter).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self.filteroptions, text='Ok', command=self.apply_filter).grid(row=3, column=0, pady=5, padx=5, sticky='w')
 
     def apply_filter(self):
-        query = None        # Хитрый запрос, собранный из параметров фильтра.
-                            # Также нужно продумать, как сохранять состояние фильтра.
+        """Функция берёт фильтр из парамтеров, заданных в окне фильтров."""
+        dates = list(reversed([x[0] for x in self.filteroptions.dateslist.states_list if x[1][0].get() == 1]))
+        tags = list(reversed([x[0] for x in self.filteroptions.tagslist.states_list if x[1][0].get() == 1]))
+        if len(dates) == 0 and len(tags) == 0:
+            script = None
+        else:
+            if len(dates) > 0 and len(tags) > 0:
+                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
+                        "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
+                        "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                            tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+            elif len(dates) == 0:
+                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
+                        "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
+            elif len(tags) == 0:
+                script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
+                        "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+        self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
         self.filteroptions.destroy()
-        self.update_list(query)
+        self.update_list()
 
 
 class TaskEditWindow(tk.Toplevel, Db_operations):
@@ -622,7 +642,8 @@ TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pa
 run.mainloop()
 
 
-
+# Todo: Поправить проставление галочек в онке фильтра согласно текущему значению из БД.
+# TOdo: Сделать кнопки Clear в окошке фильтра.
 # ToDo: Сделать кнопку Clear all на главном экране.
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
