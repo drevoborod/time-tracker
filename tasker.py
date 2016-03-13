@@ -569,7 +569,7 @@ class Tagslist(ScrolledCanvas):
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
             cb = tk.Checkbutton(self.content_frame, text=item[1][1], variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
-            item[1][0].set(state)     # Передаём динамической перемнной сохранённое ранее состояние.
+            item[1][0].set(state)     # Передаём динамической переменной сохранённое ранее состояние.
 
 
 class FilterWindow(tk.Toplevel, Db_operations):
@@ -602,7 +602,6 @@ class FilterWindow(tk.Toplevel, Db_operations):
         self.wait_window()
 
     def clear_dates(self):
-        print()
         for x in self.dateslist.states_list:
             x[1][0].set(0)
 
