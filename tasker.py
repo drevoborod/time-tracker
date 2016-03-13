@@ -71,8 +71,7 @@ class TaskFrame(tk.Frame, Db_operations):
         self.create_content()
 
     def name_dialogue(self):
-        """ Диалоговое окно выбора задачи.
-        """
+        """ Диалоговое окно выбора задачи."""
         self.dialogue_window = TaskSelectionWindow(self)
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
@@ -453,6 +452,7 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.addfield.focus_set()
+        self.addfield.bind('<Return>', lambda event: self.add())
         self.wait_window()
 
     def tags_update(self):
@@ -490,7 +490,7 @@ class HelpWindow(tk.Toplevel):
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         self.helptext = tk.Text(self)
-        self.helptext.insert(1.0, "Здесь будет помощь. Когда-нибудь.")
+        self.helptext.insert(1.0, core.help_text)
         self.helptext.config(state='disabled')
         self.helptext.grid(row=0, column=0, sticky='news')
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
@@ -675,9 +675,7 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='
 TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-
-# Todo: Реализовать проставление галочек в окне фильтра согласно текущему значению из БД.
-# TOdo: Сделать кнопки Clear в окошке фильтра.
+# ToDO: Разобраться с первой (безымянной) колонкой списка тасок.
 # ToDo: Сделать кнопку Clear all на главном экране.
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
