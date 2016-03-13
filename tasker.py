@@ -4,6 +4,7 @@ import time
 import core
 import tkinter.font as fonter
 import tkinter as tk
+from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askquestion, askyesno
 from tkinter import ttk
 
@@ -207,7 +208,7 @@ class TaskList(tk.Frame):
     def insert_tasks(self, tasks):
         # Вставляем в таблицу все строки, собственно значения в виде кортежей передаются в values=.
         for i, v in enumerate(tasks):
-            self.taskslist.insert('', i, text=i, values=v)      # item, number, value
+            self.taskslist.insert('', i, text="#%d" % (i + 1), values=v)      # item, number, value
 
     def update_list(self, tasks):
         for item in self.taskslist.get_children():
@@ -240,8 +241,8 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.listframe = TaskList(columnnames, self)     # Таблица тасок со скроллом.
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
         tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        self.fulltime = TaskLabel(self, width=10)       # Общее время
-        self.fulltime.grid(row=2, column=1, padx=6, pady=5, sticky='e')
+        self.fulltime_frame = TaskLabel(self, width=10)       # Общее время
+        self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
         self.description = Description(self, height=4)      # Описание выбранной задачи.
         self.description.grid(row=2, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         self.selbutton = TaskButton(self, text="Select all", command=self.select_all)   # Кнопка "выбрать всё".
@@ -252,7 +253,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
         self.delbutton = TaskButton(self, text="Remove", command=self.delete)   # Кнопка "Удалить".
         self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
-        self.exportbutton = TaskButton(self, text="Export...")      # Кнопка экспорта.
+        self.exportbutton = TaskButton(self, text="Export...", command=self.export)      # Кнопка экспорта.
         self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
         self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)      # Кнопка фильтра.
         self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
@@ -264,6 +265,13 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.listframe.taskslist.bind("<Down>", lambda e: self.descr_down())
         self.listframe.taskslist.bind("<Up>", lambda e: self.descr_up())
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
+
+    def export(self):
+        text = "Task name,Time spent, Creation date\n"
+        text = text + '\n'.join(','.join([row[1], core.time_format(row[2]), row[4]]) for row in self.tdict.values())
+        text = text + '\nSummary time,%s\n' % self.fulltime
+        filename = asksaveasfilename(parent=self, defaultextension='.csv', filetypes=[("All files","*.*")])
+        core.export(filename, text)
 
     def add_new_task(self):
         """Добавление новой задачи в БД."""
@@ -294,7 +302,8 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         for id in self.listframe.taskslist.get_children():
             self.tdict[id] = tlist[i]
             i += 1
-        self.fulltime.config(text=core.time_format(sum([x[2] for x in tlist])))
+        self.fulltime = core.time_format(sum([x[2] for x in tlist]))
+        self.fulltime_frame.config(text=self.fulltime)
 
     def descr_click(self, event):
         """Передаёт item, на котором стоит курсор мыши."""

@@ -112,6 +112,10 @@ class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
     pass
 
+def export(filename, text):
+    expfile = open(filename, 'w')
+    expfile.write(text)
+    expfile.close()
 
 def time_format(sec):
     """Функция возвращает время в удобочитаемом формате. Принимает секунды."""
@@ -142,6 +146,6 @@ table_structure = """\
                 tag_id integer primary key autoincrement);
                 insert into tagnames values ('default', 1);
                 insert into options (option_name) values ('filter');
-                insert into options (option_name) values ('filter_tags');
-                insert into options (option_name) values ('filter_dates');
+                insert into options (option_name, value) values ('filter_tags', '');
+                insert into options (option_name, value) values ('filter_dates', '');
                 """
