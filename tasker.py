@@ -577,20 +577,41 @@ class FilterWindow(tk.Toplevel, Db_operations):
     def __init__(self, parent=None, **options):
         tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
+        # Списки сохранённых состояний фильтров:
+        stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
+        stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
+        if len(stored_tags[0]) > 0:
+            stored_tags = [int(x) for x in stored_tags]
         self.db.exec_script('select distinct date from dates order by date desc')
-        dates = [x[0] for x in self.db.cur.fetchall()]
+        dates = [x[0] for x in self.db.cur.fetchall()]      # Список дат.
+        tags = self.db.simple_tagslist()        # Список тегов.
+        for tag in tags:        # Помечаем выбранные ранее теги согласно взятой из БД информации.
+            if tag[0] in stored_tags:
+                tag[1][0] = 1
         tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
         tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
-        self.dateslist = Tagslist([[x, [0, x]] for x in dates], self)
-        self.tagslist = Tagslist(self.db.simple_tagslist(), self)
+        self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self)
+        self.tagslist = Tagslist(tags, self)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='nws')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='nes')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, pady=5, padx=5, sticky='e')
-        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=3, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=5, padx=5, sticky='e')
+        tk.Frame(self, height=40).grid(row=3, column=0, columnspan=2, sticky='news')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=4, column=1, pady=5, padx=5, sticky='e')
+        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=4, column=0, pady=5, padx=5, sticky='w')
         self.wait_window()
 
+    def clear_dates(self):
+        print()
+        for x in self.dateslist.states_list:
+            x[1][0].set(0)
+
+    def clear_tags(self):
+        for x in self.tagslist.states_list:
+            x[1][0].set(0)
+
     def apply_filter(self):
-        """Функция берёт фильтр из парамтеров, заданных в окне фильтров."""
+        """Функция берёт фильтр из параметров, заданных в окне фильтров."""
         dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
         if len(dates) == 0 and len(tags) == 0:
@@ -608,6 +629,8 @@ class FilterWindow(tk.Toplevel, Db_operations):
                 script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
                         "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
         self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
+        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
+        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
         self.destroy()
 
 

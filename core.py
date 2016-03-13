@@ -142,4 +142,6 @@ table_structure = """\
                 tag_id integer primary key autoincrement);
                 insert into tagnames values ('default', 1);
                 insert into options (option_name) values ('filter');
+                insert into options (option_name) values ('filter_tags');
+                insert into options (option_name) values ('filter_dates');
                 """
