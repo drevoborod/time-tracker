@@ -489,11 +489,16 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
 class HelpWindow(tk.Toplevel):
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
-        self.helptext = tk.Text(self)
+        self.helptext = tk.Text(self, wrap='word')
+        scroll = tk.Scrollbar(self, command=self.helptext.yview)
+        self.helptext.config(yscrollcommand=scroll.set)
         self.helptext.insert(1.0, core.help_text)
         self.helptext.config(state='disabled')
+        scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
 class Description(tk.Frame):
     def __init__(self, parent=None, **options):
