@@ -60,17 +60,19 @@ def date_format(date):
 
 
 table_structure = """\
-                create table tasks (id integer primary key,
+                create table tasks (id integer primary key autoincrement,
                 task_name text unique,
                 timer int,
                 description text,
                 creation_date text);
-                create table options (name text unique,
+                create table options (option_name text unique,
                 value text);
                 create table dates (date text,
                 task_id int);
-                create table tags (tag_name text,
+                create table tags (tag_id text,
                 task_id int);
+                create table tagnames (tag_name text unique,
+                tag_id integer autoincrement);
                 """
 
 
@@ -94,3 +96,48 @@ print(db.cur.fetchall())
 
 # SELECT DISTINCT column1, column2,.....columnN FROM table_name WHERE [condition]: поля не повторяются
 # http://www.tutorialspoint.com/sqlite/sqlite_using_joins.htm
+# Окно редактирования таски, даты: select date from dates where task_id=<id>
+# Окно редактирования таски, теги, колонка "имена тегов": select tag_name from tagnames
+# Окно редактирования таски, теги, колонка "выбранные теги"(галки): select tag_id from tagnames join tags on tags.task_id=<id>
+# Окно добавления/удаления тегов: select tag_name from tagnames
+# Окно фильтра, список дат: select distinct date from dates
+# Окно фильтра, список тегов: select tag_name from tagnames
+# Список задач с условием: select id, task_name, timer, description, creation_date from tasks join dates on dates.task_id = tasks.id where dates.date = '09.03.2016'
+# Или так: select id, task_name, timer, description, creation_date from tasks join dates on dates.task_id = tasks.id left join tags on tags.task_id = tasks.id where dates.date in ('09.03.2016', '08.03.2016') and tags.task_id in (1,3);
+
+import tkinter as tk
+
+class Example(tk.Frame):
+    def __init__(self, root):
+
+        tk.Frame.__init__(self, root)
+        self.canvas = tk.Canvas(root, borderwidth=0, background="#ffffff")
+        self.frame = tk.Frame(self.canvas, background="#ffffff")
+        self.vsb = tk.Scrollbar(root, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vsb.set)
+
+        self.vsb.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.create_window((4,4), window=self.frame, anchor="nw",
+                                  tags="self.frame")
+
+        self.frame.bind("<Configure>", self.onFrameConfigure)
+
+        self.populate()
+
+    def populate(self):
+        '''Put in some fake data'''
+        for row in range(100):
+            tk.Label(self.frame, text="%s" % row, width=3, borderwidth="1",
+                     relief="solid").grid(row=row, column=0)
+            t="this is the second column for row %s" %row
+            tk.Label(self.frame, text=t).grid(row=row, column=1)
+
+    def onFrameConfigure(self, event):
+        '''Reset the scroll region to encompass the inner frame'''
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+if __name__ == "__main__":
+    root=tk.Tk()
+    Example(root).pack(side="top", fill="both", expand=True)
+    root.mainloop()
