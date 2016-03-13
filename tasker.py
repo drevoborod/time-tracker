@@ -284,8 +284,10 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         if query:
             self.db.exec_script(query)
             tlist = self.db.cur.fetchall()
+            self.filterbutton.config(bg='lightblue')
         else:
             tlist = self.db.find_all("tasks")
+            self.filterbutton.config(bg=core.Params.colour)
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
         self.tdict = {}     # Словарь соответствий индексов строчек в таблице и инфы о тасках.
         i = 0
@@ -359,28 +361,6 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
     def filterwindow(self):
         """Открытие окна фильтров."""
         self.filteroptions = FilterWindow(self)
-        TaskButton(self.filteroptions, text='Ok', command=self.apply_filter).grid(row=3, column=0, pady=5, padx=5, sticky='w')
-
-    def apply_filter(self):
-        """Функция берёт фильтр из парамтеров, заданных в окне фильтров."""
-        dates = list(reversed([x[0] for x in self.filteroptions.dateslist.states_list if x[1][0].get() == 1]))
-        tags = list(reversed([x[0] for x in self.filteroptions.tagslist.states_list if x[1][0].get() == 1]))
-        if len(dates) == 0 and len(tags) == 0:
-            script = None
-        else:
-            if len(dates) > 0 and len(tags) > 0:
-                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
-                        "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
-                        "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                            tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-            elif len(dates) == 0:
-                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
-                        "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
-            elif len(tags) == 0:
-                script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
-                        "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-        self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
-        self.filteroptions.destroy()
         self.update_list()
 
 
@@ -598,14 +578,37 @@ class FilterWindow(tk.Toplevel, Db_operations):
         tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
         self.db.exec_script('select distinct date from dates order by date desc')
-        dates = self.db.cur.fetchall()
+        dates = [x[0] for x in self.db.cur.fetchall()]
         tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
         tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
-        self.dateslist = Tagslist([[x[0], [0, x[0]]] for x in dates], self)
+        self.dateslist = Tagslist([[x, [0, x]] for x in dates], self)
         self.tagslist = Tagslist(self.db.simple_tagslist(), self)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='nws')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='nes')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=2, column=1, pady=5, padx=5, sticky='e')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, pady=5, padx=5, sticky='e')
+        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=3, column=0, pady=5, padx=5, sticky='w')
+        self.wait_window()
+
+    def apply_filter(self):
+        """Функция берёт фильтр из парамтеров, заданных в окне фильтров."""
+        dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
+        tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
+        if len(dates) == 0 and len(tags) == 0:
+            script = None
+        else:
+            if len(dates) > 0 and len(tags) > 0:
+                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
+                        "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
+                        "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                            tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+            elif len(dates) == 0:
+                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
+                        "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
+            elif len(tags) == 0:
+                script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
+                        "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+        self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
+        self.destroy()
 
 
 def big_font(unit, size=20):
@@ -642,7 +645,7 @@ TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pa
 run.mainloop()
 
 
-# Todo: Поправить проставление галочек в онке фильтра согласно текущему значению из БД.
+# Todo: Реализовать проставление галочек в окне фильтра согласно текущему значению из БД.
 # TOdo: Сделать кнопки Clear в окошке фильтра.
 # ToDo: Сделать кнопку Clear all на главном экране.
 # ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
