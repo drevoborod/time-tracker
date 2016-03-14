@@ -1,19 +1,7 @@
 # tasker
 A program for logging time spent on different tasks.
-
-___Roadmap___
-
-------Дедлайн: 1 апреля 2016:------
-
-1. Доработка интерфейса - исправление ошибок отображения, подгонка элементов и т.д.
-2. Регрессионное тестирование.
-
-
----------После 1 апреля:---------
-
-_Общее_
-?Добавить в таблицу dates поле spent_time, чтобы можно было фиксировать, сколько времени было потрачено
-на задачу за каждую указанную дату. Эта информация будет использоваться при фильтрации, когда будут отображаться задачи
-только для выбранных дат. В списке задач при применении фильтра время будет отображаться в двух столбцах:
-"общее время" и "время за дату". !Реализацию максимально оптимизировать!
-
+Has three stopwatch frames on main screen for visually logging work process.
+Tasks can be filtered by tags and by dates. Every time the task is opened
+its state is saved to database and than user can find all tasks
+on which he had been working at in selected day.
+Filtered tasks list can be exported as .csv.
