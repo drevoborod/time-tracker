@@ -33,10 +33,11 @@ class TaskFrame(tk.Frame, Db_operations):
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
-        self.openbutton.grid(row=1, column=5, padx=5, pady=5)
+        self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
         self.description = Description(self, width=60, height=3)        # Описание задачи
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
+        big_font(self.startbutton, size=14)
         self.startbutton.grid(row=3, column=0, sticky='esn')
         self.timer_window = TaskLabel(self, width=10, state='disabled')         # Окошко счётчика.
         big_font(self.timer_window)
@@ -44,7 +45,7 @@ class TaskFrame(tk.Frame, Db_operations):
         self.properties = TaskButton(self, text="Properties", state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
         self.properties.grid(row=3, column=4, sticky='e')
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Кнопка очистки фрейма.
-        self.clearbutton.grid(row=3, column=5)
+        self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
         self.running_time = 0   # Промежуточное значение счётчика.
         self.running = False    # Признак того, что счётчик работает.
@@ -182,7 +183,7 @@ class TaskList(tk.Frame):
     """Таблица задач со скроллом."""
     def __init__(self, columns, parent=None, **options):
         super().__init__(master=parent, **options)
-        self.taskslist = ttk.Treeview(self)     # Таблица.
+        self.taskslist = ttk.Treeview(self, takefocus=1)     # Таблица.
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.taskslist.yview)           # Привязываем скролл к таблице.
         self.taskslist.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
@@ -216,9 +217,10 @@ class TaskList(tk.Frame):
 
     def focus_(self, item):
         """Выделяет указанный пункт списка."""
-        self.taskslist.focus(item)
         self.taskslist.see(item)
         self.taskslist.selection_set(item)
+        self.taskslist.focus_set()
+        self.taskslist.focus(item)
 
 
 class TaskSelectionWindow(tk.Toplevel, Db_operations):
@@ -234,7 +236,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
         self.addentry.bind('<Return>', lambda event: self.add_new_task())    # По нажатию кнопки Энтер в этом поле добавляется таск.
         self.addentry.focus_set()
-        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task)   # Кнопка добавления новой задачи.
+        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)   # Кнопка добавления новой задачи.
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         self.listframe = TaskList(columnnames, self)     # Таблица тасок со скроллом.
@@ -264,8 +266,16 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.listframe.taskslist.bind("<Down>", lambda e: self.descr_down())
         self.listframe.taskslist.bind("<Up>", lambda e: self.descr_up())
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
+        self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
+
+    def focus_first_item(self):
+        """Ставит фокус на первой строке."""
+        item = self.listframe.taskslist.get_children()[0]
+        self.listframe.focus_(item)
+        self.update_descr(item)
 
     def export(self):
+        """Функция для экспорта списка задач в файл."""
         text = "Task name,Time spent, Creation date\n"
         text = text + '\n'.join(','.join([row[1], core.time_format(row[2]), row[4]]) for row in self.tdict.values())
         text = text + '\nSummary time,%s\n' % self.fulltime
@@ -543,7 +553,7 @@ class ScrolledCanvas(tk.Frame):
         super().__init__(master=parent, relief='groove', bd=2, **options)
         scroller = tk.Scrollbar(self, orient=orientation)
         self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 200),
-                              height=(30 if orientation == "horizontal" else 100))
+                              height=(30 if orientation == "horizontal" else 200))
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
         if orientation == "horizontal":
             self.canvbox.config(xscrollcommand=scroller.set)
