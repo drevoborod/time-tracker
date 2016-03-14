@@ -384,33 +384,33 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         self.minsize(width=400, height=300)
         taskname = tk.Label(self, text="Task name:")
         big_font(taskname, 10)
-        taskname.grid(row=0, column=0, pady=5, sticky='w')
+        taskname.grid(row=0, column=0, pady=5, padx=5, sticky='w')
         self.taskname = tk.Text(self, width=60, height=1, bg=core.Params.colour)
         big_font(self.taskname, 9)
         self.taskname.insert(1.0, self.task[1])
         self.taskname.config(state='disabled')
-        self.taskname.grid(row=1, columnspan=4, sticky='ew', padx=6)
+        self.taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
         tk.Frame(self, height=30).grid(row=2)
         description = tk.Label(self, text="Description:")
         big_font(description, 10)
-        description.grid(row=3, column=0, pady=5, sticky='w')
+        description.grid(row=3, column=0, pady=5, padx=5, sticky='w')
         self.description = Description(self, width=60, height=6)
         self.description.config(state='normal', bg='white')
         if self.task[3] is not None:
             self.description.insert(self.task[3])
-        self.description.grid(row=4, columnspan=4, sticky='ewns', padx=6)
-        tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, sticky='nw')
+        self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
+        tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
         self.tags_update()
-        TaskButton(self, text='Edit tags', command=self.tags_edit).grid(row=5, column=3, padx=5, pady=5, sticky='e')
+        TaskButton(self, text='Edit tags', command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
         datlist = Description(self, height=3, width=30)
         datlist.update_text(', '.join(dates))
-        datlist.grid(row=6, column=3, rowspan=3, sticky='ew', padx=5, pady=5)
+        datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
         tk.Frame(self, height=40).grid(row=9)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=3, sticky='se', padx=5, pady=5)
+        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
@@ -425,7 +425,7 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
     def tags_update(self):
         """Отображает список тегов."""
         self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal')  # Список тегов с возможностью их включения.
-        self.tags.grid(row=5, column=1, columnspan=3, pady=5, sticky='w')
+        self.tags.grid(row=5, column=1, columnspan=3, pady=5, sticky='we')
 
     def update_task(self):
         """Обновление параметров таски в БД."""
@@ -500,7 +500,7 @@ class HelpWindow(tk.Toplevel):
         self.helptext.config(state='disabled')
         scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
-        main_frame.grid(row=0, column=0, sticky='news')
+        main_frame.grid(row=0, column=0, sticky='news', padx=5,pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
@@ -555,7 +555,7 @@ class ScrolledCanvas(tk.Frame):
         self.content_frame = tk.Frame(self.canvbox)
         self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
         self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
-        self.canvbox.pack(fill="both", expand=1)
+        self.canvbox.pack(fill="x" if orientation == "horizontal" else "both", expand=1)
 
     def reconf_canvas(self):
         """Изменение размера области прокрутки Canvas."""
@@ -597,13 +597,16 @@ class FilterWindow(tk.Toplevel, Db_operations):
         tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
         self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self)
         self.tagslist = Tagslist(tags, self)
-        self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='nws')
-        self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='nes')
-        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=5, padx=5, sticky='e')
+        self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
+        self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
+        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
+        TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
         tk.Frame(self, height=40).grid(row=3, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=4, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=4, column=0, pady=5, padx=5, sticky='w')
+        self.minsize(height=250, width=250)
+        self.grid_columnconfigure('all', weight=1)
+        self.grid_rowconfigure(1, weight=1)
         self.wait_window()
 
     def clear_dates(self):
