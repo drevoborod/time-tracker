@@ -444,10 +444,11 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
         self.grab_set()
+        self.minsize(width=200, height=200)
         tk.Label(self, text='New tag:').grid(row=0, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
         self.addfield = tk.Entry(self, width=20)
-        self.addfield.grid(row=0, column=1)
+        self.addfield.grid(row=0, column=1, sticky='ew')
         self.tags_update()
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
@@ -460,7 +461,9 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         if hasattr(self, 'tags'):
             self.tags.destroy()
         self.tags = Tagslist(self.db.simple_tagslist(), self)
-        self.tags.grid(row=1, column=0, columnspan=3)
+        self.tags.grid(row=1, column=0, columnspan=3, sticky='news')
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
     def add(self):
         """Добавление тега в БД."""
@@ -534,41 +537,25 @@ class Description(tk.Frame):
         self.config(state='disabled')
 
 
-class ScrolledList(tk.Frame):
-    """Список со скроллом."""
-    def __init__(self, parent=None, **options):
-        super().__init__(master=parent, **options)
-        self.table = tk.Listbox(self, selectmode='extended')     # Таблица с включённым режимом множественного выделения по Control/Shift
-        scroller = tk.Scrollbar(self)
-        scroller.config(command=self.table.yview)           # Привязываем скролл к таблице.
-        self.table.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
-        scroller.pack(side='right', fill='y')                   # Сначала нужно ставить скролл!
-        self.table.pack(fill='both', expand=1)
-
-
 class ScrolledCanvas(tk.Frame):
     """Прокручиваемый Canvas."""
     def __init__(self, parent=None, orientation="vertical", **options):
         super().__init__(master=parent, relief='groove', bd=2, **options)
         scroller = tk.Scrollbar(self, orient=orientation)
-        self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 100),
+        self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 200),
                               height=(30 if orientation == "horizontal" else 100))
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
         if orientation == "horizontal":
             self.canvbox.config(xscrollcommand=scroller.set)
-            scroller.grid(row=1, column=0, sticky='ew')
-            self.grid_rowconfigure(0, weight=1)
-            self.grid_columnconfigure('all', weight=1)
         else:
             self.canvbox.config(yscrollcommand=scroller.set)
-            scroller.grid(row=0, column=1, sticky='ns')
-            self.grid_rowconfigure('all', weight=1)
-            self.grid_columnconfigure(0, weight=1)
+        scroller.pack(fill='x' if orientation == 'horizontal' else 'y', expand=1,
+                      side='bottom' if orientation == 'horizontal' else 'right',
+                      anchor='s' if orientation == 'horizontal' else 'e')
         self.content_frame = tk.Frame(self.canvbox)
-        #self.content_frame.pack(fill='both', expand='yes')     # Похоже, лишнее.
         self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
         self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
-        self.canvbox.grid(row=0, column=0, sticky='news')
+        self.canvbox.pack(fill="both", expand=1)
 
     def reconf_canvas(self):
         """Изменение размера области прокрутки Canvas."""
