@@ -361,6 +361,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
             if answer == "yes":
                 self.db.delete_tasks(tuple(ids))
                 self.update_list()
+        self.grab_set()
 
     def edit(self):
         """Окно редактирования свойств таски."""
@@ -377,11 +378,13 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                     self.listframe.focus_(i)        # и выделяем её.
                     self.update_descr(i)        # Обновляем описание.
                     break
+        self.grab_set()
 
     def filterwindow(self):
         """Открытие окна фильтров."""
         self.filteroptions = FilterWindow(self)
         self.update_list()
+        self.grab_set()
 
 
 class TaskEditWindow(tk.Toplevel, Db_operations):
@@ -433,6 +436,7 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         """Открывает окно редактирования списка тегов."""
         TagsEditWindow(self)
         self.tags_update()
+        self.grab_set()
 
     def tags_update(self):
         """Отображает список тегов."""
@@ -686,10 +690,9 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='
 TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
+
+# ToDo: Хоткеи копипаста должны работать в любой раскладке. Проверить на Винде.
 # ToDo: ?Сделать кнопку Clear all на главном экране.
-# ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
-# вызванное из окна выбора задачи.
-# ToDo: Хоткеи копипаста должны работать в любой раскладке.
 
 
 
