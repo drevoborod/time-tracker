@@ -42,8 +42,8 @@ class TaskFrame(tk.Frame, Db_operations):
         self.timer_window = TaskLabel(self, width=10, state='disabled')         # Окошко счётчика.
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, columnspan=3, pady=5)
-        self.properties = TaskButton(self, text="Properties", state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
-        self.properties.grid(row=3, column=4, sticky='e')
+        self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
+        self.properties.grid(row=3, column=4, sticky='e', padx=5)
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Кнопка очистки фрейма.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
@@ -175,8 +175,8 @@ class TaskLabel(tk.Label):
 
 class TaskButton(tk.Button):
     """Просто кнопка."""
-    def __init__(self, parent, **kwargs):
-        super().__init__(master=parent, width=8, **kwargs)
+    def __init__(self, parent, width=8, **kwargs):
+        super().__init__(master=parent, width=width, **kwargs)
 
 
 class TaskList(tk.Frame):
@@ -191,9 +191,11 @@ class TaskList(tk.Frame):
         self.taskslist.pack(fill='both', expand=1)              # Таблица - расширяемая во всех направлениях.
         self.taskslist.config(columns=tuple([col[0] for col in columns]))  # Создаём колонки и присваиваем им идентификаторы.
         for index, col in enumerate(columns):
-            self.taskslist.column(columns[index][0], width=100)   # Настраиваем колонки с указанными идентификаторами.
+            self.taskslist.column(columns[index][0], width=100, minwidth=100, anchor='center')   # Настраиваем колонки с указанными идентификаторами.
             # Настраиваем ЗАГОЛОВКИ колонок с указанными идентификаторами.
             self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]: self.sortlist(c, True))
+        self.taskslist.column('#0', anchor='w', width=70, minwidth=50, stretch=0)
+        self.taskslist.column('taskname', width=600, anchor='w')
 
     def sortlist(self, col, reverse):
         """Сортировка по клику в заголовок колонки."""
@@ -246,13 +248,13 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
         self.description = Description(self, height=4)      # Описание выбранной задачи.
         self.description.grid(row=2, column=2, rowspan=2, pady=5, padx=5, sticky='news')
-        self.selbutton = TaskButton(self, text="Select all", command=self.select_all)   # Кнопка "выбрать всё".
-        self.selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
-        self.clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)  # Кнопка "снять выделение".
-        self.clearbutton.grid(row=3, column=1, sticky='e', padx=5, pady=5)
-        self.editbutton = TaskButton(self, text="Properties", command=self.edit)    # Кнопка "свойства"
+        selbutton = TaskButton(self, text="Select all...", width=10, command=self.select_all)   # Кнопка "выбрать всё".
+        selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)  # Кнопка "снять выделение".
+        clearbutton.grid(row=3, column=1, sticky='w', padx=5, pady=5)
+        self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)    # Кнопка "свойства"
         self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
-        self.delbutton = TaskButton(self, text="Remove", command=self.delete)   # Кнопка "Удалить".
+        self.delbutton = TaskButton(self, text="Remove", width=10, command=self.delete)   # Кнопка "Удалить".
         self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         self.exportbutton = TaskButton(self, text="Export...", command=self.export)      # Кнопка экспорта.
         self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
@@ -411,8 +413,8 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
         self.tags_update()
-        TaskButton(self, text='Edit tags', command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
-        tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='e')
+        TaskButton(self, text='Edit tags', width=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
         tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
         datlist = Description(self, height=3, width=30)
@@ -435,7 +437,7 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
     def tags_update(self):
         """Отображает список тегов."""
         self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal')  # Список тегов с возможностью их включения.
-        self.tags.grid(row=5, column=1, columnspan=3, pady=5, sticky='we')
+        self.tags.grid(row=5, column=1, columnspan=3, pady=5, padx=5, sticky='we')
 
     def update_task(self):
         """Обновление параметров таски в БД."""
@@ -684,9 +686,7 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='
 TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-# ToDO: Разобраться с первой (безымянной) колонкой списка тасок.
-# ToDo: Сделать кнопку Clear all на главном экране.
-# ToDo: Поддержка клавиатуры (частично реализовано - в окне выбора задачи).
+# ToDo: ?Сделать кнопку Clear all на главном экране.
 # ToDo: Предотвращать разблокирование интерактива основного окна после того, как закрыто одно из окон,
 # вызванное из окна выбора задачи.
 # ToDo: Хоткеи копипаста должны работать в любой раскладке.
