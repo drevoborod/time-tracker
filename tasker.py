@@ -5,7 +5,7 @@ import core
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askquestion, askyesno
+from tkinter.messagebox import askquestion, askyesno, showinfo
 from tkinter import ttk
 
 class Db_operations():
@@ -60,6 +60,7 @@ class TaskFrame(tk.Frame, Db_operations):
     def add_timestamp(self):
         """Добавляем таймстемп в БД."""
         self.db.insert('timestamps', ('task_id', 'timestamp'), (self.task_id, self.running_time))
+        showinfo("Timestamp added", "Timestamp added successfully.")
 
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
@@ -308,8 +309,12 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                 print(err)
             else:
                 self.update_list()
-                self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
-                self.listframe.taskslist.focus_set()
+                items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
+                # Если созданная таска появилась в списке, ставим на неё курсор.
+                for item in items:
+                    if items[item]['values'][0] == task_name:
+                        self.listframe.focus_(item)  # Ставим фокус на указанную строку.
+                        break
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
@@ -748,8 +753,6 @@ TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pa
 run.mainloop()
 
 
-# ToDo: Исправить ошибку: при создании новой задачи, если применён фильтр, под который она не попадает, выделяется
-# последняя из отображаемых при этом фильтре.
 # ToDo: Хоткеи копипаста должны работать в любой раскладке. Проверить на Винде.
 # ToDo: ?Сделать кнопку Clear all на главном экране.
 
