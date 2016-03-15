@@ -55,11 +55,11 @@ class TaskFrame(tk.Frame, Db_operations):
         self.running = False    # Признак того, что счётчик работает.
 
     def timestamps_window(self):
-        TimestampsWindow(self.task_id, self)
+        TimestampsWindow(self.task_id, self.running_time, self)
 
     def add_timestamp(self):
         """Добавляем таймстемп в БД."""
-        self.db.insert('timestamps', ('task_id', 'timestamp'), (self.task_id, core.time_format(self.running_time)))
+        self.db.insert('timestamps', ('task_id', 'timestamp'), (self.task_id, self.running_time))
 
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
@@ -165,6 +165,7 @@ class TaskFrame(tk.Frame, Db_operations):
             self.running = False
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
+            print(self.running_time)
             self.db.update_task(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
@@ -475,8 +476,8 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         Db_operations.__init__(self)
         self.grab_set()
         self.addentry()
-        self.window_elements_config()
         self.tags_update()
+        self.window_elements_config()
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.wait_window()
@@ -540,23 +541,25 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
 
 class TimestampsWindow(TagsEditWindow):
     """Окно со списком таймстемпов для указанной задачи."""
-    def __init__(self, taskid, parent=None, **options):
+    def __init__(self, taskid, current_task_time, parent=None, **options):
         self.taskid = taskid
+        self.current_time = current_task_time
         super().__init__(parent=parent, **options)
 
     def window_elements_config(self):
         """Настройка параметров окна."""
         self.title("Timestamps")
         self.minsize(width=200, height=170)
+        self.tags.canvbox.config(width=400)
 
     def addentry(self): pass
 
     def tags_get(self):
-        self.tags = Tagslist(self.db.timestamps(self.taskid), self)
+        self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self)
 
     def del_record(self, dellist):
         for x in dellist:
-            self.db.exec_script('delete from timestamps where timestamp="{0}" and task_id={1}'.format(x, self.taskid))
+            self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):

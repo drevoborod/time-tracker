@@ -104,10 +104,10 @@ class Db():
         res.reverse()
         return res
 
-    def timestamps(self, taskid):
+    def timestamps(self, taskid, current_time):
         """Возвращает список таймстемпов в таков же формате, как tags_dict."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid, 'timestamp')
-        res = [[x[0], [0, x[0]]] for x in timestamps]
+        res = [[x[0], [0, '{0}; {1} have passed since that moment'.format(time_format(x[0]), time_format(current_time - x[0]))]] for x in timestamps]
         res.reverse()
         return res
 
@@ -150,7 +150,7 @@ table_structure = """\
                 task_id int);
                 create table tags (tag_id int,
                 task_id int);
-                create table timestamps (timestamp text,
+                create table timestamps (timestamp int,
                 task_id int);
                 create table tagnames (tag_name text unique,
                 tag_id integer primary key autoincrement);
