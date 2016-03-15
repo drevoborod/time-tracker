@@ -76,7 +76,7 @@ class Db():
         """Удаляет несколько записей, поэтому ids должен быть кортежом."""
         # ToDo: Попробовать сделать нормальную подстановку в скрипт, без необходимости проверки длины ids.
         if len(ids) == 1:
-            i = '(%s)' % ids[0]
+            i = "('%s')" % ids[0]
         else:
             i = ids
         self.exec_script("delete from {1} where {2} in {0}".format(i, table, field))
@@ -85,6 +85,7 @@ class Db():
         """Удаление задач."""
         self.delete(ids)
         self.delete(ids, field="task_id", table="dates")
+        self.delete(ids, field="task_id", table="timestamps")
 
     def tags_dict(self, taskid):
         """Создание списка тегов, их имён и значений для задачи с taskid."""
@@ -100,6 +101,13 @@ class Db():
         """Возвращает список тегов в таков же формате, как tags_dict, но не привязанных к какой-то задаче."""
         tagslist = self.find_all("tagnames", sortfield="tag_name")
         res = [[y, [0, x]] for x, y in tagslist]
+        res.reverse()
+        return res
+
+    def timestamps(self, taskid):
+        """Возвращает список таймстемпов в таков же формате, как tags_dict."""
+        timestamps = self.find_by_clause('timestamps', 'task_id', taskid, 'timestamp')
+        res = [[x[0], [0, x[0]]] for x in timestamps]
         res.reverse()
         return res
 
@@ -141,6 +149,8 @@ table_structure = """\
                 create table dates (date text,
                 task_id int);
                 create table tags (tag_id int,
+                task_id int);
+                create table timestamps (timestamp text,
                 task_id int);
                 create table tagnames (tag_name text unique,
                 tag_id integer primary key autoincrement);
