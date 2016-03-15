@@ -555,8 +555,8 @@ class TimestampsWindow(TagsEditWindow):
         self.tags = Tagslist(self.db.timestamps(self.taskid), self)
 
     def del_record(self, dellist):
-        print(dellist)
-        self.db.delete(tuple(dellist), field='timestamp', table='timestamps')
+        for x in dellist:
+            self.db.exec_script('delete from timestamps where timestamp="{0}" and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):
