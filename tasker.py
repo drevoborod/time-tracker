@@ -5,7 +5,7 @@ import core
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askquestion, askyesno
+from tkinter.messagebox import askquestion, askyesno, showinfo
 from tkinter import ttk
 
 class Db_operations():
@@ -38,10 +38,14 @@ class TaskFrame(tk.Frame, Db_operations):
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
         big_font(self.startbutton, size=14)
-        self.startbutton.grid(row=3, column=0, sticky='esn')
+        self.startbutton.grid(row=3, column=0, sticky='wsn')
         self.timer_window = TaskLabel(self, width=10, state='disabled')         # Окошко счётчика.
         big_font(self.timer_window)
-        self.timer_window.grid(row=3, column=1, columnspan=3, pady=5)
+        self.timer_window.grid(row=3, column=1, pady=5)
+        self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', command=self.add_timestamp)
+        self.add_timestamp_button.grid(row=3, column=2, sticky='w', padx=5)
+        self.timestamps_window_button = TaskButton(self, text='View\ntimestamps', width=10, state='disabled', command=self.timestamps_window)
+        self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
         self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Кнопка очистки фрейма.
@@ -49,6 +53,14 @@ class TaskFrame(tk.Frame, Db_operations):
         self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
         self.running_time = 0   # Промежуточное значение счётчика.
         self.running = False    # Признак того, что счётчик работает.
+
+    def timestamps_window(self):
+        TimestampsWindow(self.task_id, self.running_time, self)
+
+    def add_timestamp(self):
+        """Добавляем таймстемп в БД."""
+        self.db.insert('timestamps', ('task_id', 'timestamp'), (self.task_id, self.running_time))
+        showinfo("Timestamp added", "Timestamp added successfully.")
 
     def startstopbutton(self):
         """Изменяет состояние кнопки "Start/Stop". """
@@ -83,10 +95,10 @@ class TaskFrame(tk.Frame, Db_operations):
         """Функция для получения имени задачи."""
         tasks = self.dialogue_window.listframe.taskslist.selection()
         if len(tasks) == 1:
-            task_id = self.dialogue_window.tdict[tasks[0]][0]    # :))
-            task = self.db.find_by_clause("tasks", "id", task_id, "*")[0]  # Получаем данные о таске из БД.
+            self.task_id = self.dialogue_window.tdict[tasks[0]][0]    # :))
+            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]  # Получаем данные о таске из БД.
             # Проверяем, не открыта ли задача уже в другом окне:
-            if task_id not in core.Params.tasks:
+            if self.task_id not in core.Params.tasks:
                 if self.task:                  # Проверяем, не было ли запущено уже что-то в этом окне.
                     core.Params.tasks.remove(self.task[0])  # Если было, удаляем из списка запущенных.
                     # Останавливаем таймер старой задачи и сохраняем состояние:
@@ -113,6 +125,8 @@ class TaskFrame(tk.Frame, Db_operations):
         self.properties.config(state='normal')
         self.clearbutton.config(state='normal')
         self.timer_window.config(state='normal')
+        self.add_timestamp_button.config(state='normal')
+        self.timestamps_window_button.config(state='normal')
         self.description.update_text(self.task[3])
 
     def timer_update(self, counter=0):
@@ -152,6 +166,7 @@ class TaskFrame(tk.Frame, Db_operations):
             self.running = False
             self.start_time = 0
             # Записываем текущее значение таймера в БД.
+            print(self.running_time)
             self.db.update_task(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
@@ -294,8 +309,12 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
                 print(err)
             else:
                 self.update_list()
-                self.listframe.focus_(self.listframe.taskslist.get_children()[-1])  # Ставим фокус на последнюю строку.
-                self.listframe.taskslist.focus_set()
+                items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
+                # Если созданная таска появилась в списке, ставим на неё курсор.
+                for item in items:
+                    if items[item]['values'][0] == task_name:
+                        self.listframe.focus_(item)  # Ставим фокус на указанную строку.
+                        break
 
     def update_list(self):
         """Обновление содержимого таблицы задач (перечитываем из БД)."""
@@ -355,7 +374,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
 
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
-        ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection()]
+        ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
         if len(ids) > 0:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
@@ -456,27 +475,38 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
 
 
 class TagsEditWindow(tk.Toplevel, Db_operations):
+    """Шаблон окна редактирования какого-нибудь списка чекбаттонов."""
     def __init__(self, parent=None, **options):
         tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
         self.grab_set()
+        self.addentry()
+        self.tags_update()
+        self.window_elements_config()
+        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        self.wait_window()
+
+    def window_elements_config(self):
+        """Настройка параметров окна."""
+        self.title("Tags editor")
         self.minsize(width=200, height=200)
-        tk.Label(self, text='New tag:').grid(row=0, column=0, pady=5, padx=5, sticky='w')
+
+    def addentry(self):
+        """Создание поля для ввода нового элемента. При наследовании может быть заменён пустой функцией, тогда поля не будет."""
+        self.addentry_label = tk.Label(self, text="Add tag:")
+        self.addentry_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
         self.addfield = tk.Entry(self, width=20)
         self.addfield.grid(row=0, column=1, sticky='ew')
-        self.tags_update()
-        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.addfield.focus_set()
         self.addfield.bind('<Return>', lambda event: self.add())
-        self.wait_window()
 
     def tags_update(self):
         """Создание списка тегов."""
         if hasattr(self, 'tags'):
             self.tags.destroy()
-        self.tags = Tagslist(self.db.simple_tagslist(), self)
+        self.tags_get()
         self.tags.grid(row=1, column=0, columnspan=3, sticky='news')
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -486,7 +516,7 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         tagname = self.addfield.get()
         if len(tagname) > 0:
             try:
-                self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
+                self.add_record(tagname)
             except core.DbErrors:
                 pass
             else:
@@ -499,10 +529,42 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
             if item[1][0].get() == 1:
                 dellist.append(item[0])
         if len(dellist) > 0:
-            answer = askyesno("Really delete?", "Are you sure you want to delete selected tags?")
+            answer = askyesno("Really delete?", "Are you sure you want to delete selected items?")
             if answer:
-                self.db.delete(tuple(dellist), field='tag_id', table='tagnames')
+                self.del_record(dellist)
                 self.tags_update()
+
+    def tags_get(self):
+        self.tags = Tagslist(self.db.simple_tagslist(), self)
+
+    def add_record(self, tagname):
+        self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
+
+    def del_record(self, dellist):
+        self.db.delete(tuple(dellist), field='tag_id', table='tagnames')
+
+
+class TimestampsWindow(TagsEditWindow):
+    """Окно со списком таймстемпов для указанной задачи."""
+    def __init__(self, taskid, current_task_time, parent=None, **options):
+        self.taskid = taskid
+        self.current_time = current_task_time
+        super().__init__(parent=parent, **options)
+
+    def window_elements_config(self):
+        """Настройка параметров окна."""
+        self.title("Timestamps")
+        self.minsize(width=200, height=170)
+        self.tags.canvbox.config(width=400)
+
+    def addentry(self): pass
+
+    def tags_get(self):
+        self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self)
+
+    def del_record(self, dellist):
+        for x in dellist:
+            self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):
