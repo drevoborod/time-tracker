@@ -15,9 +15,7 @@ class TaskFrame(tk.Frame):
     """Класс отвечает за создание рамки таски со всеми элементами."""
     def __init__(self, parent=None):
         super().__init__(parent, relief='groove', bd=2)
-        core.check_database()
         self.db = core.Db()
-        # Check if tasks database actually exists:
         self.create_content()
 
     def create_content(self):
@@ -736,6 +734,8 @@ def quit():
         run.destroy()
 
 
+# Check if tasks database actually exists:
+core.check_database()
 # Global tasks ids set. Used for preserve duplicates:
 core.Params.tasks = set()
 # If True, all running timers will be stopped:
