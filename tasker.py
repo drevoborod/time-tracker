@@ -11,17 +11,13 @@ from tkinter import ttk
 import core
 
 
-class Db_operations():
-    """Класс-мостик для работы с БД."""
-    def __init__(self):
-        self.db = core.Db()
-
-
-class TaskFrame(tk.Frame, Db_operations):
+class TaskFrame(tk.Frame):
     """Класс отвечает за создание рамки таски со всеми элементами."""
     def __init__(self, parent=None):
-        tk.Frame.__init__(self, parent, relief='groove', bd=2)
-        Db_operations.__init__(self)
+        super().__init__(parent, relief='groove', bd=2)
+        core.check_database()
+        self.db = core.Db()
+        # Check if tasks database actually exists:
         self.create_content()
 
     def create_content(self):
@@ -243,12 +239,11 @@ class TaskList(tk.Frame):
         self.taskslist.focus(item)
 
 
-class TaskSelectionWindow(tk.Toplevel, Db_operations):
+class TaskSelectionWindow(tk.Toplevel):
     """Окно выбора и добавления задачи."""
     def __init__(self, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
-        self.db.check_database()        # Here we check if database actually exists :)
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
         self.title("Task selection")
         self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
@@ -410,11 +405,11 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.grab_set()
 
 
-class TaskEditWindow(tk.Toplevel, Db_operations):
+class TaskEditWindow(tk.Toplevel):
     """Окно редактирования свойств задачи."""
     def __init__(self, taskid, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
         self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
         dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
         self.grab_set()         # Делает все остальные окна неактивными.
@@ -478,11 +473,11 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
         self.destroy()
 
 
-class TagsEditWindow(tk.Toplevel, Db_operations):
+class TagsEditWindow(tk.Toplevel):
     """Шаблон окна редактирования какого-нибудь списка чекбаттонов."""
     def __init__(self, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
         self.grab_set()
         self.addentry()
         self.tags_update()
@@ -657,11 +652,11 @@ class Tagslist(ScrolledCanvas):
             item[1][0].set(state)     # Передаём динамической переменной сохранённое ранее состояние.
 
 
-class FilterWindow(tk.Toplevel, Db_operations):
+class FilterWindow(tk.Toplevel):
     """Окно настройки фильтра."""
     def __init__(self, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
         # Списки сохранённых состояний фильтров:
         stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
@@ -722,15 +717,18 @@ class FilterWindow(tk.Toplevel, Db_operations):
 
 
 def big_font(unit, size=20):
-    """Увеличение размера шрифта выбранного элемента до 20."""
+    """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
+
 
 def helpwindow():
     HelpWindow(run)
 
+
 def stopall():
     core.Params.stopall = True
+
 
 def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -738,12 +736,15 @@ def quit():
         run.destroy()
 
 
-core.Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
-core.Params.stopall = False  # Признак остановки всех таймеров сразу.
+# Global tasks ids set. Used for preserve duplicates:
+core.Params.tasks = set()
+# If True, all running timers will be stopped:
+core.Params.stopall = False
 run = tk.Tk()
-core.Params.colour = run.cget('bg')  # Цвет фона виджетов по умолчанию.
+# Default widget colour:
+core.Params.colour = run.cget('bg')
 run.title("Tasker")
-run.resizable(width=0, height=0)    # Запрещаем изменение размера основного окна.
+run.resizable(width=0, height=0)
 TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
 tk.Frame(run, height=15).grid(row=1)
 TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3, columnspan=5)
@@ -753,10 +754,3 @@ TaskButton(run, text="Help", command=helpwindow).grid(row=5, column=0, sticky='s
 TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='sn', pady=5, padx=5)
 TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
-
-
-# ToDo: Хоткеи копипаста должны работать в любой раскладке. Проверить на Винде.
-# ToDo: ?Сделать кнопку Clear all на главном экране.
-
-
-

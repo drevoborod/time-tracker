@@ -8,8 +8,9 @@ import sqlite3
 
 
 class DbErrors(Exception):
-    """Base class for errors in operations with database."""
+    """Base class for errors in database operations."""
     pass
+
 
 class Db():
     """Class for interaction with database."""
@@ -18,22 +19,12 @@ class Db():
         self.con = sqlite3.connect(self.db_filename)
         self.cur = self.con.cursor()
 
-    def check_database(self):
-        """Check if database file exists."""
-        if not os.path.exists(self.db_filename):
-            self.create_table()
-
-    def create_table(self):
-        with sqlite3.connect(self.db_filename) as con:
-            con.executescript(TABLE_STRUCTURE)
-            con.commit()
-
     def exec_script(self, script):
-        """Выполняет произвольный скрипт. Возвращает всегда значение lastrowid."""
+        """Custom script execution and commit. Returns lastrowid. Raises DbErrors on database exceptions."""
         try:
-            if type(script) is not tuple:
+            if not isinstance(script, tuple):
                 self.cur.execute(script)
-            else:      # На случай, если вместо простого скрипта передан скрипт + значения для подстановки.
+            else:
                 self.cur.execute(script[0], script[1])
         except sqlite3.DatabaseError as err:
             raise DbErrors(err)
@@ -42,11 +33,12 @@ class Db():
             return self.cur.lastrowid
 
     def find_by_clause(self, table, field, value, searchfield):
-        """Поиск в поле searchfield по условию field=value. """
+        """Returns "searchfield" if field=value. """
         self.exec_script('select {3} from {0} where {1}="{2}"'.format(table, field, value, searchfield))
         return self.cur.fetchall()
 
     def find_all(self, table, sortfield=None):
+        """Returns all contents for given tablename."""
         if not sortfield:
             self.exec_script('select * from {0}'.format(table))
         else:
@@ -54,34 +46,37 @@ class Db():
         return self.cur.fetchall()
 
     def insert(self, table, fields, values):
-        """Добавление записи. Fields и values должны быть кортежами по 2 записи."""
+        """Insert into fields given values. Fields and values should be 2-tuples."""
         return self.exec_script(('insert into {0} {1} values (?, ?)'.format(table, fields), values))
 
     def insert_task(self, name):
-        """Добавление задачи и соотвествующей записи в таблицы dates и tags."""
-        date = date_format(datetime.datetime.now())     # Текущая дата в формате "ДД.ММ.ГГГГ".
-        try:    # Пытаемся создать запись.
+        """Insert task into database."""
+        date = date_format(datetime.datetime.now())     # Current date in "DD.MM.YYYY" format.
+        try:
             rowid = self.exec_script(('insert into tasks (id, timer, task_name, creation_date) values (null, 0, ?, ?)', (name, date)))
-        except sqlite3.IntegrityError:   # Если задача с таким именем уже есть, то возбуждаем исключение.
+        except sqlite3.IntegrityError:
             raise DbErrors("Task name already exists")
         else:
             id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
             self.insert("dates", ("date", "task_id"), (date, id))
             self.insert("tags", ("tag_id", "task_id"), (1, id))
-            return id      # Возвращаем id записи в таблице tasks, которую добавили.
+            return id
 
     def update(self, id, field="timer", value=0, table="tasks", updfiled="id"):
+        """Updates given field in given table with given id using given value :) """
         self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, id, updfiled), (value, )))
 
     def update_task(self, id, field="timer", value=0):
-        """Обновить запись в таблице задач. Если для этой задачи нет записи на текущую дату, добавляем такую запись."""
+        """Updates some fields for given task id.
+        If a task does not have record in dates table, a record will be created.
+        """
         date = date_format(datetime.datetime.now())
         if date not in [x[0] for x in self.find_by_clause(table="dates", field="task_id", value=id, searchfield="date")]:
             self.insert("dates", ("date", "task_id"), (date, id))
         self.update(id, field=field, value=value)
 
     def delete(self, ids, field="id", table="tasks"):
-        """Удаляет несколько записей, поэтому ids должен быть кортежом."""
+        """Removes several records. ids should be a tuple."""
         if len(ids) == 1:
             i = "('%s')" % ids[0]
         else:
@@ -89,53 +84,62 @@ class Db():
         self.exec_script("delete from {1} where {2} in {0}".format(i, table, field))
 
     def delete_tasks(self, ids):
-        """Удаление задач."""
+        """Removes task and all corresponding records."""
         self.delete(ids)
         self.delete(ids, field="task_id", table="dates")
         self.delete(ids, field="task_id", table="timestamps")
+        self.delete(ids, field="task_id", table="tags")
 
     def tags_dict(self, taskid):
-        """Создание списка тегов, их имён и значений для задачи с taskid."""
+        """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
+        Tag has value 1 if a record for given task id exists in tags table.
+        """
         tagnames = self.find_all("tagnames", sortfield="tag_name")     # [(tagname, 1), (tagname, 2)]
-        self.exec_script('select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d' % taskid)
+        self.exec_script("select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d" % taskid)
         actual_tags = [x[0] for x in self.cur.fetchall()]    # [1, 3, ...]
-        states_list = []   #  {1: [1, 'tag1'],  2: [0, 'tag2'], 3: [1, 'tag3']} - словарь актуальных состояний для тегов для данной таски.
+        states_list = []        #  [[1, [1, 'tag1']],  [2, [0, 'tag2']], [3, [1, 'tag3']]]
         for k in tagnames:
             states_list.append([k[1], [1 if k[1] in actual_tags else 0, k[0]]])
         return states_list
 
     def simple_tagslist(self):
-        """Возвращает список тегов в таков же формате, как tags_dict, но не привязанных к какой-то задаче."""
+        """Returns tags list just like tags_dict() but every tag value is 0."""
         tagslist = self.find_all("tagnames", sortfield="tag_name")
         res = [[y, [0, x]] for x, y in tagslist]
-        res.reverse()
+        res.reverse()       # Should be reversed to preserve order like in database.
         return res
 
     def timestamps(self, taskid, current_time):
-        """Возвращает список таймстемпов в таков же формате, как tags_dict."""
+        """Returns timestamps list in same format as simple_tagslist()."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid, 'timestamp')
-        res = [[x[0], [0, '{0}; {1} have passed since that moment'.format(time_format(x[0]), time_format(current_time - x[0]))]] for x in timestamps]
+        res = [[x[0], [0, '{0}; {1} have passed since that moment'.format(
+            time_format(x[0]), time_format(current_time - x[0]))]] for x in timestamps]
         res.reverse()
         return res
 
-    def close(self):
-        self.cur.close()
-        self.con.close()
-
 
 class Params:
-    """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
+    """Empty class used as a variable storage."""
     pass
 
 
+def check_database():
+    """Check if database file exists."""
+    if not os.path.exists(TABLE_FILE):
+        with sqlite3.connect(TABLE_FILE) as con:
+            con.executescript(TABLE_STRUCTURE)
+            con.commit()
+
+
 def export(filename, text):
+    """Creates file and fills it with given text."""
     expfile = open(filename, 'w')
     expfile.write(text)
     expfile.close()
 
 
 def time_format(sec):
-    """Функция возвращает время в удобочитаемом формате. Принимает секунды."""
+    """Returns time string in readable format."""
     if sec < 86400:
         return time.strftime("%H:%M:%S", time.gmtime(sec))
     else:
@@ -143,7 +147,7 @@ def time_format(sec):
 
 
 def date_format(date):
-    """Возвращает дату в формате ДД:ММ:ГГГГ. На вход принимает datetime."""
+    """Returns date in "DD.MM.YYYY" format. Accepts datetime."""
     return datetime.datetime.strftime(date, '%d.%m.%Y')
 
 
