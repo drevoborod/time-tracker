@@ -459,7 +459,7 @@ class TaskEditWindow(tk.Toplevel, Db_operations):
 
     def tags_update(self):
         """Отображает список тегов."""
-        self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal')  # Список тегов с возможностью их включения.
+        self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal', width=300, height=30)  # Список тегов с возможностью их включения.
         self.tags.grid(row=5, column=1, columnspan=3, pady=5, padx=5, sticky='we')
 
     def update_task(self):
@@ -490,7 +490,7 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
     def window_elements_config(self):
         """Настройка параметров окна."""
         self.title("Tags editor")
-        self.minsize(width=200, height=200)
+        self.minsize(width=300, height=300)
 
     def addentry(self):
         """Создание поля для ввода нового элемента. При наследовании может быть заменён пустой функцией, тогда поля не будет."""
@@ -535,7 +535,7 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
                 self.tags_update()
 
     def tags_get(self):
-        self.tags = Tagslist(self.db.simple_tagslist(), self)
+        self.tags = Tagslist(self.db.simple_tagslist(), self, width=300, height=300)
 
     def add_record(self, tagname):
         self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
@@ -554,13 +554,12 @@ class TimestampsWindow(TagsEditWindow):
     def window_elements_config(self):
         """Настройка параметров окна."""
         self.title("Timestamps")
-        self.minsize(width=200, height=170)
-        self.tags.canvbox.config(width=400)
+        self.minsize(width=400, height=300)
 
     def addentry(self): pass
 
     def tags_get(self):
-        self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self)
+        self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self, width=400, height=300)
 
     def del_record(self, dellist):
         for x in dellist:
@@ -618,10 +617,9 @@ class Description(tk.Frame):
 class ScrolledCanvas(tk.Frame):
     """Прокручиваемый Canvas."""
     def __init__(self, parent=None, orientation="vertical", **options):
-        super().__init__(master=parent, relief='groove', bd=2, **options)
+        super().__init__(master=parent, relief='groove', bd=2)
         scroller = tk.Scrollbar(self, orient=orientation)
-        self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 200),
-                              height=(30 if orientation == "horizontal" else 200))
+        self.canvbox = tk.Canvas(self, **options)
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
         if orientation == "horizontal":
             self.canvbox.config(xscrollcommand=scroller.set)
@@ -673,8 +671,8 @@ class FilterWindow(tk.Toplevel, Db_operations):
                 tag[1][0] = 1
         tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
         tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
-        self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self)
-        self.tagslist = Tagslist(tags, self)
+        self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self, width=200, height=300)
+        self.tagslist = Tagslist(tags, self, width=200, height=300)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
         TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
@@ -682,7 +680,7 @@ class FilterWindow(tk.Toplevel, Db_operations):
         tk.Frame(self, height=40).grid(row=3, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=4, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=4, column=0, pady=5, padx=5, sticky='w')
-        self.minsize(height=250, width=250)
+        self.minsize(height=250, width=350)
         self.grid_columnconfigure('all', weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.wait_window()
