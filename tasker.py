@@ -633,7 +633,7 @@ class ScrolledCanvas(tk.Frame):
                       side='bottom' if orientation == 'horizontal' else 'right',
                       anchor='s' if orientation == 'horizontal' else 'e')
         self.content_frame = tk.Frame(self.canvbox)
-        self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
+        self.canvbox.create_window((0, 0), window=self.content_frame, anchor='nw')
         self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
         self.canvbox.pack(fill="x" if orientation == "horizontal" else "both", expand=1)
 

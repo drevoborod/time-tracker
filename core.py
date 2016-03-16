@@ -23,7 +23,6 @@ class Db():
         if not os.path.exists(self.db_filename):
             self.create_table()
 
-
     def create_table(self):
         with sqlite3.connect(self.db_filename) as con:
             con.executescript(TABLE_STRUCTURE)
@@ -83,7 +82,6 @@ class Db():
 
     def delete(self, ids, field="id", table="tasks"):
         """Удаляет несколько записей, поэтому ids должен быть кортежом."""
-        # ToDo: Попробовать сделать нормальную подстановку в скрипт, без необходимости проверки длины ids.
         if len(ids) == 1:
             i = "('%s')" % ids[0]
         else:
@@ -129,10 +127,12 @@ class Params:
     """Пустой класс, нужный для того, чтобы использовать в качестве хранилища переменных."""
     pass
 
+
 def export(filename, text):
     expfile = open(filename, 'w')
     expfile.write(text)
     expfile.close()
+
 
 def time_format(sec):
     """Функция возвращает время в удобочитаемом формате. Принимает секунды."""
@@ -140,6 +140,7 @@ def time_format(sec):
         return time.strftime("%H:%M:%S", time.gmtime(sec))
     else:
         return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
+
 
 def date_format(date):
     """Возвращает дату в формате ДД:ММ:ГГГГ. На вход принимает datetime."""
