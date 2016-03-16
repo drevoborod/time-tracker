@@ -12,55 +12,56 @@ import core
 
 
 class TaskFrame(tk.Frame):
-    """Класс отвечает за создание рамки таски со всеми элементами."""
+    """Task frame on application's main screen."""
     def __init__(self, parent=None):
         super().__init__(parent, relief='groove', bd=2)
         self.db = core.Db()
         self.create_content()
 
     def create_content(self):
-        """Создаёт содержимое окна и выполняет всю подготовительную работу."""
-        self.startstopvar = tk.StringVar()     # Надпись на кнопке "Start".
+        """Creates all window elements."""
+        self.startstopvar = tk.StringVar()     # Text on "Start" button.
         self.startstopvar.set("Start")
-        self.task = None       # Создаём фейковое имя запущенной таски.
+        self.task = None       # Fake name of running task (which actually is not selected yet).
         l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
-        self.tasklabel = TaskLabel(self, anchor='w', width=50)  # В этом поле будет название задачи.
+        self.tasklabel = TaskLabel(self, anchor='w', width=50)  # Task name field.
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
-        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
+        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
-        self.description = Description(self, width=60, height=3)        # Описание задачи
+        self.description = Description(self, width=60, height=3)        # Task description.
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
-        self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
+        self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)
         big_font(self.startbutton, size=14)
         self.startbutton.grid(row=3, column=0, sticky='wsn')
-        self.timer_window = TaskLabel(self, width=10, state='disabled')         # Окошко счётчика.
+        self.timer_window = TaskLabel(self, width=10, state='disabled')         # Counter window.
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, column=2, sticky='w', padx=5)
         self.timestamps_window_button = TaskButton(self, text='View\ntimestamps', width=10, state='disabled', command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
-        self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
+        self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
-        self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Кнопка очистки фрейма.
+        self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
-        self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
-        self.running_time = 0   # Промежуточное значение счётчика.
-        self.running = False    # Признак того, что счётчик работает.
+        self.start_time = 0     # Starting value of the counter.
+        self.running_time = 0   # Current value of the counter.
+        self.running = False
 
     def timestamps_window(self):
+        """Timestamps window opening."""
         TimestampsWindow(self.task_id, self.running_time, self)
 
     def add_timestamp(self):
-        """Добавляем таймстемп в БД."""
+        """Adding timestamp to database."""
         self.db.insert('timestamps', ('task_id', 'timestamp'), (self.task_id, self.running_time))
         showinfo("Timestamp added", "Timestamp added successfully.")
 
     def startstopbutton(self):
-        """Изменяет состояние кнопки "Start/Stop". """
+        """Changes "Start/Stop" button state. """
         if self.running:
             self.timer_stop()
         else:
@@ -73,7 +74,7 @@ class TaskFrame(tk.Frame):
         self.update_description()
 
     def clear(self):
-        """Пересоздание содержимого окна."""
+        """Recreation of frame contents."""
         self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
@@ -81,42 +82,44 @@ class TaskFrame(tk.Frame):
         self.create_content()
 
     def name_dialogue(self):
-        """ Диалоговое окно выбора задачи."""
+        """Task selection window."""
         self.dialogue_window = TaskSelectionWindow(self)
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
-        self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())   # Также задача открывается по нажатию на Энтер в таблице задач.
-        self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())   # И по даблклику.
+        self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
+        self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())
 
     def get_task_name(self):
-        """Функция для получения имени задачи."""
+        """Getting selected task's name."""
+        # List of selected tasks item id's:
         tasks = self.dialogue_window.listframe.taskslist.selection()
-        if len(tasks) == 1:
-            self.task_id = self.dialogue_window.tdict[tasks[0]][0]    # :))
-            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]  # Получаем данные о таске из БД.
-            # Проверяем, не открыта ли задача уже в другом окне:
+        if tasks:
+            self.task_id = self.dialogue_window.tdict[tasks[0]][0]
+            # Task parameters from database:
+            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]
+            # Checking if task is already open in another frame:
             if self.task_id not in core.Params.tasks:
-                if self.task:                  # Проверяем, не было ли запущено уже что-то в этом окне.
-                    core.Params.tasks.remove(self.task[0])  # Если было, удаляем из списка запущенных.
-                    # Останавливаем таймер старой задачи и сохраняем состояние:
+                # Checking if there is open task in this frame:
+                if self.task:
+                    # If it is, we remove it from running tasks set:
+                    core.Params.tasks.remove(self.task[0])
+                    # Stopping current timer and saving its state:
                     self.timer_stop()
-                # Создаём новую задачу:
+                # Preparing new task:
                 self.prepare_task(task)
             else:
-                # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
+                # If selected task is already open in another frame, just closing window:
                 self.dialogue_window.destroy()
 
     def prepare_task(self, task):
-        """Функция подготавливает счётчик к работе с новой таской."""
-        # Добавляем имя задачи к списку запущенных:
+        """Prepares frame elements to work with."""
+        # Adding task id to set of running tasks:
         core.Params.tasks.add(task[0])
         self.task = list(task)
-        # Задаём значение счётчика согласно взятому из БД:
+        # Taking current counter value from database:
         self.running_time = self.task[2]
-        # Прописываем значение счётчика в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
-        self.dialogue_window.destroy()      # Закрываем диалоговое окно выбора задачи.
-        # В поле для имени задачи прописываем имя.
+        self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
         self.properties.config(state='normal')
@@ -127,54 +130,54 @@ class TaskFrame(tk.Frame):
         self.description.update_text(self.task[3])
 
     def timer_update(self, counter=0):
-        """Обновление окошка счётчика. Обновляется раз в полсекунды."""
-        interval = 250      # Задержка в мс, происходящая перед очередным запуском функции.
+        """Renewal of the counter."""
+        interval = 250      # Time interval in milliseconds before next iteration of recursion.
         self.running_time = time.time() - self.start_time
-        # Собственно изменение надписи в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
-        if not core.Params.stopall:  # Проверка нажатия на кнопку "Stop all"
-            if counter >= 60000:    # Раз в минуту сохраняем значение таймера в БД.
+        # Checking if "Stop all" button is presed:
+        if not core.Params.stopall:
+            # Every minute counter value is saved in database:
+            if counter >= 60000:
                 self.db.update_task(self.task[0], value=self.running_time)
                 counter = 0
             else:
                 counter += interval
-            # Откладываем действие на заданный интервал.
-            # В переменную self.timer пишется ID, создаваемое методом after(), который вызывает указанную функцию через заданный промежуток.
+            # self.timer variable becomes ID created by after():
             self.timer = self.timer_window.after(250, self.timer_update, counter)
         else:
             self.timer_stop()
 
     def timer_start(self):
-        """Запуск таймера."""
+        """Counter start."""
         if not self.running:
             core.Params.stopall = False
-            # Вытаскиваем время из БД - на тот случай, если в ней уже успело обновиться значение.
-            self.start_time = time.time() - self.db.find_by_clause("tasks", "id", self.task[0], "timer")[0][0]
+            # Setting current counter value:
+            self.start_time = time.time() - self.task[2]
             self.timer_update()
             self.running = True
             self.startstopvar.set("Stop")
 
     def timer_stop(self):
-        """Пауза таймера и сохранение его значения в БД."""
+        """Stop counter and save its value to database."""
         if self.running:
-            # Метод after_cancel() останавливает выполнение обратного вызова, ID которого ему передаётся.
+            # after_cancel() stops execution of callback with given ID.
             self.timer_window.after_cancel(self.timer)
             self.running_time = time.time() - self.start_time
             self.running = False
             self.start_time = 0
-            # Записываем текущее значение таймера в БД.
-            print(self.running_time)
+            # Saving value to database:
             self.db.update_task(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
             self.update_description()
 
     def update_description(self):
+        """Update text in "Description" field."""
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
         self.description.update_text(self.task[3])
 
     def destroy(self):
-        """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
+        """Closes frame and saves counter value to database."""
         self.timer_stop()
         tk.Frame.destroy(self)
 
@@ -299,11 +302,11 @@ class TaskSelectionWindow(tk.Toplevel):
     def add_new_task(self):
         """Добавление новой задачи в БД."""
         task_name = self.addentry.get()
-        if len(task_name) > 0:
+        if task_name:
             try:
                 self.db.insert_task(task_name)
             except core.DbErrors as err:
-                print(err)
+                pass
             else:
                 self.update_list()
                 items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
@@ -372,7 +375,7 @@ class TaskSelectionWindow(tk.Toplevel):
     def delete(self):
         """Удаление задачи из БД (и из таблицы одновременно)."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
-        if len(ids) > 0:
+        if ids:
             answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
             if answer == "yes":
                 self.db.delete_tasks(tuple(ids))
@@ -511,7 +514,7 @@ class TagsEditWindow(tk.Toplevel):
     def add(self):
         """Добавление тега в БД."""
         tagname = self.addfield.get()
-        if len(tagname) > 0:
+        if tagname:
             try:
                 self.add_record(tagname)
             except core.DbErrors:
@@ -525,7 +528,7 @@ class TagsEditWindow(tk.Toplevel):
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
                 dellist.append(item[0])
-        if len(dellist) > 0:
+        if dellist:
             answer = askyesno("Really delete?", "Are you sure you want to delete selected items?")
             if answer:
                 self.del_record(dellist)
@@ -658,7 +661,7 @@ class FilterWindow(tk.Toplevel):
         # Списки сохранённых состояний фильтров:
         stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
-        if len(stored_tags[0]) > 0:
+        if stored_tags[0]:
             stored_tags = [int(x) for x in stored_tags]
         self.db.exec_script('select distinct date from dates order by date desc')
         dates = [x[0] for x in self.db.cur.fetchall()]      # Список дат.
@@ -694,18 +697,18 @@ class FilterWindow(tk.Toplevel):
         """Функция берёт фильтр из параметров, заданных в окне фильтров."""
         dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
-        if len(dates) == 0 and len(tags) == 0:
+        if not dates and not tags:
             script = None
         else:
-            if len(dates) > 0 and len(tags) > 0:
+            if dates and tags:
                 script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
                         "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
                         "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
                                                             tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-            elif len(dates) == 0:
+            elif not dates:
                 script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
                         "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
-            elif len(tags) == 0:
+            elif not tags:
                 script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
                         "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
         self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
