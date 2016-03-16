@@ -1,23 +1,32 @@
 #!/usr/bin/env python3
 
-import sqlite3
 import os
 import time
 import datetime
 
-class DbErrors(Exception): pass
+import sqlite3
+
+
+class DbErrors(Exception):
+    """Base class for errors in operations with database."""
+    pass
 
 class Db():
+    """Class for interaction with database."""
     def __init__(self):
-        self.db_filename = table_file
-        if not os.path.exists(self.db_filename):
-            self.create_table()
+        self.db_filename = TABLE_FILE
         self.con = sqlite3.connect(self.db_filename)
         self.cur = self.con.cursor()
 
+    def check_database(self):
+        """Check if database file exists."""
+        if not os.path.exists(self.db_filename):
+            self.create_table()
+
+
     def create_table(self):
         with sqlite3.connect(self.db_filename) as con:
-            con.executescript(table_structure)
+            con.executescript(TABLE_STRUCTURE)
             con.commit()
 
     def exec_script(self, script):
@@ -137,8 +146,8 @@ def date_format(date):
     return datetime.datetime.strftime(date, '%d.%m.%Y')
 
 
-table_file = 'tasks.db'
-table_structure = """\
+TABLE_FILE = 'tasks.db'
+TABLE_STRUCTURE = """\
                 create table tasks (id integer primary key autoincrement,
                 task_name text unique,
                 timer int,
@@ -160,7 +169,7 @@ table_structure = """\
                 insert into options (option_name, value) values ('filter_dates', '');
                 """
 
-help_text = """Приложение позволяет вести учёт потраченного на задачу времени. Чтобы выбрать задачу или создать новую, \
+HELP_TEXT = """Приложение позволяет вести учёт потраченного на задачу времени. Чтобы выбрать задачу или создать новую, \
 следует нажать кнопку "Task" на главном экране. В окне выбора задач реализована возможность редактирования описания \
 задачи, а также присвоения ей определённых тегов. Окно редактирования открывается кнопкой "Properties".
 Теги можно создавать и удалять через диалог, открывающийся из окна редактирования задачи по кнопке "Tags".

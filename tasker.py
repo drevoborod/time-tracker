@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 import time
-import core
+
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askquestion, askyesno, showinfo
 from tkinter import ttk
+
+import core
+
 
 class Db_operations():
     """Класс-мостик для работы с БД."""
@@ -245,6 +248,7 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
     def __init__(self, parent=None, **options):
         tk.Toplevel.__init__(self, master=parent, **options)
         Db_operations.__init__(self)
+        self.db.check_database()        # Here we check if database actually exists :)
         self.title("Task selection")
         self.minsize(width=450, height=300)         # Минимальный размер окна.
         self.grab_set()                             # Остальные окна блокируются на время открытия этого.
@@ -573,7 +577,7 @@ class HelpWindow(tk.Toplevel):
         self.helptext = tk.Text(main_frame, wrap='word')
         scroll = tk.Scrollbar(main_frame, command=self.helptext.yview)
         self.helptext.config(yscrollcommand=scroll.set)
-        self.helptext.insert(1.0, core.help_text)
+        self.helptext.insert(1.0, core.HELP_TEXT)
         self.helptext.config(state='disabled')
         scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
