@@ -399,25 +399,30 @@ class TaskSelectionWindow(tk.Toplevel):
     def edit(self):
         """Show task edit window."""
         # Получаем кортеж из id выбранной таски и её имени.
-        # ToDo: Fix: В случае нестандартной сортировки списка текущая выделенная задача не должна сбрасываться.
         try:
+            # Tuple: (selected_task_id, selected_task_name)
             id_name = (self.tdict[self.listframe.taskslist.focus()][0], self.tdict[self.listframe.taskslist.focus()][1])
         except KeyError:
             pass
         else:
             TaskEditWindow(id_name[0], self)
             self.update_list()
-            for i in self.listframe.taskslist.get_children():   # Находим строчку с таким же именем
-                if self.listframe.taskslist.item(i)["values"][0] == id_name[1]:
-                    self.listframe.focus_(i)        # и выделяем её.
-                    self.update_descr(i)        # Обновляем описание.
+            # To preserve selection after task editing,
+            # looking for a row with the same task name again:
+            for i in self.listframe.taskslist.get_children():
+                if str(self.listframe.taskslist.item(i)["values"][0]) == id_name[1]:
+                    self.listframe.focus_(i)
+                    self.update_descr(i)
                     break
         self.grab_set()
 
     def filterwindow(self):
-        """Открытие окна фильтров."""
-        self.filteroptions = FilterWindow(self)
-        self.update_list()
+        """Open filters window."""
+        filter_changed = tk.IntVar()
+        self.filteroptions = FilterWindow(self, variable=filter_changed)
+        # Update tasks list only if filter parameters have been changed:
+        if filter_changed.get() == 1:
+            self.update_list()
         self.grab_set()
 
 
@@ -696,9 +701,10 @@ class Tagslist(ScrolledCanvas):
 
 class FilterWindow(tk.Toplevel):
     """Окно настройки фильтра."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
         self.db = core.Db()
+        self.changed = variable
         # Списки сохранённых состояний фильтров:
         stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
@@ -755,6 +761,8 @@ class FilterWindow(tk.Toplevel):
         self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
         self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
         self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
+        if self.changed:
+            self.changed.set(1)
         self.destroy()
 
 
