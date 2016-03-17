@@ -5,7 +5,7 @@ import time
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askquestion, askyesno, showinfo
+from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
 
 import core
@@ -376,8 +376,8 @@ class TaskSelectionWindow(tk.Toplevel):
         """Удаление задачи из БД (и из таблицы одновременно)."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
         if ids:
-            answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
-            if answer == "yes":
+            answer = askyesno("Warning", "Are you sure you want to delete selected tasks?")
+            if answer:
                 self.db.delete_tasks(tuple(ids))
                 self.update_list()
         self.grab_set()
@@ -482,15 +482,19 @@ class TagsEditWindow(tk.Toplevel):
         self.grab_set()
         self.addentry()
         self.tags_update()
+        self.closebutton = TaskButton(self, text='Close', command=self.destroy)
+
+        self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
+
         self.window_elements_config()
-        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.wait_window()
 
     def window_elements_config(self):
         """Настройка параметров окна."""
         self.title("Tags editor")
         self.minsize(width=300, height=300)
+        self.closebutton.grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        self.deletebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
 
     def addentry(self):
         """Создание поля для ввода нового элемента. При наследовании может быть заменён пустой функцией, тогда поля не будет."""
@@ -545,28 +549,46 @@ class TagsEditWindow(tk.Toplevel):
 
 
 class TimestampsWindow(TagsEditWindow):
-    """Окно со списком таймстемпов для указанной задачи."""
+    """Window with timestamps for selected task."""
     def __init__(self, taskid, current_task_time, parent=None, **options):
         self.taskid = taskid
         self.current_time = current_task_time
         super().__init__(parent=parent, **options)
 
+    def select_all(self):
+        for item in self.tags.states_list:
+            item[1][0].set(1)
+
+    def clear_all(self):
+        for item in self.tags.states_list:
+            item[1][0].set(0)
+
     def window_elements_config(self):
-        """Настройка параметров окна."""
+        """Configure some window parameters."""
         self.title("Timestamps")
         self.minsize(width=400, height=300)
+        TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='w')
+        tk.Frame(self, height=40).grid(row=3)
+        self.closebutton.grid(row=4, column=0, pady=5, padx=5, sticky='w')
+        self.deletebutton.grid(row=4, column=2, pady=5, padx=5, sticky='e')
 
-    def addentry(self): pass
+    def addentry(self):
+        """Empty method just for suppressing unnecessary element creation."""
+        pass
 
     def tags_get(self):
+        """Creates timestamps list."""
         self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self, width=400, height=300)
 
     def del_record(self, dellist):
+        """Deletes selected timestamps."""
         for x in dellist:
             self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):
+    """Help window."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         main_frame=tk.Frame(self)
