@@ -35,7 +35,7 @@ class TaskFrame(tk.Frame):
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)
         big_font(self.startbutton, size=14)
-        self.startbutton.grid(row=3, column=0, sticky='wsn')
+        self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         self.timer_window = TaskLabel(self, width=10, state='disabled')         # Counter window.
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, pady=5)
@@ -186,6 +186,7 @@ class TaskLabel(tk.Label):
     """Simple sunken text label."""
     def __init__(self, parent, **kwargs):
         super().__init__(master=parent, relief='sunken', **kwargs)
+        RightclickMenu(self)
 
 
 class TaskButton(tk.Button):
@@ -443,6 +444,7 @@ class TaskEditWindow(tk.Toplevel):
         big_font(description, 10)
         description.grid(row=3, column=0, pady=5, padx=5, sticky='w')
         self.description = Description(self, width=60, height=6)
+        self.description.context_menu.add_command(label="Paste", command=self.paste_description)
         self.description.config(state='normal', bg='white')
         if self.task[3] is not None:
             self.description.insert(self.task[3])
@@ -464,6 +466,10 @@ class TaskEditWindow(tk.Toplevel):
         self.grid_rowconfigure(4, weight=1)
         self.description.text.focus_set()       # Ставим фокус в окошко с описанием.
         self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
+
+    def paste_description(self):
+        """Insert text from clipboard to a description field."""
+        self.description.insert(self.clipboard_get())
 
     def tags_edit(self):
         """Открывает окно редактирования списка тегов."""
@@ -580,7 +586,7 @@ class TimestampsWindow(TagsEditWindow):
         self.title("Timestamps")
         self.minsize(width=400, height=300)
         TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         tk.Frame(self, height=40).grid(row=3)
         self.closebutton.grid(row=4, column=0, pady=5, padx=5, sticky='w')
         self.deletebutton.grid(row=4, column=2, pady=5, padx=5, sticky='e')
@@ -629,12 +635,13 @@ class Description(tk.Frame):
         self.text.grid(row=0, column=0, sticky='news')
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure('all', weight=1)
+        self.context_menu = RightclickMenu(self.text)
 
     def config(self, cnf=None, **kw):
         self.text.config(cnf=cnf, **kw)
 
     def insert(self, text):
-        self.text.insert(1.0, text)
+        self.text.insert('end', text)
 
     def get(self):
         return self.text.get(1.0, 'end')
@@ -751,6 +758,27 @@ class FilterWindow(tk.Toplevel):
         self.destroy()
 
 
+class RightclickMenu(tk.Menu):
+    """Popup menu. By default has one menuitem - "copy"."""
+    def __init__(self, widget, parent=None, **options):
+        super().__init__(master=parent, tearoff=0, **options)
+        self.widget = widget
+        self.widget.bind("<Button-3>", lambda event: self.post(event.x_root, event.y_root))
+        self.add_command(label="Copy", command=self.copy_to_clipboard)
+        self.add_to_menu()
+
+    def add_to_menu(self):
+        """Empty method to be overridden if need to add some more menuitems."""
+        pass
+
+    def copy_to_clipboard(self):
+        self.clipboard_clear()
+        if isinstance(self.widget, tk.Text):
+            self.widget.clipboard_append(self.widget.get(1.0, 'end'))
+        else:
+            self.widget.clipboard_append(self.widget.cget("text"))
+
+
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
@@ -791,3 +819,6 @@ TaskButton(run, text="Help", command=helpwindow).grid(row=5, column=0, sticky='s
 TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='sn', pady=5, padx=5)
 TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
+
+
+# ToDo: сделать по правой мыши копирование времени из окна таймера и копирование названия таски из окна с именем.
