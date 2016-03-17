@@ -405,15 +405,18 @@ class TaskSelectionWindow(tk.Toplevel):
         except KeyError:
             pass
         else:
-            TaskEditWindow(id_name[0], self)
-            self.update_list()
-            # To preserve selection after task editing,
-            # looking for a row with the same task name again:
-            for i in self.listframe.taskslist.get_children():
-                if str(self.listframe.taskslist.item(i)["values"][0]) == id_name[1]:
-                    self.listframe.focus_(i)
-                    self.update_descr(i)
-                    break
+            task_changed = tk.IntVar()
+            TaskEditWindow(id_name[0], self, variable=task_changed)
+            if task_changed.get() == 1:
+                # ToDo: Needs refactoring: too complex operation, need only update description, not reload all.
+                self.update_list()
+                # To preserve selection after task editing,
+                # looking for a row with the same task name again:
+                for i in self.listframe.taskslist.get_children():
+                    if str(self.listframe.taskslist.item(i)["values"][0]) == id_name[1]:
+                        self.listframe.focus_(i)
+                        self.update_descr(i)
+                        break
         self.grab_set()
 
     def filterwindow(self):
@@ -428,8 +431,9 @@ class TaskSelectionWindow(tk.Toplevel):
 
 class TaskEditWindow(tk.Toplevel):
     """Окно редактирования свойств задачи."""
-    def __init__(self, taskid, parent=None, **options):
+    def __init__(self, taskid, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
+        self.change = variable
         self.db = core.Db()
         self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
         dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
@@ -496,6 +500,8 @@ class TaskEditWindow(tk.Toplevel):
                 self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
                 self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], item[0]))
+        if self.change:
+            self.change.set(1)
         self.destroy()
 
 
@@ -828,5 +834,3 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='
 TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-
-# ToDo: сделать по правой мыши копирование времени из окна таймера и копирование названия таски из окна с именем.
