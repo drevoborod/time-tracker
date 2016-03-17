@@ -389,7 +389,7 @@ class TaskSelectionWindow(tk.Toplevel):
         """Remove selected tasks from the database and the table."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
         if ids:
-            answer = askyesno("Warning", "Are you sure you want to delete selected tasks?")
+            answer = askyesno("Warning", "Are you sure you want to delete selected tasks?", parent=self)
             if answer:
                 self.db.delete_tasks(tuple(ids))
                 self.update_list()
@@ -545,7 +545,7 @@ class TagsEditWindow(tk.Toplevel):
             if item[1][0].get() == 1:
                 dellist.append(item[0])
         if dellist:
-            answer = askyesno("Really delete?", "Are you sure you want to delete selected items?")
+            answer = askyesno("Really delete?", "Are you sure you want to delete selected items?", parent=self)
             if answer:
                 self.del_record(dellist)
                 self.tags_update()
