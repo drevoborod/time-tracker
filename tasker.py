@@ -68,10 +68,11 @@ class TaskFrame(tk.Frame):
             self.timer_start()
 
     def properties_window(self):
-        """Окно редактирования свойств таски."""
-        self.timer_stop()
-        self.editwindow = TaskEditWindow(self.task[0], self)    # Передаём id задачи.
-        self.update_description()
+        """Task properties window."""
+        edited = tk.IntVar()
+        self.editwindow = TaskEditWindow(self.task[0], self, variable=edited)
+        if edited.get() == 1:
+            self.update_description()
 
     def clear(self):
         """Recreation of frame contents."""
@@ -350,7 +351,11 @@ class TaskSelectionWindow(tk.Toplevel):
         for id in self.listframe.taskslist.get_children():
             self.tdict[id] = tlist[i]
             i += 1
-        self.fulltime = core.time_format(sum([x[2] for x in tlist]))
+        self.update_fulltime()
+
+    def update_fulltime(self):
+        """Updates value in "fulltime" frame."""
+        self.fulltime = core.time_format(sum([self.tdict[x][2] for x in self.tdict]))
         self.fulltime_frame.config(text=self.fulltime)
 
     def descr_click(self, event):
@@ -398,25 +403,26 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def edit(self):
         """Show task edit window."""
-        # Получаем кортеж из id выбранной таски и её имени.
+        item = self.listframe.taskslist.focus()
         try:
             # Tuple: (selected_task_id, selected_task_name)
-            id_name = (self.tdict[self.listframe.taskslist.focus()][0], self.tdict[self.listframe.taskslist.focus()][1])
+            id_name = (self.tdict[item][0], self.tdict[item][1])
         except KeyError:
             pass
         else:
             task_changed = tk.IntVar()
             TaskEditWindow(id_name[0], self, variable=task_changed)
             if task_changed.get() == 1:
-                # ToDo: Needs refactoring: too complex operation, need only update description, not reload all.
-                self.update_list()
-                # To preserve selection after task editing,
-                # looking for a row with the same task name again:
-                for i in self.listframe.taskslist.get_children():
-                    if str(self.listframe.taskslist.item(i)["values"][0]) == id_name[1]:
-                        self.listframe.focus_(i)
-                        self.update_descr(i)
-                        break
+                # Reload task information from database:
+                new_task_info = self.db.find_by_clause("tasks", "id", id_name[0], "*")[0]
+                print(new_task_info)
+                print(self.listframe.taskslist.item(item))
+                # Update description:
+                self.tdict[item] = new_task_info
+                self.update_descr(item)
+                # Update data in a table:
+                self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]), new_task_info[4]))
+                self.update_fulltime()
         self.grab_set()
 
     def filterwindow(self):
