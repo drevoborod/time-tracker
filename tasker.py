@@ -138,7 +138,7 @@ class TaskFrame(tk.Frame):
         interval = 250      # Time interval in milliseconds before next iteration of recursion.
         self.running_time = time.time() - self.start_time
         self.timer_window.config(text=core.time_format(self.running_time))
-        # Checking if "Stop all" button is presed:
+        # Checking if "Stop all" button is pressed:
         if not core.Params.stopall:
             # Every minute counter value is saved in database:
             if counter >= 60000:
@@ -169,7 +169,7 @@ class TaskFrame(tk.Frame):
             self.running_time = time.time() - self.start_time
             self.running = False
             self.start_time = 0
-            # Saving value to database:
+            # Writing value into database:
             self.db.update_task(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
@@ -181,7 +181,7 @@ class TaskFrame(tk.Frame):
         self.description.update_text(self.task[3])
 
     def destroy(self):
-        """Closes frame and saves counter value to database."""
+        """Closes frame and writes counter value into database."""
         self.timer_stop()
         tk.Frame.destroy(self)
 
@@ -311,12 +311,13 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def export(self):
         """Export all tasks from the table into the file."""
-        text = '\n'.join(("Task name,Time spent, Creation date",
+        text = '\n'.join(("Task name,Time spent,Creation date",
                           '\n'.join(','.join([row[1], core.time_format(row[2]),
                                               row[4]]) for row in self.tdict.values()),
                           "Summary time,%s" % self.fulltime))
-        filename = asksaveasfilename(parent=self, defaultextension='.csv', filetypes=[("All files", "*.*")])
-        core.export(filename, text)
+        filename = asksaveasfilename(parent=self, defaultextension=".csv", filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
+        if filename:
+            core.export(filename, text)
         # ToDo: Fix: In Windows, two same extensions are added by default.
 
     def add_new_task(self):
@@ -408,8 +409,7 @@ class TaskSelectionWindow(tk.Toplevel):
         """Show task edit window."""
         item = self.listframe.taskslist.focus()
         try:
-            # Tuple: (selected_task_id, selected_task_name)
-            id_name = (self.tdict[item][0], self.tdict[item][1])
+            id_name = (self.tdict[item][0], self.tdict[item][1])  # Tuple: (selected_task_id, selected_task_name)
         except KeyError:
             pass
         else:
@@ -739,7 +739,6 @@ class FilterWindow(tk.Toplevel):
         # Lists of stored filter parameters:
         stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
-        print(stored_tags)
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
@@ -796,6 +795,7 @@ class FilterWindow(tk.Toplevel):
         self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
         self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
         self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
+        # Reporting to parent window that filter values have been changed:
         if self.changed:
             self.changed.set(1)
         self.destroy()
@@ -842,6 +842,8 @@ def quit():
         run.destroy()
 
 
+# Quantity of task frames on main screen:
+TASKFRAMES_COUNT = 3
 # Check if tasks database actually exists:
 core.check_database()
 # Global tasks ids set. Used for preserve duplicates:
@@ -853,13 +855,11 @@ run = tk.Tk()
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
 run.resizable(width=0, height=0)
-TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
-tk.Frame(run, height=15).grid(row=1)
-TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3, columnspan=5)
-tk.Frame(run, height=15).grid(row=3)
-TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3, columnspan=5)
-TaskButton(run, text="Help", command=helpwindow).grid(row=5, column=0, sticky='sw', pady=5, padx=5)
-TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
+for row_number in list(range(TASKFRAMES_COUNT)):
+    TaskFrame(parent=run).grid(row=row_number, pady=5, padx=5, ipady=3, columnspan=5)
+    tk.Frame(run, height=15).grid(row=row_number+1)
+TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0, sticky='sw', pady=5, padx=5)
+TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
