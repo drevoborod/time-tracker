@@ -12,7 +12,7 @@ class DbErrors(Exception):
     pass
 
 
-class Db():
+class Db:
     """Class for interaction with database."""
     def __init__(self):
         self.db_filename = TABLE_FILE
@@ -57,23 +57,23 @@ class Db():
         except sqlite3.IntegrityError:
             raise DbErrors("Task name already exists")
         else:
-            id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
-            self.insert("dates", ("date", "task_id"), (date, id))
-            self.insert("tags", ("tag_id", "task_id"), (1, id))
-            return id
+            task_id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
+            self.insert("dates", ("date", "task_id"), (date, task_id))
+            self.insert("tags", ("tag_id", "task_id"), (1, task_id))
+            return task_id
 
-    def update(self, id, field="timer", value=0, table="tasks", updfiled="id"):
+    def update(self, field_id, field="timer", value=0, table="tasks", updfiled="id"):
         """Updates given field in given table with given id using given value :) """
-        self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, id, updfiled), (value, )))
+        self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
 
-    def update_task(self, id, field="timer", value=0):
+    def update_task(self, task_id, field="timer", value=0):
         """Updates some fields for given task id.
         If a task does not have record in dates table, a record will be created.
         """
         date = date_format(datetime.datetime.now())
-        if date not in [x[0] for x in self.find_by_clause(table="dates", field="task_id", value=id, searchfield="date")]:
-            self.insert("dates", ("date", "task_id"), (date, id))
-        self.update(id, field=field, value=value)
+        if date not in [x[0] for x in self.find_by_clause(table="dates", field="task_id", value=task_id, searchfield="date")]:
+            self.insert("dates", ("date", "task_id"), (date, task_id))
+        self.update(task_id, field=field, value=value)
 
     def delete(self, ids, field="id", table="tasks"):
         """Removes several records. ids should be a tuple."""
@@ -97,7 +97,7 @@ class Db():
         tagnames = self.find_all("tagnames", sortfield="tag_name")     # [(tagname, 1), (tagname, 2)]
         self.exec_script("select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d" % taskid)
         actual_tags = [x[0] for x in self.cur.fetchall()]    # [1, 3, ...]
-        states_list = []        #  [[1, [1, 'tag1']],  [2, [0, 'tag2']], [3, [1, 'tag3']]]
+        states_list = []        # [[1, [1, 'tag1']],  [2, [0, 'tag2']], [3, [1, 'tag3']]]
         for k in tagnames:
             states_list.append([k[1], [1 if k[1] in actual_tags else 0, k[0]]])
         return states_list

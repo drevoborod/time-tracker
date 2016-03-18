@@ -352,8 +352,8 @@ class TaskSelectionWindow(tk.Toplevel):
         # Dictionary with row ids and tasks info:
         self.tdict = {}
         i = 0
-        for id in self.listframe.taskslist.get_children():
-            self.tdict[id] = tlist[i]
+        for task_id in self.listframe.taskslist.get_children():
+            self.tdict[task_id] = tlist[i]
             i += 1
         self.update_fulltime()
 
@@ -639,7 +639,7 @@ class HelpWindow(tk.Toplevel):
     """Help window."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
-        main_frame=tk.Frame(self)
+        main_frame = tk.Frame(self)
         self.helptext = tk.Text(main_frame, wrap='word')
         scroll = tk.Scrollbar(main_frame, command=self.helptext.yview)
         self.helptext.config(yscrollcommand=scroll.set)
@@ -647,12 +647,13 @@ class HelpWindow(tk.Toplevel):
         self.helptext.config(state='disabled')
         scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
-        main_frame.grid(row=0, column=0, sticky='news', padx=5,pady=5)
+        main_frame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
+
 
 class Description(tk.Frame):
     """Description frame - Text frame with scroll."""
@@ -862,4 +863,3 @@ TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0
 TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
-
