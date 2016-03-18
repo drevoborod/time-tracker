@@ -1,82 +1,84 @@
 #!/usr/bin/env python3
 
 import time
-import core
+
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askquestion, askyesno, showinfo
+from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
 
-class Db_operations():
-    """Класс-мостик для работы с БД."""
-    def __init__(self):
-        self.db = core.Db()
+import core
 
 
-class TaskFrame(tk.Frame, Db_operations):
-    """Класс отвечает за создание рамки таски со всеми элементами."""
+class TaskFrame(tk.Frame):
+    """Task frame on application's main screen."""
     def __init__(self, parent=None):
-        tk.Frame.__init__(self, parent, relief='groove', bd=2)
-        Db_operations.__init__(self)
+        super().__init__(parent, relief='groove', bd=2)
+        self.db = core.Db()
         self.create_content()
 
     def create_content(self):
-        """Создаёт содержимое окна и выполняет всю подготовительную работу."""
-        self.startstopvar = tk.StringVar()     # Надпись на кнопке "Start".
+        """Creates all window elements."""
+        self.startstopvar = tk.StringVar()     # Text on "Start" button.
         self.startstopvar.set("Start")
-        self.task = None       # Создаём фейковое имя запущенной таски.
+        self.task = None       # Fake name of running task (which actually is not selected yet).
         l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
-        self.tasklabel = TaskLabel(self, anchor='w', width=50)  # В этом поле будет название задачи.
+        # Task name field:
+        self.tasklabel = TaskLabel(self, width=50, anchor='w')
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
-        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)  # Кнопка открытия списка задач.
+        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
-        self.description = Description(self, width=60, height=3)        # Описание задачи
+        # Task description field:
+        self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
-        self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)  # Кнопка "Старт"
+        self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)
         big_font(self.startbutton, size=14)
-        self.startbutton.grid(row=3, column=0, sticky='wsn')
-        self.timer_window = TaskLabel(self, width=10, state='disabled')         # Окошко счётчика.
+        self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
+        # Counter frame:
+        self.timer_window = TaskLabel(self, width=10, state='disabled')
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, column=2, sticky='w', padx=5)
         self.timestamps_window_button = TaskButton(self, text='View\ntimestamps', width=10, state='disabled', command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
-        self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)   # Кнопка свойств задачи.
+        self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
-        self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Кнопка очистки фрейма.
+        self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
-        self.start_time = 0     # Начальное значение счётчика времени, потраченного на задачу.
-        self.running_time = 0   # Промежуточное значение счётчика.
-        self.running = False    # Признак того, что счётчик работает.
+        self.start_time = 0     # Starting value of the counter.
+        self.running_time = 0   # Current value of the counter.
+        self.running = False
 
     def timestamps_window(self):
+        """Timestamps window opening."""
         TimestampsWindow(self.task_id, self.running_time, self)
 
     def add_timestamp(self):
-        """Добавляем таймстемп в БД."""
+        """Adding timestamp to database."""
         self.db.insert('timestamps', ('task_id', 'timestamp'), (self.task_id, self.running_time))
-        showinfo("Timestamp added", "Timestamp added successfully.")
+        showinfo("Timestamp added", "Timestamp added.")
 
     def startstopbutton(self):
-        """Изменяет состояние кнопки "Start/Stop". """
+        """Changes "Start/Stop" button state. """
         if self.running:
             self.timer_stop()
         else:
             self.timer_start()
 
     def properties_window(self):
-        """Окно редактирования свойств таски."""
-        self.timer_stop()
-        self.editwindow = TaskEditWindow(self.task[0], self)    # Передаём id задачи.
-        self.update_description()
+        """Task properties window."""
+        edited = tk.IntVar()
+        self.editwindow = TaskEditWindow(self.task[0], self, variable=edited)
+        if edited.get() == 1:
+            self.update_description()
 
     def clear(self):
-        """Пересоздание содержимого окна."""
+        """Recreation of frame contents."""
         self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
@@ -84,42 +86,44 @@ class TaskFrame(tk.Frame, Db_operations):
         self.create_content()
 
     def name_dialogue(self):
-        """ Диалоговое окно выбора задачи."""
+        """Task selection window."""
         self.dialogue_window = TaskSelectionWindow(self)
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
-        self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())   # Также задача открывается по нажатию на Энтер в таблице задач.
-        self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())   # И по даблклику.
+        self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
+        self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())
 
     def get_task_name(self):
-        """Функция для получения имени задачи."""
+        """Getting selected task's name."""
+        # List of selected tasks item id's:
         tasks = self.dialogue_window.listframe.taskslist.selection()
-        if len(tasks) == 1:
-            self.task_id = self.dialogue_window.tdict[tasks[0]][0]    # :))
-            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]  # Получаем данные о таске из БД.
-            # Проверяем, не открыта ли задача уже в другом окне:
+        if tasks:
+            self.task_id = self.dialogue_window.tdict[tasks[0]][0]
+            # Task parameters from database:
+            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]
+            # Checking if task is already open in another frame:
             if self.task_id not in core.Params.tasks:
-                if self.task:                  # Проверяем, не было ли запущено уже что-то в этом окне.
-                    core.Params.tasks.remove(self.task[0])  # Если было, удаляем из списка запущенных.
-                    # Останавливаем таймер старой задачи и сохраняем состояние:
+                # Checking if there is open task in this frame:
+                if self.task:
+                    # If it is, we remove it from running tasks set:
+                    core.Params.tasks.remove(self.task[0])
+                    # Stopping current timer and saving its state:
                     self.timer_stop()
-                # Создаём новую задачу:
+                # Preparing new task:
                 self.prepare_task(task)
             else:
-                # Если обнаруживаем эту задачу уже запущенной, просто закрываем окно:
+                # If selected task is already open in another frame, just closing window:
                 self.dialogue_window.destroy()
 
     def prepare_task(self, task):
-        """Функция подготавливает счётчик к работе с новой таской."""
-        # Добавляем имя задачи к списку запущенных:
+        """Prepares frame elements to work with."""
+        # Adding task id to set of running tasks:
         core.Params.tasks.add(task[0])
         self.task = list(task)
-        # Задаём значение счётчика согласно взятому из БД:
+        # Taking current counter value from database:
         self.running_time = self.task[2]
-        # Прописываем значение счётчика в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
-        self.dialogue_window.destroy()      # Закрываем диалоговое окно выбора задачи.
-        # В поле для имени задачи прописываем имя.
+        self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
         self.properties.config(state='normal')
@@ -130,92 +134,94 @@ class TaskFrame(tk.Frame, Db_operations):
         self.description.update_text(self.task[3])
 
     def timer_update(self, counter=0):
-        """Обновление окошка счётчика. Обновляется раз в полсекунды."""
-        interval = 250      # Задержка в мс, происходящая перед очередным запуском функции.
+        """Renewal of the counter."""
+        interval = 250      # Time interval in milliseconds before next iteration of recursion.
         self.running_time = time.time() - self.start_time
-        # Собственно изменение надписи в окошке счётчика.
         self.timer_window.config(text=core.time_format(self.running_time))
-        if not core.Params.stopall:  # Проверка нажатия на кнопку "Stop all"
-            if counter >= 60000:    # Раз в минуту сохраняем значение таймера в БД.
+        # Checking if "Stop all" button is pressed:
+        if not core.Params.stopall:
+            # Every minute counter value is saved in database:
+            if counter >= 60000:
                 self.db.update_task(self.task[0], value=self.running_time)
                 counter = 0
             else:
                 counter += interval
-            # Откладываем действие на заданный интервал.
-            # В переменную self.timer пишется ID, создаваемое методом after(), который вызывает указанную функцию через заданный промежуток.
+            # self.timer variable becomes ID created by after():
             self.timer = self.timer_window.after(250, self.timer_update, counter)
         else:
             self.timer_stop()
 
     def timer_start(self):
-        """Запуск таймера."""
+        """Counter start."""
         if not self.running:
             core.Params.stopall = False
-            # Вытаскиваем время из БД - на тот случай, если в ней уже успело обновиться значение.
-            self.start_time = time.time() - self.db.find_by_clause("tasks", "id", self.task[0], "timer")[0][0]
+            # Setting current counter value:
+            self.start_time = time.time() - self.task[2]
             self.timer_update()
             self.running = True
             self.startstopvar.set("Stop")
 
     def timer_stop(self):
-        """Пауза таймера и сохранение его значения в БД."""
+        """Stop counter and save its value to database."""
         if self.running:
-            # Метод after_cancel() останавливает выполнение обратного вызова, ID которого ему передаётся.
+            # after_cancel() stops execution of callback with given ID.
             self.timer_window.after_cancel(self.timer)
             self.running_time = time.time() - self.start_time
             self.running = False
             self.start_time = 0
-            # Записываем текущее значение таймера в БД.
-            print(self.running_time)
+            # Writing value into database:
             self.db.update_task(self.task[0], value=self.running_time)
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
             self.update_description()
 
     def update_description(self):
+        """Update text in "Description" field."""
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
         self.description.update_text(self.task[3])
 
     def destroy(self):
-        """Переопределяем функцию закрытия фрейма, чтобы состояние таймера записывалось в БД."""
+        """Closes frame and writes counter value into database."""
         self.timer_stop()
         tk.Frame.destroy(self)
 
 
 class TaskLabel(tk.Label):
-    """Простая текстовая метка для отображения значений. Визуально углублённая."""
-    def __init__(self, parent, **kwargs):
-        super().__init__(master=parent, relief='sunken', **kwargs)
+    """Simple sunken text label."""
+    def __init__(self, parent, anchor='center', **kwargs):
+        super().__init__(master=parent, relief='sunken', anchor=anchor, **kwargs)
+        RightclickMenu(self)
 
 
 class TaskButton(tk.Button):
-    """Просто кнопка."""
+    """Just a button with some default parameters."""
     def __init__(self, parent, width=8, **kwargs):
         super().__init__(master=parent, width=width, **kwargs)
 
 
 class TaskList(tk.Frame):
-    """Таблица задач со скроллом."""
+    """Scrollable tasks table."""
     def __init__(self, columns, parent=None, **options):
         super().__init__(master=parent, **options)
-        self.taskslist = ttk.Treeview(self, takefocus=1)     # Таблица.
+        self.taskslist = ttk.Treeview(self, takefocus=1)     # A table.
         scroller = tk.Scrollbar(self)
-        scroller.config(command=self.taskslist.yview)           # Привязываем скролл к таблице.
-        self.taskslist.config(yscrollcommand=scroller.set)      # Привязываем таблицу к скроллу :)
-        scroller.pack(side='right', fill='y')                       # Сначала нужно ставить скролл!
-        self.taskslist.pack(fill='both', expand=1)              # Таблица - расширяемая во всех направлениях.
-        self.taskslist.config(columns=tuple([col[0] for col in columns]))  # Создаём колонки и присваиваем им идентификаторы.
+        scroller.config(command=self.taskslist.yview)
+        self.taskslist.config(yscrollcommand=scroller.set)
+        scroller.pack(side='right', fill='y')
+        self.taskslist.pack(fill='both', expand=1)
+        # Creating and naming columns:
+        self.taskslist.config(columns=tuple([col[0] for col in columns]))
         for index, col in enumerate(columns):
-            self.taskslist.column(columns[index][0], width=100, minwidth=100, anchor='center')   # Настраиваем колонки с указанными идентификаторами.
-            # Настраиваем ЗАГОЛОВКИ колонок с указанными идентификаторами.
+            # Configuring columns with given ids:
+            self.taskslist.column(columns[index][0], width=100, minwidth=100, anchor='center')
+            # Configuring headers of columns with given ids:
             self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]: self.sortlist(c, True))
         self.taskslist.column('#0', anchor='w', width=70, minwidth=50, stretch=0)
         self.taskslist.column('taskname', width=600, anchor='w')
 
     def sortlist(self, col, reverse):
-        """Сортировка по клику в заголовок колонки."""
-        # get_children() возвращает список ID каждой строки списка.
-        # set(ID, колонка) возвращает имя каждой записи в этой колонке.
+        """Sorting by click on column header."""
+        # set(ID, column) returns name of every record in the column.
         l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
         l.sort(reverse=reverse)
         for index, value in enumerate(l):
@@ -223,7 +229,7 @@ class TaskList(tk.Frame):
         self.taskslist.heading(col, command=lambda: self.sortlist(col, not reverse))
 
     def insert_tasks(self, tasks):
-        # Вставляем в таблицу все строки, собственно значения в виде кортежей передаются в values=.
+        # Insert rows in the table. Row contents are tuples given in values=.
         for i, v in enumerate(tasks):
             self.taskslist.insert('', i, text="#%d" % (i + 1), values=v)      # item, number, value
 
@@ -233,92 +239,108 @@ class TaskList(tk.Frame):
         self.insert_tasks(tasks)
 
     def focus_(self, item):
-        """Выделяет указанный пункт списка."""
+        """Focuses on the row with given id."""
         self.taskslist.see(item)
         self.taskslist.selection_set(item)
         self.taskslist.focus_set()
         self.taskslist.focus(item)
 
 
-class TaskSelectionWindow(tk.Toplevel, Db_operations):
-    """Окно выбора и добавления задачи."""
+class TaskSelectionWindow(tk.Toplevel):
+    """Task selection and creation window."""
     def __init__(self, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
         self.title("Task selection")
-        self.minsize(width=450, height=300)         # Минимальный размер окна.
-        self.grab_set()                             # Остальные окна блокируются на время открытия этого.
+        self.minsize(width=450, height=300)
+        self.grab_set()
         tk.Label(self, text="New task:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
-        self.addentry = tk.Entry(self, width=50)             # Поле для ввода имени новой задачи.
+        # New task entry field:
+        self.addentry = tk.Entry(self, width=50)
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
-        self.addentry.bind('<Return>', lambda event: self.add_new_task())    # По нажатию кнопки Энтер в этом поле добавляется таск.
+        # Enter adds new task:
+        self.addentry.bind('<Return>', lambda event: self.add_new_task())
         self.addentry.focus_set()
-        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)   # Кнопка добавления новой задачи.
+        # "Add task" button:
+        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
-        self.listframe = TaskList(columnnames, self)     # Таблица тасок со скроллом.
+        # Scrollable tasks table:
+        self.listframe = TaskList(columnnames, self)
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
         tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        self.fulltime_frame = TaskLabel(self, width=10)       # Общее время
+        # Summarized time of all tasks in the table:
+        self.fulltime_frame = TaskLabel(self, width=10, anchor='center')
         self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
-        self.description = Description(self, height=4)      # Описание выбранной задачи.
+        # Selected task description:
+        self.description = Description(self, height=4)
         self.description.grid(row=2, column=2, rowspan=2, pady=5, padx=5, sticky='news')
-        selbutton = TaskButton(self, text="Select all...", width=10, command=self.select_all)   # Кнопка "выбрать всё".
+        # "Select all" button:
+        selbutton = TaskButton(self, text="Select all...", width=10, command=self.select_all)
         selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
-        clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)  # Кнопка "снять выделение".
+        # "Clear all" button:
+        clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)
         clearbutton.grid(row=3, column=1, sticky='w', padx=5, pady=5)
-        self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)    # Кнопка "свойства"
+        # Task properties button:
+        self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)
         self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
-        self.delbutton = TaskButton(self, text="Remove", width=10, command=self.delete)   # Кнопка "Удалить".
+        # Remove task button:
+        self.delbutton = TaskButton(self, text="Remove", width=10, command=self.delete)
         self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
-        self.exportbutton = TaskButton(self, text="Export...", command=self.export)      # Кнопка экспорта.
+        # Export button:
+        self.exportbutton = TaskButton(self, text="Export...", command=self.export)
         self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
-        self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)      # Кнопка фильтра.
+        # Filter button:
+        self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
         self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
         tk.Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
-        self.update_list()      # Заполняем содержимое таблицы.
-        self.current_task = ''      # Текущая выбранная задача.
-        self.listframe.taskslist.bind("<Down>", lambda e: self.descr_down())
-        self.listframe.taskslist.bind("<Up>", lambda e: self.descr_up())
+        self.update_list()      # Fill table contents.
+        self.current_task = ''      # Current selected task.
+        self.listframe.taskslist.bind("<Down>", self.descr_down)
+        self.listframe.taskslist.bind("<Up>", self.descr_up)
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
         self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
 
     def focus_first_item(self):
-        """Ставит фокус на первой строке."""
+        """Selects first item in the table."""
         item = self.listframe.taskslist.get_children()[0]
         self.listframe.focus_(item)
         self.update_descr(item)
 
     def export(self):
-        """Функция для экспорта списка задач в файл."""
-        text = "Task name,Time spent, Creation date\n"
-        text = text + '\n'.join(','.join([row[1], core.time_format(row[2]), row[4]]) for row in self.tdict.values())
-        text = text + '\nSummary time,%s\n' % self.fulltime
-        filename = asksaveasfilename(parent=self, defaultextension='.csv', filetypes=[("All files","*.*")])
-        core.export(filename, text)
+        """Export all tasks from the table into the file."""
+        text = '\n'.join(("Task name,Time spent,Creation date",
+                          '\n'.join(','.join([row[1], core.time_format(row[2]),
+                                              row[4]]) for row in self.tdict.values()),
+                          "Summary time,%s" % self.fulltime))
+        filename = asksaveasfilename(parent=self, defaultextension=".csv", filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
+        if filename:
+            core.export(filename, text)
+        # ToDo: Fix: In Windows, two same extensions are added by default.
 
     def add_new_task(self):
-        """Добавление новой задачи в БД."""
+        """Adds new task into the database."""
         task_name = self.addentry.get()
-        if len(task_name) > 0:
+        if task_name:
             try:
                 self.db.insert_task(task_name)
-            except core.DbErrors as err:
-                print(err)
+            except core.DbErrors:
+                pass
             else:
                 self.update_list()
                 items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
-                # Если созданная таска появилась в списке, ставим на неё курсор.
+                # If created task appears in the table, highlighting it:
                 for item in items:
                     if items[item]['values'][0] == task_name:
-                        self.listframe.focus_(item)  # Ставим фокус на указанную строку.
+                        self.listframe.focus_(item)
                         break
 
     def update_list(self):
-        """Обновление содержимого таблицы задач (перечитываем из БД)."""
-        query = self.db.find_by_clause('options', 'option_name', 'filter', 'value')[0][0]   # Восстанавливаем значение фильтра.
+        """Updating table contents using database query."""
+        # Restoring filter value:
+        query = self.db.find_by_clause('options', 'option_name', 'filter', 'value')[0][0]
         if query:
             self.db.exec_script(query)
             tlist = self.db.cur.fetchall()
@@ -327,42 +349,43 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
             tlist = self.db.find_all("tasks")
             self.filterbutton.config(bg=core.Params.colour)
         self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
-        self.tdict = {}     # Словарь соответствий индексов строчек в таблице и инфы о тасках.
+        # Dictionary with row ids and tasks info:
+        self.tdict = {}
         i = 0
-        for id in self.listframe.taskslist.get_children():
-            self.tdict[id] = tlist[i]
+        for task_id in self.listframe.taskslist.get_children():
+            self.tdict[task_id] = tlist[i]
             i += 1
-        self.fulltime = core.time_format(sum([x[2] for x in tlist]))
+        self.update_fulltime()
+
+    def update_fulltime(self):
+        """Updates value in "fulltime" frame."""
+        self.fulltime = core.time_format(sum([self.tdict[x][2] for x in self.tdict]))
         self.fulltime_frame.config(text=self.fulltime)
 
     def descr_click(self, event):
-        """Передаёт item, на котором стоит курсор мыши."""
+        """Updates description for the task with item id of the row selected by click."""
         self.update_descr(self.listframe.taskslist.identify_row(event.y))
 
-    def descr_up(self):
-        """Передаёт id ПРЕДЫДУЩЕГО item относительно выбранного."""
+    def descr_up(self, event):
+        """Updates description for the item id which is BEFORE selected."""
         item = self.listframe.taskslist.focus()
         prev_item = self.listframe.taskslist.prev(item)
         if prev_item == '':
             self.update_descr(item)
         else:
             self.update_descr(prev_item)
-        # Короткая запись, для истории:
-        #self.update_descr(item if self.listframe.taskslist.prev(item) == '' else self.listframe.taskslist.prev(item))
 
-    def descr_down(self):
-        """Передаёт id СЛЕДУЮЩЕГО за выбранным item."""
+    def descr_down(self, event):
+        """Updates description for the item id which is AFTER selected."""
         item = self.listframe.taskslist.focus()
         next_item = self.listframe.taskslist.next(item)
         if next_item == '':
             self.update_descr(item)
         else:
             self.update_descr(next_item)
-        # Короткая запись, для истории:
-        #self.update_descr(item if self.listframe.taskslist.next(item) == '' else self.listframe.taskslist.next(item))
 
     def update_descr(self, item):
-        """Заполнение окошка с описанием выбранной задачи."""
+        """Filling task description frame."""
         if item != '':
             self.description.update_text(self.tdict[item][3])
 
@@ -373,127 +396,156 @@ class TaskSelectionWindow(tk.Toplevel, Db_operations):
         self.listframe.taskslist.selection_remove(self.listframe.taskslist.get_children())
 
     def delete(self):
-        """Удаление задачи из БД (и из таблицы одновременно)."""
+        """Remove selected tasks from the database and the table."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
-        if len(ids) > 0:
-            answer = askquestion("Warning", "Are you sure you want to delete selected tasks?")
-            if answer == "yes":
+        if ids:
+            answer = askyesno("Warning", "Are you sure you want to delete selected tasks?", parent=self)
+            if answer:
                 self.db.delete_tasks(tuple(ids))
                 self.update_list()
         self.grab_set()
 
     def edit(self):
-        """Окно редактирования свойств таски."""
-        # Получаем кортеж из id выбранной таски и её имени.
+        """Show task edit window."""
+        item = self.listframe.taskslist.focus()
         try:
-            id_name = (self.tdict[self.listframe.taskslist.focus()][0], self.tdict[self.listframe.taskslist.focus()][1])
+            id_name = (self.tdict[item][0], self.tdict[item][1])  # Tuple: (selected_task_id, selected_task_name)
         except KeyError:
             pass
         else:
-            TaskEditWindow(id_name[0], self)
-            self.update_list()
-            for i in self.listframe.taskslist.get_children():   # Находим строчку с таким же именем
-                if self.listframe.taskslist.item(i)["values"][0] == id_name[1]:
-                    self.listframe.focus_(i)        # и выделяем её.
-                    self.update_descr(i)        # Обновляем описание.
-                    break
+            task_changed = tk.IntVar()
+            TaskEditWindow(id_name[0], self, variable=task_changed)
+            if task_changed.get() == 1:
+                # Reload task information from database:
+                new_task_info = self.db.find_by_clause("tasks", "id", id_name[0], "*")[0]
+                # Update description:
+                self.tdict[item] = new_task_info
+                self.update_descr(item)
+                # Update data in a table:
+                self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]), new_task_info[4]))
+                self.update_fulltime()
         self.grab_set()
 
     def filterwindow(self):
-        """Открытие окна фильтров."""
-        self.filteroptions = FilterWindow(self)
-        self.update_list()
+        """Open filters window."""
+        filter_changed = tk.IntVar()
+        self.filteroptions = FilterWindow(self, variable=filter_changed)
+        # Update tasks list only if filter parameters have been changed:
+        if filter_changed.get() == 1:
+            self.update_list()
         self.grab_set()
 
 
-class TaskEditWindow(tk.Toplevel, Db_operations):
-    """Окно редактирования свойств задачи."""
-    def __init__(self, taskid, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
+class TaskEditWindow(tk.Toplevel):
+    """Task properties window."""
+    def __init__(self, taskid, parent=None, variable=None, **options):
+        super().__init__(master=parent, **options)
+        # Connected with external IntVar. Needed to avoid unnecessary operations in parent window:
+        self.change = variable
+        self.db = core.Db()
+        # Task information from database:
         self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
+        # List of dates connected with this task:
         dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
-        self.grab_set()         # Делает все остальные окна неактивными.
+        self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
-        taskname = tk.Label(self, text="Task name:")
-        big_font(taskname, 10)
-        taskname.grid(row=0, column=0, pady=5, padx=5, sticky='w')
-        self.taskname = tk.Text(self, width=60, height=1, bg=core.Params.colour)
-        big_font(self.taskname, 9)
-        self.taskname.insert(1.0, self.task[1])
-        self.taskname.config(state='disabled')
-        self.taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
+        taskname_label = tk.Label(self, text="Task name:")
+        big_font(taskname_label, 10)
+        taskname_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
+        # Frame containing task name:
+        taskname = TaskLabel(self, width=60, height=1, bg=core.Params.colour, text=self.task[1], anchor='w')
+        big_font(taskname, 9)
+        taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
         tk.Frame(self, height=30).grid(row=2)
         description = tk.Label(self, text="Description:")
         big_font(description, 10)
         description.grid(row=3, column=0, pady=5, padx=5, sticky='w')
+        # Task description frame. Editable:
         self.description = Description(self, width=60, height=6)
         self.description.config(state='normal', bg='white')
-        if self.task[3] is not None:
+        if self.task[3]:
             self.description.insert(self.task[3])
+        self.description.context_menu.add_command(label="Paste", command=self.paste_description)
         self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
+        #
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
+        # Place tags list:
         self.tags_update()
         TaskButton(self, text='Edit tags', width=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
+        # Frame containing time:
+        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1,
+                                                                                         pady=5, padx=5, sticky='w')
         tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
+        # Frame containing list of dates connected with current task:
         datlist = Description(self, height=3, width=30)
         datlist.update_text(', '.join(dates))
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
+        #
         tk.Frame(self, height=40).grid(row=9)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
-        self.description.text.focus_set()       # Ставим фокус в окошко с описанием.
-        self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
+        self.description.text.focus_set()
+        self.wait_window()
+
+    def paste_description(self):
+        """Insert text from clipboard to a description field."""
+        self.description.insert(self.clipboard_get())
 
     def tags_edit(self):
-        """Открывает окно редактирования списка тегов."""
+        """Open tags editor window."""
         TagsEditWindow(self)
         self.tags_update()
         self.grab_set()
 
     def tags_update(self):
-        """Отображает список тегов."""
-        self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal')  # Список тегов с возможностью их включения.
+        """Tags list placing."""
+        # Tags list. Tags state are saved to database:
+        self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal', width=300, height=30)
         self.tags.grid(row=5, column=1, columnspan=3, pady=5, padx=5, sticky='we')
 
     def update_task(self):
-        """Обновление параметров таски в БД."""
-        taskdata = self.description.get().rstrip()    # описание задачи.
+        """Update task in database."""
+        taskdata = self.description.get().rstrip()
         self.db.update_task(self.task[0], field='description', value=taskdata)
-        for item in self.tags.states_list:   # Также обновляем набор тегов для таски.
+        # Renew tags list for the task:
+        for item in self.tags.states_list:
             if item[1][0].get() == 1:
                 self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
                 self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], item[0]))
+        # Reporting to parent window that task has been changed:
+        if self.change:
+            self.change.set(1)
         self.destroy()
 
 
-class TagsEditWindow(tk.Toplevel, Db_operations):
-    """Шаблон окна редактирования какого-нибудь списка чекбаттонов."""
+class TagsEditWindow(tk.Toplevel):
+    """Checkbuttons editing window.."""
     def __init__(self, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
         self.grab_set()
         self.addentry()
         self.tags_update()
+        self.closebutton = TaskButton(self, text='Close', command=self.destroy)
+        self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
+        self.closebutton.grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        self.deletebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.window_elements_config()
-        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text='Delete', command=self.delete).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.wait_window()
 
     def window_elements_config(self):
-        """Настройка параметров окна."""
+        """Window additional parameters configuration."""
         self.title("Tags editor")
-        self.minsize(width=200, height=200)
+        self.minsize(width=300, height=300)
 
     def addentry(self):
-        """Создание поля для ввода нового элемента. При наследовании может быть заменён пустой функцией, тогда поля не будет."""
+        """New element addition field"""
         self.addentry_label = tk.Label(self, text="Add tag:")
         self.addentry_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
@@ -503,7 +555,7 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         self.addfield.bind('<Return>', lambda event: self.add())
 
     def tags_update(self):
-        """Создание списка тегов."""
+        """Tags list recreation."""
         if hasattr(self, 'tags'):
             self.tags.destroy()
         self.tags_get()
@@ -512,9 +564,9 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
         self.grid_columnconfigure(1, weight=1)
 
     def add(self):
-        """Добавление тега в БД."""
+        """Insert new element into database."""
         tagname = self.addfield.get()
-        if len(tagname) > 0:
+        if tagname:
             try:
                 self.add_record(tagname)
             except core.DbErrors:
@@ -523,19 +575,19 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
                 self.tags_update()
 
     def delete(self):
-        """Удаление отмеченных тегов из БД."""
+        """Remove selected elements from database."""
         dellist = []
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
                 dellist.append(item[0])
-        if len(dellist) > 0:
-            answer = askyesno("Really delete?", "Are you sure you want to delete selected items?")
+        if dellist:
+            answer = askyesno("Really delete?", "Are you sure you want to delete selected items?", parent=self)
             if answer:
                 self.del_record(dellist)
                 self.tags_update()
 
     def tags_get(self):
-        self.tags = Tagslist(self.db.simple_tagslist(), self)
+        self.tags = Tagslist(self.db.simple_tagslist(), self, width=300, height=300)
 
     def add_record(self, tagname):
         self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
@@ -545,69 +597,91 @@ class TagsEditWindow(tk.Toplevel, Db_operations):
 
 
 class TimestampsWindow(TagsEditWindow):
-    """Окно со списком таймстемпов для указанной задачи."""
+    """Window with timestamps for selected task."""
     def __init__(self, taskid, current_task_time, parent=None, **options):
         self.taskid = taskid
         self.current_time = current_task_time
         super().__init__(parent=parent, **options)
 
-    def window_elements_config(self):
-        """Настройка параметров окна."""
-        self.title("Timestamps")
-        self.minsize(width=200, height=170)
-        self.tags.canvbox.config(width=400)
+    def select_all(self):
+        for item in self.tags.states_list:
+            item[1][0].set(1)
 
-    def addentry(self): pass
+    def clear_all(self):
+        for item in self.tags.states_list:
+            item[1][0].set(0)
+
+    def window_elements_config(self):
+        """Configure some window parameters."""
+        self.title("Timestamps")
+        self.minsize(width=400, height=300)
+        TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        tk.Frame(self, height=40).grid(row=3)
+        self.closebutton.grid(row=4, column=0, pady=5, padx=5, sticky='w')
+        self.deletebutton.grid(row=4, column=2, pady=5, padx=5, sticky='e')
+
+    def addentry(self):
+        """Empty method just for suppressing unnecessary element creation."""
+        pass
 
     def tags_get(self):
-        self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self)
+        """Creates timestamps list."""
+        self.tags = Tagslist(self.db.timestamps(self.taskid, self.current_time), self, width=400, height=300)
 
     def del_record(self, dellist):
+        """Deletes selected timestamps."""
         for x in dellist:
             self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):
+    """Help window."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
-        main_frame=tk.Frame(self)
+        main_frame = tk.Frame(self)
         self.helptext = tk.Text(main_frame, wrap='word')
         scroll = tk.Scrollbar(main_frame, command=self.helptext.yview)
         self.helptext.config(yscrollcommand=scroll.set)
-        self.helptext.insert(1.0, core.help_text)
+        self.helptext.insert(1.0, core.HELP_TEXT)
         self.helptext.config(state='disabled')
         scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
-        main_frame.grid(row=0, column=0, sticky='news', padx=5,pady=5)
+        main_frame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+
 class Description(tk.Frame):
+    """Description frame - Text frame with scroll."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent)
         self.text = tk.Text(self, bg=core.Params.colour, state='disabled', wrap='word', **options)
         scroller = tk.Scrollbar(self)
-        scroller.config(command=self.text.yview)           # Привязываем скролл к тексту.
-        self.text.config(yscrollcommand=scroller.set)      # Привязываем текст к скроллу :)
+        scroller.config(command=self.text.yview)
+        self.text.config(yscrollcommand=scroller.set)
         scroller.grid(row=0, column=1, sticky='ns')
         self.text.grid(row=0, column=0, sticky='news')
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure('all', weight=1)
+        # Context menu for copying contents:
+        self.context_menu = RightclickMenu(self.text)
 
     def config(self, cnf=None, **kw):
+        """Text configuration method."""
         self.text.config(cnf=cnf, **kw)
 
     def insert(self, text):
-        self.text.insert(1.0, text)
+        self.text.insert('end', text)
 
     def get(self):
         return self.text.get(1.0, 'end')
 
     def update_text(self, text):
-        """Заполнение поля с дескрипшеном."""
+        """Refill text field."""
         self.config(state='normal')
         self.text.delete(1.0, 'end')
         if text is not None:
@@ -616,12 +690,11 @@ class Description(tk.Frame):
 
 
 class ScrolledCanvas(tk.Frame):
-    """Прокручиваемый Canvas."""
+    """Scrollable Canvas. Scroll may be horizontal or vertical."""
     def __init__(self, parent=None, orientation="vertical", **options):
-        super().__init__(master=parent, relief='groove', bd=2, **options)
+        super().__init__(master=parent, relief='groove', bd=2)
         scroller = tk.Scrollbar(self, orient=orientation)
-        self.canvbox = tk.Canvas(self, width=(300 if orientation == "horizontal" else 200),
-                              height=(30 if orientation == "horizontal" else 200))
+        self.canvbox = tk.Canvas(self, **options)
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
         if orientation == "horizontal":
             self.canvbox.config(xscrollcommand=scroller.set)
@@ -631,50 +704,57 @@ class ScrolledCanvas(tk.Frame):
                       side='bottom' if orientation == 'horizontal' else 'right',
                       anchor='s' if orientation == 'horizontal' else 'e')
         self.content_frame = tk.Frame(self.canvbox)
-        self.canvbox.create_window((0,0), window=self.content_frame, anchor='nw')
-        self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
+        self.canvbox.create_window((0, 0), window=self.content_frame, anchor='nw')
+        self.content_frame.bind("<Configure>", self.reconf_canvas)
         self.canvbox.pack(fill="x" if orientation == "horizontal" else "both", expand=1)
 
-    def reconf_canvas(self):
-        """Изменение размера области прокрутки Canvas."""
+    def reconf_canvas(self, event):
+        """Resizing of canvas scrollable region."""
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
 
 
 class Tagslist(ScrolledCanvas):
-    """Список тегов. Формируется из списка tagslist.
-    Он имеет вид [[tag_id, [state, 'tagname']]], где state может быть 0 или 1."""
+    """Tags list. Accepts tagslist: [[tag_id, [state, 'tagname']]], can be 0 or 1."""
     def __init__(self, tagslist, parent=None, orientation="vertical", **options):
         super().__init__(parent=parent, orientation=orientation, **options)
-        self.states_list = tagslist    # Словарь id тегов с состояниями для данной таски и именами.
+        self.states_list = tagslist
         for item in self.states_list:
-            state = item[1][0]    # Сохраняем состояние, заданное для данного тега в словаре.
-            item[1][0] = tk.IntVar()  # Подставляем вместо этого состояния динамическую переменную.
+            # Saving tag state:
+            state = item[1][0]
+            # Inserting dynamic variable instead of the state:
+            item[1][0] = tk.IntVar()
+            # Connecting new checkbox with this dynamic variable:
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
             cb = tk.Checkbutton(self.content_frame, text=item[1][1], variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
-            item[1][0].set(state)     # Передаём динамической переменной сохранённое ранее состояние.
+            # Setting dynamic variable value to previously saved state:
+            item[1][0].set(state)
 
 
-class FilterWindow(tk.Toplevel, Db_operations):
-    """Окно настройки фильтра."""
-    def __init__(self, parent=None, **options):
-        tk.Toplevel.__init__(self, master=parent, **options)
-        Db_operations.__init__(self)
-        # Списки сохранённых состояний фильтров:
+class FilterWindow(tk.Toplevel):
+    """Filters window."""
+    def __init__(self, parent=None, variable=None, **options):
+        super().__init__(master=parent, **options)
+        self.db = core.Db()
+        self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
+        # Lists of stored filter parameters:
         stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
-        if len(stored_tags[0]) > 0:
+        if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
+        # Dates list:
         self.db.exec_script('select distinct date from dates order by date desc')
-        dates = [x[0] for x in self.db.cur.fetchall()]      # Список дат.
-        tags = self.db.simple_tagslist()        # Список тегов.
-        for tag in tags:        # Помечаем выбранные ранее теги согласно взятой из БД информации.
+        dates = [x[0] for x in self.db.cur.fetchall()]
+        # Tags list:
+        tags = self.db.simple_tagslist()
+        # Checking checkboxes according to their values loaded from database:
+        for tag in tags:
             if tag[0] in stored_tags:
                 tag[1][0] = 1
         tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
         tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
-        self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self)
-        self.tagslist = Tagslist(tags, self)
+        self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self, width=200, height=300)
+        self.tagslist = Tagslist(tags, self, width=200, height=300)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
         TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
@@ -682,7 +762,7 @@ class FilterWindow(tk.Toplevel, Db_operations):
         tk.Frame(self, height=40).grid(row=3, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=4, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=4, column=0, pady=5, padx=5, sticky='w')
-        self.minsize(height=250, width=250)
+        self.minsize(height=250, width=350)
         self.grid_columnconfigure('all', weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.wait_window()
@@ -696,39 +776,66 @@ class FilterWindow(tk.Toplevel, Db_operations):
             x[1][0].set(0)
 
     def apply_filter(self):
-        """Функция берёт фильтр из параметров, заданных в окне фильтров."""
+        """Create database script based on checkboxes values."""
         dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
-        if len(dates) == 0 and len(tags) == 0:
+        if not dates and not tags:
             script = None
         else:
-            if len(dates) > 0 and len(tags) > 0:
+            if dates and tags:
                 script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
                         "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
                         "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
                                                             tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-            elif len(dates) == 0:
+            elif not dates:
                 script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
                         "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
-            elif len(tags) == 0:
+            elif not tags:
                 script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
                         "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
         self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
         self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
         self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
+        # Reporting to parent window that filter values have been changed:
+        if self.changed:
+            self.changed.set(1)
         self.destroy()
 
 
+class RightclickMenu(tk.Menu):
+    """Popup menu. By default has one menuitem - "copy"."""
+    def __init__(self, widget, parent=None, **options):
+        super().__init__(master=parent, tearoff=0, **options)
+        self.widget = widget
+        self.widget.bind("<Button-3>", lambda event: self.post(event.x_root, event.y_root))
+        self.add_command(label="Copy", command=self.copy_to_clipboard)
+        self.add_to_menu()
+
+    def add_to_menu(self):
+        """Empty method to be overridden if need to add some more menuitems."""
+        pass
+
+    def copy_to_clipboard(self):
+        self.clipboard_clear()
+        if isinstance(self.widget, tk.Text):
+            self.widget.clipboard_append(self.widget.get(1.0, 'end'))
+        else:
+            self.widget.clipboard_append(self.widget.cget("text"))
+
+
 def big_font(unit, size=20):
-    """Увеличение размера шрифта выбранного элемента до 20."""
+    """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
+
 
 def helpwindow():
     HelpWindow(run)
 
+
 def stopall():
     core.Params.stopall = True
+
 
 def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -736,25 +843,23 @@ def quit():
         run.destroy()
 
 
-core.Params.tasks = set()    # Глобальный набор запущенных тасок. Для защиты от дублирования.
-core.Params.stopall = False  # Признак остановки всех таймеров сразу.
+# Quantity of task frames on main screen:
+TASKFRAMES_COUNT = 3
+# Check if tasks database actually exists:
+core.check_database()
+# Global tasks ids set. Used for preserve duplicates:
+core.Params.tasks = set()
+# If True, all running timers will be stopped:
+core.Params.stopall = False
 run = tk.Tk()
-core.Params.colour = run.cget('bg')  # Цвет фона виджетов по умолчанию.
+# Default widget colour:
+core.Params.colour = run.cget('bg')
 run.title("Tasker")
-run.resizable(width=0, height=0)    # Запрещаем изменение размера основного окна.
-TaskFrame(parent=run).grid(row=0, pady=5, padx=5, ipady=3, columnspan=5)
-tk.Frame(run, height=15).grid(row=1)
-TaskFrame(parent=run).grid(row=2, pady=5, padx=5, ipady=3, columnspan=5)
-tk.Frame(run, height=15).grid(row=3)
-TaskFrame(parent=run).grid(row=4, pady=5, padx=5, ipady=3, columnspan=5)
-TaskButton(run, text="Help", command=helpwindow).grid(row=5, column=0, sticky='sw', pady=5, padx=5)
-TaskButton(run, text="Stop all", command=stopall).grid(row=5, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=5, column=4, sticky='se', pady=5, padx=5)
+run.resizable(width=0, height=0)
+for row_number in list(range(TASKFRAMES_COUNT)):
+    TaskFrame(parent=run).grid(row=row_number, pady=5, padx=5, ipady=3, columnspan=5)
+    tk.Frame(run, height=15).grid(row=row_number+1)
+TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0, sticky='sw', pady=5, padx=5)
+TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
-
-
-# ToDo: Хоткеи копипаста должны работать в любой раскладке. Проверить на Винде.
-# ToDo: ?Сделать кнопку Clear all на главном экране.
-
-
-
