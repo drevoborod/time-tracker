@@ -26,7 +26,7 @@ class TaskFrame(tk.Frame):
         l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
-        self.tasklabel = TaskLabel(self, anchor='w', width=50)  # Task name field.
+        self.tasklabel = TaskLabel(self, width=50, anchor='w')  # Task name field.
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
@@ -185,8 +185,8 @@ class TaskFrame(tk.Frame):
 
 class TaskLabel(tk.Label):
     """Simple sunken text label."""
-    def __init__(self, parent, **kwargs):
-        super().__init__(master=parent, relief='sunken', **kwargs)
+    def __init__(self, parent, anchor='center', **kwargs):
+        super().__init__(master=parent, relief='sunken', anchor=anchor, **kwargs)
         RightclickMenu(self)
 
 
@@ -267,7 +267,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
         tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
-        self.fulltime_frame = TaskLabel(self, width=10)
+        self.fulltime_frame = TaskLabel(self, width=10, anchor='center')
         self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
         # Selected task description:
         self.description = Description(self, height=4)
@@ -415,8 +415,6 @@ class TaskSelectionWindow(tk.Toplevel):
             if task_changed.get() == 1:
                 # Reload task information from database:
                 new_task_info = self.db.find_by_clause("tasks", "id", id_name[0], "*")[0]
-                print(new_task_info)
-                print(self.listframe.taskslist.item(item))
                 # Update description:
                 self.tdict[item] = new_task_info
                 self.update_descr(item)
@@ -436,76 +434,88 @@ class TaskSelectionWindow(tk.Toplevel):
 
 
 class TaskEditWindow(tk.Toplevel):
-    """Окно редактирования свойств задачи."""
+    """Task properties window."""
     def __init__(self, taskid, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
+        # Connected with external IntVar. Needed to avoid unnecessary operations in parent window:
         self.change = variable
         self.db = core.Db()
+        # Task information from database:
         self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
+        # List of dates connected with this task:
         dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
-        self.grab_set()         # Делает все остальные окна неактивными.
+        self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
-        taskname = tk.Label(self, text="Task name:")
-        big_font(taskname, 10)
-        taskname.grid(row=0, column=0, pady=5, padx=5, sticky='w')
-        self.taskname = tk.Text(self, width=60, height=1, bg=core.Params.colour)
-        big_font(self.taskname, 9)
-        self.taskname.insert(1.0, self.task[1])
-        self.taskname.config(state='disabled')
-        self.taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
+        taskname_label = tk.Label(self, text="Task name:")
+        big_font(taskname_label, 10)
+        taskname_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
+        # Frame containing task name:
+        taskname = TaskLabel(self, width=60, height=1, bg=core.Params.colour, text=self.task[1], anchor='w')
+        big_font(taskname, 9)
+        taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
         tk.Frame(self, height=30).grid(row=2)
         description = tk.Label(self, text="Description:")
         big_font(description, 10)
         description.grid(row=3, column=0, pady=5, padx=5, sticky='w')
+        # Task description frame. Editable:
         self.description = Description(self, width=60, height=6)
-        self.description.context_menu.add_command(label="Paste", command=self.paste_description)
         self.description.config(state='normal', bg='white')
-        if self.task[3] is not None:
+        if self.task[3]:
             self.description.insert(self.task[3])
+        self.description.context_menu.add_command(label="Paste", command=self.paste_description)
         self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
+        #
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
+        # Place tags list:
         self.tags_update()
         TaskButton(self, text='Edit tags', width=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1, pady=5, padx=5, sticky='w')
+        # Frame containing time:
+        TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1,
+                                                                                         pady=5, padx=5, sticky='w')
         tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
+        # Frame containing list of dates connected with current task:
         datlist = Description(self, height=3, width=30)
         datlist.update_text(', '.join(dates))
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
+        #
         tk.Frame(self, height=40).grid(row=9)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
-        self.description.text.focus_set()       # Ставим фокус в окошко с описанием.
-        self.wait_window()      # Ожидание закрытия этого окна, в течении которого в родителе не выполняются команды.
+        self.description.text.focus_set()
+        self.wait_window()
 
     def paste_description(self):
         """Insert text from clipboard to a description field."""
         self.description.insert(self.clipboard_get())
 
     def tags_edit(self):
-        """Открывает окно редактирования списка тегов."""
+        """Open tags editor window."""
         TagsEditWindow(self)
         self.tags_update()
         self.grab_set()
 
     def tags_update(self):
-        """Отображает список тегов."""
-        self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal', width=300, height=30)  # Список тегов с возможностью их включения.
+        """Tags list placing."""
+        # Tags list. Tags state are saved to database:
+        self.tags = Tagslist(self.db.tags_dict(self.task[0]), self, orientation='horizontal', width=300, height=30)
         self.tags.grid(row=5, column=1, columnspan=3, pady=5, padx=5, sticky='we')
 
     def update_task(self):
-        """Обновление параметров таски в БД."""
-        taskdata = self.description.get().rstrip()    # описание задачи.
+        """Update task in database."""
+        taskdata = self.description.get().rstrip()
         self.db.update_task(self.task[0], field='description', value=taskdata)
-        for item in self.tags.states_list:   # Также обновляем набор тегов для таски.
+        # Renew tags list for the task:
+        for item in self.tags.states_list:
             if item[1][0].get() == 1:
                 self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
                 self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], item[0]))
+        # Reporting to parent window that task has been changed:
         if self.change:
             self.change.set(1)
         self.destroy()
