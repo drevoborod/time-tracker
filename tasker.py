@@ -26,17 +26,20 @@ class TaskFrame(tk.Frame):
         l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
-        self.tasklabel = TaskLabel(self, width=50, anchor='w')  # Task name field.
+        # Task name field:
+        self.tasklabel = TaskLabel(self, width=50, anchor='w')
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
-        self.description = Description(self, width=60, height=3)        # Task description.
+        # Task description field:
+        self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = TaskButton(self, state='disabled', command=self.startstopbutton, textvariable=self.startstopvar)
         big_font(self.startbutton, size=14)
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
-        self.timer_window = TaskLabel(self, width=10, state='disabled')         # Counter window.
+        # Counter frame:
+        self.timer_window = TaskLabel(self, width=10, state='disabled')
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', command=self.add_timestamp)
@@ -522,7 +525,7 @@ class TaskEditWindow(tk.Toplevel):
 
 
 class TagsEditWindow(tk.Toplevel):
-    """Шаблон окна редактирования какого-нибудь списка чекбаттонов."""
+    """Checkbuttons editing window.."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         self.db = core.Db()
@@ -537,12 +540,12 @@ class TagsEditWindow(tk.Toplevel):
         self.wait_window()
 
     def window_elements_config(self):
-        """Настройка параметров окна."""
+        """Window additional parameters configuration."""
         self.title("Tags editor")
         self.minsize(width=300, height=300)
 
     def addentry(self):
-        """Создание поля для ввода нового элемента. При наследовании может быть заменён пустой функцией, тогда поля не будет."""
+        """New element addition field"""
         self.addentry_label = tk.Label(self, text="Add tag:")
         self.addentry_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
@@ -552,7 +555,7 @@ class TagsEditWindow(tk.Toplevel):
         self.addfield.bind('<Return>', lambda event: self.add())
 
     def tags_update(self):
-        """Создание списка тегов."""
+        """Tags list recreation."""
         if hasattr(self, 'tags'):
             self.tags.destroy()
         self.tags_get()
@@ -561,7 +564,7 @@ class TagsEditWindow(tk.Toplevel):
         self.grid_columnconfigure(1, weight=1)
 
     def add(self):
-        """Добавление тега в БД."""
+        """Insert new element into database."""
         tagname = self.addfield.get()
         if tagname:
             try:
@@ -572,7 +575,7 @@ class TagsEditWindow(tk.Toplevel):
                 self.tags_update()
 
     def delete(self):
-        """Удаление отмеченных тегов из БД."""
+        """Remove selected elements from database."""
         dellist = []
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
@@ -652,19 +655,22 @@ class HelpWindow(tk.Toplevel):
         self.grid_rowconfigure(0, weight=1)
 
 class Description(tk.Frame):
+    """Description frame - Text frame with scroll."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent)
         self.text = tk.Text(self, bg=core.Params.colour, state='disabled', wrap='word', **options)
         scroller = tk.Scrollbar(self)
-        scroller.config(command=self.text.yview)           # Привязываем скролл к тексту.
-        self.text.config(yscrollcommand=scroller.set)      # Привязываем текст к скроллу :)
+        scroller.config(command=self.text.yview)
+        self.text.config(yscrollcommand=scroller.set)
         scroller.grid(row=0, column=1, sticky='ns')
         self.text.grid(row=0, column=0, sticky='news')
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure('all', weight=1)
+        # Context menu for copying contents:
         self.context_menu = RightclickMenu(self.text)
 
     def config(self, cnf=None, **kw):
+        """Text configuration method."""
         self.text.config(cnf=cnf, **kw)
 
     def insert(self, text):
@@ -674,7 +680,7 @@ class Description(tk.Frame):
         return self.text.get(1.0, 'end')
 
     def update_text(self, text):
-        """Заполнение поля с дескрипшеном."""
+        """Refill text field."""
         self.config(state='normal')
         self.text.delete(1.0, 'end')
         if text is not None:
@@ -683,7 +689,7 @@ class Description(tk.Frame):
 
 
 class ScrolledCanvas(tk.Frame):
-    """Прокручиваемый Canvas."""
+    """Scrollable Canvas. Scroll may be horizontal or vertical."""
     def __init__(self, parent=None, orientation="vertical", **options):
         super().__init__(master=parent, relief='groove', bd=2)
         scroller = tk.Scrollbar(self, orient=orientation)
@@ -698,44 +704,51 @@ class ScrolledCanvas(tk.Frame):
                       anchor='s' if orientation == 'horizontal' else 'e')
         self.content_frame = tk.Frame(self.canvbox)
         self.canvbox.create_window((0, 0), window=self.content_frame, anchor='nw')
-        self.content_frame.bind("<Configure>", lambda event: self.reconf_canvas())
+        self.content_frame.bind("<Configure>", self.reconf_canvas)
         self.canvbox.pack(fill="x" if orientation == "horizontal" else "both", expand=1)
 
-    def reconf_canvas(self):
-        """Изменение размера области прокрутки Canvas."""
+    def reconf_canvas(self, event):
+        """Resizing of canvas scrollable region."""
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
 
 
 class Tagslist(ScrolledCanvas):
-    """Список тегов. Формируется из списка tagslist.
-    Он имеет вид [[tag_id, [state, 'tagname']]], где state может быть 0 или 1."""
+    """Tags list. Accepts tagslist: [[tag_id, [state, 'tagname']]], can be 0 or 1."""
     def __init__(self, tagslist, parent=None, orientation="vertical", **options):
         super().__init__(parent=parent, orientation=orientation, **options)
-        self.states_list = tagslist    # Словарь id тегов с состояниями для данной таски и именами.
+        self.states_list = tagslist
         for item in self.states_list:
-            state = item[1][0]    # Сохраняем состояние, заданное для данного тега в словаре.
-            item[1][0] = tk.IntVar()  # Подставляем вместо этого состояния динамическую переменную.
+            # Saving tag state:
+            state = item[1][0]
+            # Inserting dynamic variable instead of the state:
+            item[1][0] = tk.IntVar()
+            # Connecting new checkbox with this dynamic variable:
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
             cb = tk.Checkbutton(self.content_frame, text=item[1][1], variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
-            item[1][0].set(state)     # Передаём динамической переменной сохранённое ранее состояние.
+            # Setting dynamic variable value to previously saved state:
+            item[1][0].set(state)
 
 
 class FilterWindow(tk.Toplevel):
-    """Окно настройки фильтра."""
+    """Filters window."""
     def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
         self.db = core.Db()
-        self.changed = variable
-        # Списки сохранённых состояний фильтров:
+        self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
+        # Lists of stored filter parameters:
         stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
-        if stored_tags[0]:
+        print(stored_tags)
+        if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
+        # Dates list:
         self.db.exec_script('select distinct date from dates order by date desc')
-        dates = [x[0] for x in self.db.cur.fetchall()]      # Список дат.
-        tags = self.db.simple_tagslist()        # Список тегов.
-        for tag in tags:        # Помечаем выбранные ранее теги согласно взятой из БД информации.
+        dates = [x[0] for x in self.db.cur.fetchall()]
+        # Tags list:
+        tags = self.db.simple_tagslist()
+        # Checking checkboxes according to their values loaded from database:
+        for tag in tags:
             if tag[0] in stored_tags:
                 tag[1][0] = 1
         tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
@@ -763,7 +776,7 @@ class FilterWindow(tk.Toplevel):
             x[1][0].set(0)
 
     def apply_filter(self):
-        """Функция берёт фильтр из параметров, заданных в окне фильтров."""
+        """Create database script based on checkboxes values."""
         dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
         if not dates and not tags:
