@@ -863,3 +863,6 @@ TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0
 TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
+
+
+# ToDo: Контекстное меню должно быть только одним в один момент времени и закрываться по клику на любом виджете.
