@@ -12,8 +12,7 @@ import core
 
 
 class BindedWidget(tk.Widget):
-    """В этом классе переопределён метод Bind так, что он распространяется на всех потомков,
-    кроме тех, которые относятся к классу tkinter.Menu."""
+    """Frame with changed .bind() method. I applies recursive to all widget's children."""
     def bind(self, sequence=None, func=None, add=None):
         if not isinstance(self, tk.Menu):
             tk.Misc.bind(self, sequence, func, add)
@@ -200,7 +199,7 @@ class TaskLabel(tk.Label):
     """Simple sunken text label."""
     def __init__(self, parent, anchor='center', **kwargs):
         super().__init__(master=parent, relief='sunken', anchor=anchor, **kwargs)
-        context_menu = RightclickMenu(self)
+        context_menu = RightclickMenu()
         self.bind("<Button-3>", context_menu.context_menu_show)
 
 
@@ -680,7 +679,7 @@ class Description(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure('all', weight=1)
         # Context menu for copying contents:
-        self.context_menu = RightclickMenu(self.text)
+        self.context_menu = RightclickMenu()
         self.text.bind("<Button-3>", self.context_menu.context_menu_show)
 
     def config(self, cnf=None, **kw):
@@ -880,5 +879,3 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-
-# ToDo: Контекстное меню должно быть только одним в один момент времени и закрываться по клику на любом виджете.
