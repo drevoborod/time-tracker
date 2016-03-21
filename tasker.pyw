@@ -11,6 +11,15 @@ from tkinter import ttk
 import core
 
 
+class BindedWidget(tk.Widget):
+    """Frame with changed .bind() method. I applies recursive to all widget's children."""
+    def bind(self, sequence=None, func=None, add=None):
+        if not isinstance(self, tk.Menu):
+            tk.Misc.bind(self, sequence, func, add)
+        for child in self.winfo_children():
+            BindedWidget.bind(child, sequence, func, add)
+
+
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
@@ -190,7 +199,8 @@ class TaskLabel(tk.Label):
     """Simple sunken text label."""
     def __init__(self, parent, anchor='center', **kwargs):
         super().__init__(master=parent, relief='sunken', anchor=anchor, **kwargs)
-        RightclickMenu(self)
+        context_menu = RightclickMenu()
+        self.bind("<Button-3>", context_menu.context_menu_show)
 
 
 class TaskButton(tk.Button):
@@ -466,6 +476,7 @@ class TaskEditWindow(tk.Toplevel):
         self.description.config(state='normal', bg='white')
         if self.task[3]:
             self.description.insert(self.task[3])
+        # Additional command for context menu:
         self.description.context_menu.add_command(label="Paste", command=self.paste_description)
         self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
         #
@@ -668,7 +679,8 @@ class Description(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure('all', weight=1)
         # Context menu for copying contents:
-        self.context_menu = RightclickMenu(self.text)
+        self.context_menu = RightclickMenu()
+        self.text.bind("<Button-3>", self.context_menu.context_menu_show)
 
     def config(self, cnf=None, **kw):
         """Text configuration method."""
@@ -804,24 +816,14 @@ class FilterWindow(tk.Toplevel):
 
 class RightclickMenu(tk.Menu):
     """Popup menu. By default has one menuitem - "copy"."""
-    def __init__(self, widget, parent=None, **options):
+    def __init__(self, parent=None, **options):
         super().__init__(master=parent, tearoff=0, **options)
-        self.widget = widget
-        self.widget.bind("<Button-3>", lambda event: self.post(event.x_root, event.y_root))
-        self.add_command(label="Copy", command=self.copy_to_clipboard)
-        self.add_to_menu()
+        self.add_command(label="Copy", command=copy_to_clipboard)
 
-    def add_to_menu(self):
-        """Empty method to be overridden if need to add some more menuitems."""
-        pass
-
-    def copy_to_clipboard(self):
-        self.clipboard_clear()
-        if isinstance(self.widget, tk.Text):
-            self.widget.clipboard_append(self.widget.get(1.0, 'end'))
-        else:
-            self.widget.clipboard_append(self.widget.cget("text"))
-
+    def context_menu_show(self, event):
+        """Function links context menu with current selected widget and pops menu up."""
+        self.post(event.x_root, event.y_root)
+        core.Params.selected_widget = event.widget
 
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
@@ -831,6 +833,15 @@ def big_font(unit, size=20):
 
 def helpwindow():
     HelpWindow(run)
+
+
+def copy_to_clipboard():
+    """Copy widget text to clipboard."""
+    core.Params.selected_widget.clipboard_clear()
+    if isinstance(core.Params.selected_widget, tk.Text):
+        core.Params.selected_widget.clipboard_append(core.Params.selected_widget.get(1.0, 'end'))
+    else:
+        core.Params.selected_widget.clipboard_append(core.Params.selected_widget.cget("text"))
 
 
 def stopall():
@@ -851,6 +862,10 @@ core.check_database()
 core.Params.tasks = set()
 # If True, all running timers will be stopped:
 core.Params.stopall = False
+# Widget which is currently connected to context menu:
+core.Params.selected_widget = None
+
+# Main window:
 run = tk.Tk()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
@@ -863,3 +878,4 @@ TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0
 TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
+
