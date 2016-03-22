@@ -836,7 +836,7 @@ def helpwindow():
 
 
 def copy_to_clipboard():
-    """Copy context menu item to clipboard."""
+    """Copy widget text to clipboard."""
     core.Params.selected_widget.clipboard_clear()
     if isinstance(core.Params.selected_widget, tk.Text):
         core.Params.selected_widget.clipboard_append(core.Params.selected_widget.get(1.0, 'end'))
