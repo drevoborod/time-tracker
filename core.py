@@ -112,7 +112,7 @@ class Db:
     def timestamps(self, taskid, current_time):
         """Returns timestamps list in same format as simple_tagslist()."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid, 'timestamp')
-        res = [[x[0], [0, '{0}; {1} have passed since that moment'.format(
+        res = [[x[0], [0, '{0}; {1} spent since that moment'.format(
             time_format(x[0]), time_format(current_time - x[0]))]] for x in timestamps]
         res.reverse()
         return res
