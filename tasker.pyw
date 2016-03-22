@@ -522,7 +522,7 @@ class TaskEditWindow(tk.Toplevel):
     def update_task(self):
         """Update task in database."""
         taskdata = self.description.get().rstrip()
-        self.db.update_task(self.task[0], field='description', value=taskdata)
+        self.db.update(self.task[0], field='description', value=taskdata)
         # Renew tags list for the task:
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
