@@ -879,3 +879,5 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
+# ToDo: Fix: даблклик в заголовок колонки таблицы приводит к открытию таски, на которой стоит курсор.
+# ToDo: Fix: при большом (проверено на 200) количестве тасок при сортировке отображается описание из другой таски.
