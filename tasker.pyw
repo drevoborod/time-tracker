@@ -280,7 +280,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
         tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
-        self.fulltime_frame = TaskLabel(self, width=10, anchor='center')
+        self.fulltime_frame = TaskLabel(self, width=13, anchor='center')
         self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
         # Selected task description:
         self.description = Description(self, height=4)
@@ -290,7 +290,7 @@ class TaskSelectionWindow(tk.Toplevel):
         selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
         clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)
-        clearbutton.grid(row=3, column=1, sticky='w', padx=5, pady=5)
+        clearbutton.grid(row=3, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
         self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)
         self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
