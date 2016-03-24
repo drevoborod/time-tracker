@@ -143,7 +143,7 @@ def time_format(sec):
     if sec < 86400:
         return time.strftime("%H:%M:%S", time.gmtime(sec))
     else:
-        return time.strftime("%jd:%H:%M:%S", time.gmtime(sec))
+        return time.strftime("%jd:%H:%M:%S", time.gmtime(sec)).lstrip("0")
 
 
 def date_format(date):
