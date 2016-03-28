@@ -33,7 +33,7 @@ class Db:
             return self.cur.lastrowid
 
     def find_by_clause(self, table, field, value, searchfield):
-        """Returns "searchfield" if field=value. """
+        """Returns "searchfield" for field=value."""
         self.exec_script('select {3} from {0} where {1}="{2}"'.format(table, field, value, searchfield))
         return self.cur.fetchall()
 
@@ -45,35 +45,55 @@ class Db:
             self.exec_script('select * from {0} order by {1} asc'.format(table, sortfield))
         return self.cur.fetchall()
 
+    def select_task(self, task_id, date=None):
+        """Returns tuple of values for given task_id."""
+        task = list(self.find_by_clause(searchfield='*', field='id', value=task_id, table='tasks')[0])
+        # Adding full spent time:
+        if date:
+            self.exec_script('SELECT sum(spent_time) FROM activity WHERE task_id={0} AND date={1}'.format(task_id, date))
+        else:
+            self.exec_script('SELECT sum(spent_time) FROM activity WHERE task_id=%s' % task_id)
+        # Adding spent time on position 3:
+        task.insert(2, self.cur.fetchone()[0])
+        return task
+
     def insert(self, table, fields, values):
-        """Insert into fields given values. Fields and values should be 2-tuples."""
-        return self.exec_script(('insert into {0} {1} values (?, ?)'.format(table, fields), values))
+        """Insert into fields given values. Fields and values should be tuples with length 2 or 3."""
+        return self.exec_script(('insert into {0} {1} values {2}'.format(table, fields, '(?, ?)' if len(values) == 2
+                                                                         else '(?, ?, ?)'), values))
 
     def insert_task(self, name):
         """Insert task into database."""
-        date = date_format(datetime.datetime.now())     # Current date in "DD.MM.YYYY" format.
+        date = date_format(datetime.datetime.now())
         try:
-            rowid = self.exec_script(('insert into tasks (id, timer, task_name, creation_date) values (null, 0, ?, ?)', (name, date)))
+            rowid = self.insert('tasks', ('task_name', 'creation_date'), (name, date))
         except sqlite3.IntegrityError:
             raise DbErrors("Task name already exists")
         else:
             task_id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
-            self.insert("dates", ("date", "task_id"), (date, task_id))
+            self.insert("activity", ("date", "task_id", "spent_time"), (date, task_id, 0))
             self.insert("tags", ("tag_id", "task_id"), (1, task_id))
             return task_id
 
-    def update(self, field_id, field="timer", value=0, table="tasks", updfiled="id"):
+    def update(self, field_id, field, value, table="tasks", updfiled="id"):
         """Updates given field in given table with given id using given value :) """
         self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
 
-    def update_task(self, task_id, field="timer", value=0):
+    def update_task(self, task_id, field="spent_time", value=0):
         """Updates some fields for given task id.
         If a task does not have record in dates table, a record will be created.
         """
         date = date_format(datetime.datetime.now())
-        if date not in [x[0] for x in self.find_by_clause(table="dates", field="task_id", value=task_id, searchfield="date")]:
-            self.insert("dates", ("date", "task_id"), (date, task_id))
-        self.update(task_id, field=field, value=value)
+        if field == 'spent_time':       # New activity date will be added only if some time will be spent on task.
+            if date not in [x[0] for x in
+                            self.find_by_clause(table="activity", field="task_id", value=task_id, searchfield="date")]:
+                self.insert("activity", ("date", "task_id", "spent_time"), (date, task_id, value))
+            else:
+                self.exec_script("SELECT rowid FROM activity WHERE task_id={0} AND date='{1}'".format(task_id, date))
+                daterow = self.cur.fetchone()[0]
+                self.update(daterow, table='activity', updfiled='rowid', field=field, value=value)
+        else:
+            self.update(task_id, field=field, value=value)
 
     def delete(self, ids, field="id", table="tasks"):
         """Removes several records. ids should be a tuple."""
@@ -163,30 +183,28 @@ def get_help():
 
 TABLE_FILE = 'tasks.db'
 TABLE_STRUCTURE = """\
-                create table tasks (id integer primary key autoincrement,
-                task_name text unique,
-                timer int,
-                description text,
-                creation_date text);
-                create table options (option_name text unique,
-                value text);
-                create table dates (date text,
-                task_id int);
-                create table tags (tag_id int,
-                task_id int);
-                create table timestamps (timestamp int,
-                task_id int);
-                create table tagnames (tag_name text unique,
-                tag_id integer primary key autoincrement);
-                insert into tagnames values ('default', 1);
-                insert into options (option_name) values ('filter');
-                insert into options (option_name, value) values ('filter_tags', '');
-                insert into options (option_name, value) values ('filter_dates', '');
+                CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_name TEXT UNIQUE,
+                description TEXT,
+                creation_date TEXT);
+                CREATE TABLE options (option_name TEXT UNIQUE,
+                value TEXT);
+                CREATE TABLE activity (date TEXT,
+                task_id INT,
+                spent_time INT);
+                CREATE TABLE tags (tag_id INT,
+                task_id INT);
+                CREATE TABLE timestamps (timestamp INT,
+                task_id INT);
+                CREATE TABLE tagnames (tag_name TEXT UNIQUE,
+                tag_id INTEGER PRIMARY KEY AUTOINCREMENT);
+                INSERT INTO tagnames VALUES ('default', 1);
+                INSERT INTO options (option_name) VALUES ('filter');
+                INSERT INTO options (option_name, value) VALUES ('filter_tags', '');
+                INSERT INTO options (option_name, value) VALUES ('filter_dates', '');
                 """
 
-# ToDo: Изменить структуру БД: добавить таблицу 'datenames', в которой будет набор актуальных дат
-# с айдишниками. Для того, чтобы не перегружать таблицу dates записями, создавая для каждой таски
-# записи, отличающиеся только task_id. Короче, сделать по аналогии с tags.
+
 # ToDo: Проверить работу time_format(): есть подозрение, что она прибавляет лишний день.
 
 HELP_TEXT = get_help()

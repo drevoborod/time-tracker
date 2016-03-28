@@ -109,7 +109,8 @@ class TaskFrame(tk.Frame):
         if tasks:
             self.task_id = self.dialogue_window.tdict[tasks[0]][0]
             # Task parameters from database:
-            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]
+            print(self.task_id)
+            task = self.db.select_task(self.task_id)
             # Checking if task is already open in another frame:
             if self.task_id not in core.Params.tasks:
                 # Checking if there is open task in this frame:
@@ -127,6 +128,7 @@ class TaskFrame(tk.Frame):
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
         # Adding task id to set of running tasks:
+        print(task)
         core.Params.tasks.add(task[0])
         self.task = list(task)
         # Taking current counter value from database:
@@ -336,8 +338,8 @@ class TaskSelectionWindow(tk.Toplevel):
         if task_name:
             try:
                 self.db.insert_task(task_name)
-            except core.DbErrors:
-                pass
+            except core.DbErrors as err:
+                print(err)
             else:
                 self.update_list()
                 items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
@@ -352,13 +354,17 @@ class TaskSelectionWindow(tk.Toplevel):
         # Restoring filter value:
         query = self.db.find_by_clause('options', 'option_name', 'filter', 'value')[0][0]
         if query:
+            print(query)
             self.db.exec_script(query)
-            tlist = self.db.cur.fetchall()
             self.filterbutton.config(bg='lightblue')
         else:
-            tlist = self.db.find_all("tasks")
+            self.db.exec_script('SELECT id, task_name, (SELECT sum(activitytable.spent_time) FROM tasks AS taskstable '
+                                'JOIN activity AS activitytable ON taskstable.id=activitytable.task_id), '
+                                'description, creation_date FROM tasks')
             self.filterbutton.config(bg=core.Params.colour)
-        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
+        tlist = self.db.cur.fetchall()
+        if tlist[0][0]:
+            self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
         # Dictionary with row ids and tasks info:
         self.tdict = {}
         i = 0
@@ -427,7 +433,7 @@ class TaskSelectionWindow(tk.Toplevel):
             TaskEditWindow(id_name[0], self, variable=task_changed)
             if task_changed.get() == 1:
                 # Reload task information from database:
-                new_task_info = self.db.find_by_clause("tasks", "id", id_name[0], "*")[0]
+                new_task_info = self.db.select_task(id_name[0])
                 # Update description:
                 self.tdict[item] = new_task_info
                 self.update_descr(item)
@@ -454,9 +460,9 @@ class TaskEditWindow(tk.Toplevel):
         self.change = variable
         self.db = core.Db()
         # Task information from database:
-        self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
+        self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
-        dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
+        dates = [x[0] for x in self.db.find_by_clause("activity", "task_id", taskid, "date")]
         self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
@@ -522,7 +528,7 @@ class TaskEditWindow(tk.Toplevel):
     def update_task(self):
         """Update task in database."""
         taskdata = self.description.get().rstrip()
-        self.db.update(self.task[0], field='description', value=taskdata)
+        self.db.update_task(self.task[0], field='description', value=taskdata)
         # Renew tags list for the task:
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
@@ -755,7 +761,7 @@ class FilterWindow(tk.Toplevel):
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
-        self.db.exec_script('select distinct date from dates order by date desc')
+        self.db.exec_script('select distinct date from activity order by date desc')
         dates = [x[0] for x in self.db.cur.fetchall()]
         # Tags list:
         tags = self.db.simple_tagslist()
@@ -795,16 +801,24 @@ class FilterWindow(tk.Toplevel):
             script = None
         else:
             if dates and tags:
-                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
-                        "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
-                        "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                            tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                script = "SELECT DISTINCT taskstable.id, taskstable.task_name, sum(activitytable.spent_time), " \
+                         "taskstable.description, taskstable.creation_date FROM tasks AS taskstable JOIN tags " \
+                         "AS tagstable ON taskstable.id = tagstable.task_id JOIN activity AS activitytable ON " \
+                         "taskstable.id = activitytable.task_id WHERE tagstable.tag_id IN {0} AND activitytable.date " \
+                         "IN {1} ORDER BY taskstable.id".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                         tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
             elif not dates:
-                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
-                        "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
+                script = "SELECT DISTINCT taskstable.id, taskstable.task_name, (SELECT sum(activitytable.spent_time) FROM tasks " \
+                         "AS taskstable JOIN activity AS activitytable ON taskstable.id=activitytable.task_id), " \
+                         "taskstable.description, taskstable.creation_date FROM tasks AS taskstable JOIN tags " \
+                         "AS tagstable ON taskstable.id = tagstable.task_id WHERE " \
+                         "tagstable.tag_id IN {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
             elif not tags:
-                script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
-                        "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                script = "SELECT DISTINCT taskstable.id, taskstable.task_name, (SELECT sum(activitytable.spent_time) FROM tasks " \
+                         "AS taskstable JOIN activity AS activitytable ON taskstable.id=activitytable.task_id), " \
+                         "taskstable.description, taskstable.creation_date FROM tasks AS taskstable JOIN activity " \
+                         "AS activitytable ON taskstable.id = activitytable.task_id WHERE activitytable.date " \
+                         "IN {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
         self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
         self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
         self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
@@ -881,3 +895,15 @@ run.mainloop()
 
 # ToDo: Fix: даблклик в заголовок колонки таблицы приводит к открытию таски, на которой стоит курсор.
 # ToDo: Fix: при большом (проверено на 200) количестве тасок при сортировке отображается описание из другой таски.
+# ToDo: если таск, который пытаемся создать, уже присутствует в БД, то ставить на него курсор (если он отоборажается
+# в текущей выборке, конечно).
+# ToDo: А если он не попал в выборку, то показывать всплывающее окно с сообщением о его наличии.
+# ToDo: Попробовать поисследовать баг с залипанием добавления задачи. Шаги, при которых воспроизвелось:
+# 1. Применить фильтр, например, по дате, так, чтобы текущая дата не попадала.
+# 2. ДОбавить задачу (соответствнно, она не отобразится в списке)
+# 3. Изменить параметры фильтра так, чтобы задача отобразилась.
+# 4. Открыть эту задачу.
+# 5. С главного экрана зайти в её свойства.
+# 6. Попытаться добавить описание. После нажатия на "ок" оболочка на какое-то время залипнет, потом
+# кнопка отпустится и окно не закроется.
+# ToDo: Добавить логирование исключений.
