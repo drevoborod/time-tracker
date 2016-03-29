@@ -109,7 +109,6 @@ class TaskFrame(tk.Frame):
         if tasks:
             self.task_id = self.dialogue_window.tdict[tasks[0]][0]
             # Task parameters from database:
-            print(self.task_id)
             task = self.db.select_task(self.task_id)
             # Checking if task is already open in another frame:
             if self.task_id not in core.Params.tasks:
@@ -128,7 +127,6 @@ class TaskFrame(tk.Frame):
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
         # Adding task id to set of running tasks:
-        print(task)
         core.Params.tasks.add(task[0])
         self.task = list(task)
         # Taking current counter value from database:
@@ -352,19 +350,16 @@ class TaskSelectionWindow(tk.Toplevel):
     def update_list(self):
         """Updating table contents using database query."""
         # Restoring filter value:
-        query = self.db.find_by_clause('options', 'option_name', 'filter', 'value')[0][0]
+        query = self.db.find_by_clause('options', 'name', 'filter', 'value')[0][0]
         if query:
-            print(query)
-            self.db.exec_script(query)
             self.filterbutton.config(bg='lightblue')
+            self.db.exec_script(query)
         else:
-            self.db.exec_script('SELECT id, task_name, (SELECT sum(activitytable.spent_time) FROM tasks AS taskstable '
-                                'JOIN activity AS activitytable ON taskstable.id=activitytable.task_id), '
-                                'description, creation_date FROM tasks')
             self.filterbutton.config(bg=core.Params.colour)
+            self.db.exec_script('SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, sum(spent_time) ' \
+                    'AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id')
         tlist = self.db.cur.fetchall()
-        if tlist[0][0]:
-            self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
+        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
         # Dictionary with row ids and tasks info:
         self.tdict = {}
         i = 0
