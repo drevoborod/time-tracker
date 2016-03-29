@@ -66,13 +66,13 @@ class Db:
         """Insert task into database."""
         date = date_format(datetime.datetime.now())
         try:
-            rowid = self.insert('tasks', ('task_name', 'creation_date'), (name, date))
+            rowid = self.insert('tasks', ('name', 'creation_date'), (name, date))
         except sqlite3.IntegrityError:
             raise DbErrors("Task name already exists")
         else:
             task_id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
             self.insert("activity", ("date", "task_id", "spent_time"), (date, task_id, 0))
-            self.insert("tags", ("tag_id", "task_id"), (1, task_id))
+            self.insert("tasks_tags", ("tag_id", "task_id"), (1, task_id))
             return task_id
 
     def update(self, field_id, field, value, table="tasks", updfiled="id"):
@@ -108,14 +108,14 @@ class Db:
         self.delete(ids)
         self.delete(ids, field="task_id", table="dates")
         self.delete(ids, field="task_id", table="timestamps")
-        self.delete(ids, field="task_id", table="tags")
+        self.delete(ids, field="task_id", table="tasks_tags")
 
     def tags_dict(self, taskid):
         """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
         Tag has value 1 if a record for given task id exists in tags table.
         """
-        tagnames = self.find_all("tagnames", sortfield="tag_name")     # [(tagname, 1), (tagname, 2)]
-        self.exec_script("select t1.tag_id from tags as t1 join tagnames as t2 on t1.tag_id = t2.tag_id where t1.task_id=%d" % taskid)
+        tagnames = self.find_all("tags", sortfield="name")     # [(tagname, 1), (tagname, 2)]
+        self.exec_script("select t.tag_id from tasks_tags as t join tags on t.tag_id=tags.tag_id where t.task_id=%d" % taskid)
         actual_tags = [x[0] for x in self.cur.fetchall()]    # [1, 3, ...]
         states_list = []        # [[1, [1, 'tag1']],  [2, [0, 'tag2']], [3, [1, 'tag3']]]
         for k in tagnames:
@@ -124,7 +124,7 @@ class Db:
 
     def simple_tagslist(self):
         """Returns tags list just like tags_dict() but every tag value is 0."""
-        tagslist = self.find_all("tagnames", sortfield="tag_name")
+        tagslist = self.find_all("tags", sortfield="name")
         res = [[y, [0, x]] for x, y in tagslist]
         res.reverse()       # Should be reversed to preserve order like in database.
         return res
@@ -160,6 +160,7 @@ def export(filename, text):
 
 def time_format(sec):
     """Returns time string in readable format."""
+    # ToDO: переписать так, чтобы показывало нормальное количество дней.
     if sec < 86400:
         return time.strftime("%H:%M:%S", time.gmtime(sec))
     else:
@@ -184,24 +185,24 @@ def get_help():
 TABLE_FILE = 'tasks.db'
 TABLE_STRUCTURE = """\
                 CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                task_name TEXT UNIQUE,
+                name TEXT UNIQUE,
                 description TEXT,
                 creation_date TEXT);
-                CREATE TABLE options (option_name TEXT UNIQUE,
-                value TEXT);
                 CREATE TABLE activity (date TEXT,
                 task_id INT,
                 spent_time INT);
-                CREATE TABLE tags (tag_id INT,
-                task_id INT);
+                CREATE TABLE tasks_tags (task_id INT,
+                tag_id INT);
                 CREATE TABLE timestamps (timestamp INT,
                 task_id INT);
-                CREATE TABLE tagnames (tag_name TEXT UNIQUE,
-                tag_id INTEGER PRIMARY KEY AUTOINCREMENT);
-                INSERT INTO tagnames VALUES ('default', 1);
-                INSERT INTO options (option_name) VALUES ('filter');
-                INSERT INTO options (option_name, value) VALUES ('filter_tags', '');
-                INSERT INTO options (option_name, value) VALUES ('filter_dates', '');
+                CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE);
+                CREATE TABLE options (name TEXT UNIQUE,
+                value TEXT);
+                INSERT INTO tags VALUES (1, 'default');
+                INSERT INTO options (name) VALUES ('filter');
+                INSERT INTO options VALUES ('filter_tags', '');
+                INSERT INTO options VALUES ('filter_dates', '');
                 """
 
 
