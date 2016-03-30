@@ -116,18 +116,18 @@ class Db:
         """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
         Tag has value 1 if a record for given task id exists in tags table.
         """
-        tagnames = self.find_all("tags", sortfield="name")     # [(tagname, 1), (tagname, 2)]
-        self.exec_script("select t.tag_id from tasks_tags as t join tags on t.tag_id=tags.tag_id where t.task_id=%d" % taskid)
+        tagnames = self.find_all("tags", sortfield="name")     # [(1, tagname), (2, tagname)]
+        self.exec_script("SELECT t.tag_id FROM tasks_tags AS t JOIN tags ON t.tag_id=tags.id WHERE t.task_id=%d" % taskid)
         actual_tags = [x[0] for x in self.cur.fetchall()]    # [1, 3, ...]
         states_list = []        # [[1, [1, 'tag1']],  [2, [0, 'tag2']], [3, [1, 'tag3']]]
         for k in tagnames:
-            states_list.append([k[1], [1 if k[1] in actual_tags else 0, k[0]]])
+            states_list.append([k[0], [1 if k[0] in actual_tags else 0, k[1]]])
         return states_list
 
     def simple_tagslist(self):
         """Returns tags list just like tags_dict() but every tag value is 0."""
         tagslist = self.find_all("tags", sortfield="name")
-        res = [[y, [0, x]] for x, y in tagslist]
+        res = [[y, [0, x]] for y, x in tagslist]
         res.reverse()       # Should be reversed to preserve order like in database.
         return res
 

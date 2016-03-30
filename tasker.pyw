@@ -546,9 +546,9 @@ class TaskEditWindow(tk.Toplevel):
         # Renew tags list for the task:
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
-                self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
+                self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
-                self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], item[0]))
+                self.db.exec_script('DELETE FROM tasks_tags WHERE task_id={0} AND tag_id={1}'.format(self.task[0], item[0]))
         # Reporting to parent window that task has been changed:
         if self.change:
             self.change.set(1)
@@ -621,10 +621,10 @@ class TagsEditWindow(tk.Toplevel):
         self.tags = Tagslist(self.db.simple_tagslist(), self, width=300, height=300)
 
     def add_record(self, tagname):
-        self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
+        self.db.insert('tags', ('id', 'name'), (None, tagname))
 
     def del_record(self, dellist):
-        self.db.delete(tuple(dellist), field='tag_id', table='tagnames')
+        self.db.delete(tuple(dellist), field='id', table='tags')
 
 
 class TimestampsWindow(TagsEditWindow):
@@ -770,12 +770,12 @@ class FilterWindow(tk.Toplevel):
         self.db = core.Db()
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
         # Lists of stored filter parameters:
-        stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
-        stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
+        stored_dates = self.db.find_by_clause('options', 'name', 'filter_dates', 'value')[0][0].split(',')
+        stored_tags = self.db.find_by_clause('options', 'name', 'filter_tags', 'value')[0][0].split(',')
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
-        self.db.exec_script('select distinct date from activity order by date desc')
+        self.db.exec_script('SELECT DISTINCT date FROM activity ORDER BY date DESC')
         dates = [x[0] for x in self.db.cur.fetchall()]
         # Tags list:
         tags = self.db.simple_tagslist()
@@ -815,27 +815,23 @@ class FilterWindow(tk.Toplevel):
             script = None
         else:
             if dates and tags:
-                script = "SELECT DISTINCT taskstable.id, taskstable.task_name, sum(activitytable.spent_time), " \
-                         "taskstable.description, taskstable.creation_date FROM tasks AS taskstable JOIN tags " \
-                         "AS tagstable ON taskstable.id = tagstable.task_id JOIN activity AS activitytable ON " \
-                         "taskstable.id = activitytable.task_id WHERE tagstable.tag_id IN {0} AND activitytable.date " \
-                         "IN {1} ORDER BY taskstable.id".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                         tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                         'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
+                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
+                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                  tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
             elif not dates:
-                script = "SELECT DISTINCT taskstable.id, taskstable.task_name, (SELECT sum(activitytable.spent_time) FROM tasks " \
-                         "AS taskstable JOIN activity AS activitytable ON taskstable.id=activitytable.task_id), " \
-                         "taskstable.description, taskstable.creation_date FROM tasks AS taskstable JOIN tags " \
-                         "AS tagstable ON taskstable.id = tagstable.task_id WHERE " \
-                         "tagstable.tag_id IN {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
+                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                         'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
+                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
+                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
             elif not tags:
-                script = "SELECT DISTINCT taskstable.id, taskstable.task_name, (SELECT sum(activitytable.spent_time) FROM tasks " \
-                         "AS taskstable JOIN activity AS activitytable ON taskstable.id=activitytable.task_id), " \
-                         "taskstable.description, taskstable.creation_date FROM tasks AS taskstable JOIN activity " \
-                         "AS activitytable ON taskstable.id = activitytable.task_id WHERE activitytable.date " \
-                         "IN {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-        self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
-        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
-        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
+                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                         'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY task_id) ' \
+                         'AS act ON act.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+        self.db.update('filter', field='value', value=script, table='options', updfiled='name')
+        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='name')
+        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='name')
         # Reporting to parent window that filter values have been changed:
         if self.changed:
             self.changed.set(1)
