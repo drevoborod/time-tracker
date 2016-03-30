@@ -60,7 +60,6 @@ class TaskFrame(tk.Frame):
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
-        self.start_time = 0     # Starting value of the counter.
         self.running_time = 0   # Current value of the counter.
         self.running = False
 
@@ -133,10 +132,11 @@ class TaskFrame(tk.Frame):
         # Taking current counter value from database:
         self.running_time = self.task[2]
         # Set current time, just for this day:
-        if not self.task[-1]:
+        if self.task[-1] is None:
             self.date_exists = False
             self.task[-1] = 0
-        #self.running_today_time = self.task[-1]
+        else:
+            self.date_exists = True
         self.timer_window.config(text=core.time_format(self.running_time))
         self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
@@ -182,6 +182,7 @@ class TaskFrame(tk.Frame):
             core.Params.stopall = False
             # Setting current counter value:
             self.start_time = time.time() - self.task[2]
+            # This value is used to add record to database:
             self.start_today_time = time.time() - self.task[-1]
             self.timer_update()
             self.running = True
@@ -193,11 +194,12 @@ class TaskFrame(tk.Frame):
             # after_cancel() stops execution of callback with given ID.
             self.timer_window.after_cancel(self.timer)
             self.running_time = time.time() - self.start_time
+            self.running_today_time = time.time() - self.start_today_time
             self.running = False
-            self.start_time = 0
             # Writing value into database:
             self.task_update()
             self.task[2] = self.running_time
+            self.task[-1] = self.running_today_time
             self.startstopvar.set("Start")
             self.update_description()
 
