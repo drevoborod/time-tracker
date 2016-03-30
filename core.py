@@ -34,15 +34,15 @@ class Db:
 
     def find_by_clause(self, table, field, value, searchfield):
         """Returns "searchfield" for field=value."""
-        self.exec_script('select {3} from {0} where {1}="{2}"'.format(table, field, value, searchfield))
+        self.exec_script('SELECT {3} FROM {0} WHERE {1}="{2}"'.format(table, field, value, searchfield))
         return self.cur.fetchall()
 
     def find_all(self, table, sortfield=None):
         """Returns all contents for given tablename."""
         if not sortfield:
-            self.exec_script('select * from {0}'.format(table))
+            self.exec_script('SELECT * FROM {0}'.format(table))
         else:
-            self.exec_script('select * from {0} order by {1} asc'.format(table, sortfield))
+            self.exec_script('SELECT * FROM {0} ORDER BY {1} ASC'.format(table, sortfield))
         return self.cur.fetchall()
 
     def select_task(self, task_id, date=None):
@@ -67,7 +67,7 @@ class Db:
 
     def insert(self, table, fields, values):
         """Insert into fields given values. Fields and values should be tuples with length 2 or 3."""
-        return self.exec_script(('insert into {0} {1} values {2}'.format(table, fields, '(?, ?)' if len(values) == 2
+        return self.exec_script(('INSERT INTO {0} {1} VALUES {2}'.format(table, fields, '(?, ?)' if len(values) == 2
                                                                          else '(?, ?, ?)'), values))
 
     def insert_task(self, name):
@@ -85,7 +85,7 @@ class Db:
 
     def update(self, field_id, field, value, table="tasks", updfiled="id"):
         """Updates given field in given table with given id using given value :) """
-        self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
+        self.exec_script(("UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
 
     def update_task(self, task_id, field="spent_time", value=0):
         """Updates some fields for given task id."""
@@ -103,7 +103,7 @@ class Db:
             i = "('%s')" % ids[0]
         else:
             i = ids
-        self.exec_script("delete from {1} where {2} in {0}".format(i, table, field))
+        self.exec_script("DELETE FROM {1} WHERE {2} in {0}".format(i, table, field))
 
     def delete_tasks(self, ids):
         """Removes task and all corresponding records."""

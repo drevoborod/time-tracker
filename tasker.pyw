@@ -477,6 +477,7 @@ class TaskEditWindow(tk.Toplevel):
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
         dates = [x[0] for x in self.db.find_by_clause("activity", "task_id", taskid, "date")]
+        dates.reverse()
         self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
