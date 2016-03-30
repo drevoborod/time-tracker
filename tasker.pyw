@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+import datetime
 
 import tkinter.font as fonter
 import tkinter as tk
@@ -128,9 +129,14 @@ class TaskFrame(tk.Frame):
         """Prepares frame elements to work with."""
         # Adding task id to set of running tasks:
         core.Params.tasks.add(task[0])
-        self.task = list(task)
+        self.task = task
         # Taking current counter value from database:
         self.running_time = self.task[2]
+        # Set current time, just for this day:
+        if not self.task[-1]:
+            self.date_exists = False
+            self.task[-1] = 0
+        #self.running_today_time = self.task[-1]
         self.timer_window.config(text=core.time_format(self.running_time))
         self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
@@ -142,16 +148,26 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.config(state='normal')
         self.description.update_text(self.task[3])
 
+    def task_update(self):
+        """Updates time in the database."""
+        if not self.date_exists:
+            self.db.insert("activity", ("date", "task_id", "spent_time"),
+                           (core.date_format(datetime.datetime.now()), self.task[0], self.running_today_time))
+            self.date_exists = True
+        else:
+            self.db.update_task(self.task[0], value=self.running_today_time)
+
     def timer_update(self, counter=0):
         """Renewal of the counter."""
         interval = 250      # Time interval in milliseconds before next iteration of recursion.
         self.running_time = time.time() - self.start_time
+        self.running_today_time = time.time() - self.start_today_time
         self.timer_window.config(text=core.time_format(self.running_time))
         # Checking if "Stop all" button is pressed:
         if not core.Params.stopall:
             # Every minute counter value is saved in database:
             if counter >= 60000:
-                self.db.update_task(self.task[0], value=self.running_time)
+                self.task_update()
                 counter = 0
             else:
                 counter += interval
@@ -166,6 +182,7 @@ class TaskFrame(tk.Frame):
             core.Params.stopall = False
             # Setting current counter value:
             self.start_time = time.time() - self.task[2]
+            self.start_today_time = time.time() - self.task[-1]
             self.timer_update()
             self.running = True
             self.startstopvar.set("Stop")
@@ -179,7 +196,7 @@ class TaskFrame(tk.Frame):
             self.running = False
             self.start_time = 0
             # Writing value into database:
-            self.db.update_task(self.task[0], value=self.running_time)
+            self.task_update()
             self.task[2] = self.running_time
             self.startstopvar.set("Start")
             self.update_description()

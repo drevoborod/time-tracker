@@ -55,6 +55,14 @@ class Db:
             self.exec_script('SELECT sum(spent_time) FROM activity WHERE task_id=%s' % task_id)
         # Adding spent time on position 3:
         task.insert(2, self.cur.fetchone()[0])
+        # Append today's spent time:
+        self.exec_script('SELECT spent_time FROM activity WHERE task_id={0} AND '
+                         'date="{1}"'.format(task_id, date_format(datetime.datetime.now())))
+        today_time = self.cur.fetchone()
+        if today_time:
+            task.append(today_time[0])
+        else:
+            task.append(today_time)
         return task
 
     def insert(self, table, fields, values):
@@ -80,18 +88,12 @@ class Db:
         self.exec_script(("update {0} set {1}=? where {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
 
     def update_task(self, task_id, field="spent_time", value=0):
-        """Updates some fields for given task id.
-        If a task does not have record in dates table, a record will be created.
-        """
-        date = date_format(datetime.datetime.now())
-        if field == 'spent_time':       # New activity date will be added only if some time will be spent on task.
-            if date not in [x[0] for x in
-                            self.find_by_clause(table="activity", field="task_id", value=task_id, searchfield="date")]:
-                self.insert("activity", ("date", "task_id", "spent_time"), (date, task_id, value))
-            else:
-                self.exec_script("SELECT rowid FROM activity WHERE task_id={0} AND date='{1}'".format(task_id, date))
-                daterow = self.cur.fetchone()[0]
-                self.update(daterow, table='activity', updfiled='rowid', field=field, value=value)
+        """Updates some fields for given task id."""
+        if field == 'spent_time':
+            self.exec_script("SELECT rowid FROM activity WHERE task_id={0} "
+                             "AND date='{1}'".format(task_id, date_format(datetime.datetime.now())))
+            daterow = self.cur.fetchone()[0]
+            self.update(daterow, table='activity', updfiled='rowid', field=field, value=value)
         else:
             self.update(task_id, field=field, value=value)
 
