@@ -13,7 +13,7 @@ import core
 
 
 class BindedWidget(tk.Widget):
-    """Frame with changed .bind() method. I applies recursive to all widget's children."""
+    """Widget with changed .bind() method. I applies recursive to all widget's children."""
     def bind(self, sequence=None, func=None, add=None):
         if not isinstance(self, tk.Menu):
             tk.Misc.bind(self, sequence, func, add)
@@ -100,7 +100,12 @@ class TaskFrame(tk.Frame):
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
-        self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())
+        self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
+
+    def check_row(self, event):
+        """Check if mouse click is over the row, not another taskslist element."""
+        if self.dialogue_window.listframe.taskslist.identify_row(event.y):
+            self.get_task_name()
 
     def get_task_name(self):
         """Getting selected task's name."""
@@ -355,8 +360,13 @@ class TaskSelectionWindow(tk.Toplevel):
         if task_name:
             try:
                 self.db.insert_task(task_name)
-            except core.DbErrors as err:
-                print(err)
+            except core.DbErrors:
+                for row in self.listframe.taskslist.get_children():
+                    if self.listframe.taskslist.item(row)['values'][0] == task_name:
+                        self.listframe.focus_(row)
+                        break
+                else:
+                    showinfo("Task exists", "This task already exists but is not in current filter selection.")
             else:
                 self.update_list()
                 items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
@@ -394,6 +404,7 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def descr_click(self, event):
         """Updates description for the task with item id of the row selected by click."""
+        #print(self.listframe.taskslist.identify_row(event.y))
         self.update_descr(self.listframe.taskslist.identify_row(event.y))
 
     def descr_up(self, event):
@@ -476,8 +487,7 @@ class TaskEditWindow(tk.Toplevel):
         # Task information from database:
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
-        dates = [x[0] for x in self.db.find_by_clause("activity", "task_id", taskid, "date")]
-        dates.reverse()
+        dates = reversed([x[0] for x in self.db.find_by_clause("activity", "task_id", taskid, "date")])
         self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
@@ -776,8 +786,8 @@ class FilterWindow(tk.Toplevel):
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
-        self.db.exec_script('SELECT DISTINCT date FROM activity ORDER BY date DESC')
-        dates = [x[0] for x in self.db.cur.fetchall()]
+        self.db.exec_script('SELECT DISTINCT date FROM activity')   # Won't use "ORDER BY" because of natural order
+        dates = reversed([x[0] for x in self.db.cur.fetchall()])    # of dates in database which is exactly what i need.
         # Tags list:
         tags = self.db.simple_tagslist()
         # Checking checkboxes according to their values loaded from database:
@@ -904,17 +914,12 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-# ToDo: Fix: даблклик в заголовок колонки таблицы приводит к открытию таски, на которой стоит курсор.
-# ToDo: Fix: при большом (проверено на 200) количестве тасок при сортировке отображается описание из другой таски.
-# ToDo: если таск, который пытаемся создать, уже присутствует в БД, то ставить на него курсор (если он отоборажается
-# в текущей выборке, конечно).
+
 # ToDo: А если он не попал в выборку, то показывать всплывающее окно с сообщением о его наличии.
-# ToDo: Попробовать поисследовать баг с залипанием добавления задачи. Шаги, при которых воспроизвелось:
-# 1. Применить фильтр, например, по дате, так, чтобы текущая дата не попадала.
-# 2. ДОбавить задачу (соответствнно, она не отобразится в списке)
-# 3. Изменить параметры фильтра так, чтобы задача отобразилась.
-# 4. Открыть эту задачу.
-# 5. С главного экрана зайти в её свойства.
-# 6. Попытаться добавить описание. После нажатия на "ок" оболочка на какое-то время залипнет, потом
-# кнопка отпустится и окно не закроется.
+# ToDo: Fix: при большом (проверено на 200) количестве тасок при сортировке отображается описание из другой таски.
+# ToDo: Попробовать поисследовать баг с залипанием добавления в БД.
+# core.DbErrors: database is locked
+# Похоже, возникает после возбуждения исключений в БД при последующей попытке что-то туда записать. Исключение можно вызвать,
+# попытавшись добавить уже существующую задачу. Если затем пытаться применить фильтр, то возникнет эта ошибка.
+
 # ToDo: Добавить логирование исключений.
