@@ -2,6 +2,7 @@
 
 import time
 import datetime
+import copy
 
 import tkinter.font as fonter
 import tkinter as tk
@@ -258,14 +259,15 @@ class TaskList(tk.Frame):
     def sortlist(self, col, reverse):
         """Sorting by click on column header."""
         # set(ID, column) returns name of every record in the column.
-        if col == "time":   # Sorting with int, not str:
+        if col in ("time", "date"):   # Sorting with int, not str:
             l = []
             for index, task in enumerate(self.taskslist.get_children()):
-                l.append((self.tasks[index][1], task))
+                l.append((self.tasks[index][1] if col == "time" else self.tasks[index][2], task))
             # Also sort tasks list by second field:
-            self.tasks.sort(key=lambda x: x[1], reverse=reverse)
+            self.tasks.sort(key=lambda x: x[1] if col == "time" else x[2], reverse=reverse)
         else:
             l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
+            self.tasks.sort(key=lambda x: x[0], reverse=reverse)
         l.sort(reverse=reverse)
         for index, value in enumerate(l):
             self.taskslist.move(value[1], '', index)
@@ -278,11 +280,13 @@ class TaskList(tk.Frame):
 
     def update_list(self, tasks):
         """Refill table contents."""
-        self.tasks = tasks
         for item in self.taskslist.get_children():
             self.taskslist.delete(item)
+        self.tasks = copy.deepcopy(tasks)
         for t in tasks:
             t[1] = core.time_format(t[1])
+        for t in self.tasks:
+            t[2] = core.date_format(t[2])
         self.insert_tasks(tasks)
 
     def focus_(self, item):
@@ -510,7 +514,9 @@ class TaskEditWindow(tk.Toplevel):
         # Task information from database:
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
-        dates = reversed([x[0] for x in self.db.find_by_clause("activity", "task_id", taskid, "date")])
+        dates = sorted([core.date_format(x[0]) for x in self.db.find_by_clause("activity", "task_id", taskid, "date")])
+        for index, date in enumerate(dates):
+            dates[index] = core.date_format(date)
         self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
@@ -809,8 +815,10 @@ class FilterWindow(tk.Toplevel):
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
-        self.db.exec_script('SELECT DISTINCT date FROM activity')   # Won't use "ORDER BY" because of natural order
-        dates = reversed([x[0] for x in self.db.cur.fetchall()])    # of dates in database which is exactly what i need.
+        self.db.exec_script('SELECT DISTINCT date FROM activity')
+        dates = sorted([core.date_format(x[0]) for x in self.db.cur.fetchall()], reverse=True)
+        for index, date in enumerate(dates):
+            dates[index] = core.date_format(date)
         # Tags list:
         tags = self.db.simple_tagslist()
         # Checking checkboxes according to their values loaded from database:
@@ -937,3 +945,6 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
+
+# TODo: решить, что делать со счётчиком в главном окне для задач, на котороые потрачено более 24 часов.
+# ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.

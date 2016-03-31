@@ -175,12 +175,24 @@ def time_format(sec):
     if sec < 86400:
         return time.strftime("%H:%M:%S", time.gmtime(sec))
     else:
-        return "{} days".format(sec // 86400)
+        day = int(sec // 86400)
+        if day == 1:
+            return "1 day"
+        else:
+            return "{} days".format(day)
 
 
 def date_format(date):
-    """Returns date in "DD.MM.YYYY" format. Accepts datetime."""
-    return datetime.datetime.strftime(date, '%d.%m.%Y')
+    """Returns formatted date. Accepts datetime or string or int/float.
+    Returns string or seconds since epoch."""
+    if isinstance(date, datetime.datetime):
+        return datetime.datetime.strftime(date, '%d.%m.%Y')
+    elif isinstance(date, str):
+        return time.mktime(time.strptime(date, '%d.%m.%Y'))
+    elif isinstance(date, (int, float)):
+        return datetime.datetime.strftime(datetime.datetime.fromtimestamp(date), '%d.%m.%Y')
+    else:
+        raise DbErrors("Wrong time format.")
 
 
 def get_help():
@@ -215,8 +227,5 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_tags', '');
                 INSERT INTO options VALUES ('filter_dates', '');
                 """
-
-
-# ToDo: Проверить работу time_format(): есть подозрение, что она прибавляет лишний день.
 
 HELP_TEXT = get_help()
