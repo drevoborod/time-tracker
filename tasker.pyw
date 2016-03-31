@@ -352,8 +352,26 @@ class TaskSelectionWindow(tk.Toplevel):
         self.current_task = ''      # Current selected task.
         self.listframe.taskslist.bind("<Down>", self.descr_down)
         self.listframe.taskslist.bind("<Up>", self.descr_up)
-        #self.listframe.taskslist.bind("<Button-1>", self.descr_click)
+        self.listframe.taskslist.bind("<Button-1>", self.descr_click)
         self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
+        # Need to avoid masquerading of default ttk.Treeview action on Shift+click and Control+click:
+        self.modifier_pressed = False
+        self.listframe.taskslist.bind("<KeyPress-Shift_L>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyPress-Shift_R>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyPress-Control_L>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyPress-Control_R>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyRelease-Shift_L>", lambda e: self.shift_control_released())
+        self.listframe.taskslist.bind("<KeyRelease-Shift_R>", lambda e: self.shift_control_released())
+        self.listframe.taskslist.bind("<KeyRelease-Control_L>", lambda e: self.shift_control_released())
+        self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
+
+    def shift_control_pressed(self):
+        self.modifier_pressed = True
+        print(self.modifier_pressed)
+
+    def shift_control_released(self):
+        self.modifier_pressed = False
+        print(self.modifier_pressed)
 
     def focus_first_item(self):
         """Selects first item in the table."""
@@ -370,7 +388,6 @@ class TaskSelectionWindow(tk.Toplevel):
         filename = asksaveasfilename(parent=self, defaultextension=".csv", filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
         if filename:
             core.export(filename, text)
-        # ToDo: Fix: In Windows, two same extensions are added by default.
 
     def add_new_task(self):
         """Adds new task into the database."""
@@ -427,7 +444,7 @@ class TaskSelectionWindow(tk.Toplevel):
     def descr_click(self, event):
         """Updates description for the task with item id of the row selected by click."""
         pos = self.listframe.taskslist.identify_row(event.y)
-        if pos and pos != '#0':
+        if pos and pos != '#0' and not self.modifier_pressed:
             self.listframe.focus_(pos)
         self.update_descr(self.listframe.taskslist.focus())
 
@@ -947,5 +964,5 @@ TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, stic
 run.mainloop()
 
 
-# ToDo: Fix: descr_click() поломало встроенный функционал - выделение с шифтом и контролом.
 # ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.
+# ToDo: Fix: In Windows, two same extensions are added by default to exported file.
