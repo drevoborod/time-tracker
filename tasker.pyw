@@ -361,9 +361,11 @@ class TaskSelectionWindow(tk.Toplevel):
             try:
                 self.db.insert_task(task_name)
             except core.DbErrors:
+                self.db.reconnect()
                 for row in self.listframe.taskslist.get_children():
                     if self.listframe.taskslist.item(row)['values'][0] == task_name:
                         self.listframe.focus_(row)
+                        self.update_descr(row)
                         break
                 else:
                     showinfo("Task exists", "This task already exists but is not in current filter selection.")
@@ -375,6 +377,8 @@ class TaskSelectionWindow(tk.Toplevel):
                     if items[item]['values'][0] == task_name:
                         self.listframe.focus_(item)
                         break
+                else:
+                    showinfo("Task created", "Task successfully created. Change filter configuration to view it.")
 
     def update_list(self):
         """Updating table contents using database query."""
@@ -612,7 +616,7 @@ class TagsEditWindow(tk.Toplevel):
             try:
                 self.add_record(tagname)
             except core.DbErrors:
-                pass
+                self.db.reconnect()
             else:
                 self.tags_update()
 
@@ -915,11 +919,6 @@ TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, stic
 run.mainloop()
 
 
-# ToDo: А если он не попал в выборку, то показывать всплывающее окно с сообщением о его наличии.
 # ToDo: Fix: при большом (проверено на 200) количестве тасок при сортировке отображается описание из другой таски.
-# ToDo: Попробовать поисследовать баг с залипанием добавления в БД.
-# core.DbErrors: database is locked
-# Похоже, возникает после возбуждения исключений в БД при последующей попытке что-то туда записать. Исключение можно вызвать,
-# попытавшись добавить уже существующую задачу. Если затем пытаться применить фильтр, то возникнет эта ошибка.
 
 # ToDo: Добавить логирование исключений.

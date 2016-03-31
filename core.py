@@ -16,8 +16,18 @@ class Db:
     """Class for interaction with database."""
     def __init__(self):
         self.db_filename = TABLE_FILE
+        self.connect()
+
+    def connect(self):
+        """Connection to database."""
         self.con = sqlite3.connect(self.db_filename)
         self.cur = self.con.cursor()
+
+    def reconnect(self):
+        """Used to reconnect after exception."""
+        self.cur.close()
+        self.con.close()
+        self.connect()
 
     def exec_script(self, script):
         """Custom script execution and commit. Returns lastrowid. Raises DbErrors on database exceptions."""
