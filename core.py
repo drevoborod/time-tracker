@@ -118,7 +118,7 @@ class Db:
     def delete_tasks(self, ids):
         """Removes task and all corresponding records."""
         self.delete(ids)
-        self.delete(ids, field="task_id", table="dates")
+        self.delete(ids, field="task_id", table="activity")
         self.delete(ids, field="task_id", table="timestamps")
         self.delete(ids, field="task_id", table="tasks_tags")
 

@@ -352,7 +352,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.current_task = ''      # Current selected task.
         self.listframe.taskslist.bind("<Down>", self.descr_down)
         self.listframe.taskslist.bind("<Up>", self.descr_up)
-        self.listframe.taskslist.bind("<Button-1>", self.descr_click)
+        #self.listframe.taskslist.bind("<Button-1>", self.descr_click)
         self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
 
     def focus_first_item(self):
@@ -946,4 +946,6 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
+
+# ToDo: Fix: descr_click() поломало встроенный функционал - выделение с шифтом и контролом.
 # ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.
