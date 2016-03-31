@@ -433,6 +433,7 @@ class TaskSelectionWindow(tk.Toplevel):
         for task_id in self.listframe.taskslist.get_children():
             self.tdict[task_id] = tlist[i]
             i += 1
+        self.update_descr(None)
         self.update_fulltime()
 
     def update_fulltime(self):
@@ -481,11 +482,15 @@ class TaskSelectionWindow(tk.Toplevel):
     def delete(self):
         """Remove selected tasks from the database and the table."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
+        items = self.listframe.taskslist.selection()
         if ids:
             answer = askyesno("Warning", "Are you sure you want to delete selected tasks?", parent=self)
             if answer:
                 self.db.delete_tasks(tuple(ids))
-                self.update_list()
+                self.listframe.taskslist.delete(*items)
+                for item in items:
+                    self.tdict.pop(item)
+                self.update_descr(None)
         self.grab_set()
 
     def edit(self):
@@ -517,7 +522,6 @@ class TaskSelectionWindow(tk.Toplevel):
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
             self.update_list()
-            self.update_descr(None)
         self.grab_set()
 
 
