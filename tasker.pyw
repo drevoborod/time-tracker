@@ -169,7 +169,8 @@ class TaskFrame(tk.Frame):
         interval = 250      # Time interval in milliseconds before next iteration of recursion.
         self.running_time = time.time() - self.start_time
         self.running_today_time = time.time() - self.start_today_time
-        self.timer_window.config(text=core.time_format(self.running_time))
+        self.timer_window.config(text=core.time_format(self.running_time if self.running_time < 86400
+                                                       else self.running_today_time))
         # Checking if "Stop all" button is pressed:
         if not core.Params.stopall:
             # Every minute counter value is saved in database:
@@ -945,6 +946,4 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-
-# TODo: решить, что делать со счётчиком в главном окне для задач, на котороые потрачено более 24 часов.
 # ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.

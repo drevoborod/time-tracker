@@ -75,7 +75,7 @@ for task_id in [x[0] for x in db.find_all('tasks')]:
         db.insert(table='tasks_tags', fields=('tag_id', 'task_id'), values=(random.choice(tag_ids), task_id))
     for x in range(random.randint(1, len(DATES))):
         db.insert(table='activity', fields=('date', 'task_id', 'spent_time'), values=(random.choice(DATES), task_id,
-                                                                                   random.randint(0, 95000)))
+                                                                                   random.randint(0, 86000)))
     db.update(task_id, "description", random.choice(DESCRIPTIONS))
     db.update(task_id, "creation_date", random.choice(DATES))
     print('Task %d updated' % task_id)
