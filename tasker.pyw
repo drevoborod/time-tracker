@@ -258,20 +258,31 @@ class TaskList(tk.Frame):
     def sortlist(self, col, reverse):
         """Sorting by click on column header."""
         # set(ID, column) returns name of every record in the column.
-        l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
+        if col == "time":   # Sorting with int, not str:
+            l = []
+            for index, task in enumerate(self.taskslist.get_children()):
+                l.append((self.tasks[index][1], task))
+            # Also sort tasks list by second field:
+            self.tasks.sort(key=lambda x: x[1], reverse=reverse)
+        else:
+            l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
         l.sort(reverse=reverse)
         for index, value in enumerate(l):
             self.taskslist.move(value[1], '', index)
         self.taskslist.heading(col, command=lambda: self.sortlist(col, not reverse))
 
     def insert_tasks(self, tasks):
-        # Insert rows in the table. Row contents are tuples given in values=.
-        for i, v in enumerate(tasks):
-            self.taskslist.insert('', i, text="#%d" % (i + 1), values=v)      # item, number, value
+        """Insert rows in the table. Row contents are tuples given in values=."""
+        for i, v in enumerate(tasks):           # item, number, value:
+            self.taskslist.insert('', i, text="#%d" % (i + 1), values=v)
 
     def update_list(self, tasks):
+        """Refill table contents."""
+        self.tasks = tasks
         for item in self.taskslist.get_children():
             self.taskslist.delete(item)
+        for t in tasks:
+            t[1] = core.time_format(t[1])
         self.insert_tasks(tasks)
 
     def focus_(self, item):
@@ -394,7 +405,7 @@ class TaskSelectionWindow(tk.Toplevel):
             self.db.exec_script('SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, sum(spent_time) ' \
                     'AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id')
         tlist = self.db.cur.fetchall()
-        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
+        self.listframe.update_list([[f[1], f[2], f[4]] for f in tlist])
         # Dictionary with row ids and tasks info:
         self.tdict = {}
         i = 0

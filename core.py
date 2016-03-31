@@ -172,11 +172,10 @@ def export(filename, text):
 
 def time_format(sec):
     """Returns time string in readable format."""
-    # ToDO: переписать так, чтобы показывало нормальное количество дней.
     if sec < 86400:
         return time.strftime("%H:%M:%S", time.gmtime(sec))
     else:
-        return time.strftime("%jd:%H:%M:%S", time.gmtime(sec)).lstrip("0")
+        return "{} days".format(sec // 86400)
 
 
 def date_format(date):
