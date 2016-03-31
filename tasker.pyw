@@ -411,9 +411,9 @@ class TaskSelectionWindow(tk.Toplevel):
     def descr_click(self, event):
         """Updates description for the task with item id of the row selected by click."""
         pos = self.listframe.taskslist.identify_row(event.y)
-        print(pos)
         if pos and pos != '#0':
-            self.update_descr(self.listframe.taskslist.identify_row(event.y))
+            self.listframe.focus_(pos)
+        self.update_descr(self.listframe.taskslist.focus())
 
     def descr_up(self, event):
         """Updates description for the item id which is BEFORE selected."""
@@ -926,10 +926,3 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
-
-# ToDo: Fix: При сортировке отображается описание из другой таски.
-# Проблема в методе descr_click()
-# Когда происходит сортировка, itemid почему-то может измениться на itemid от другой строки.
-# В результате этого и описание подтягивается от другой строки.
-
-# ToDo: Добавить логирование исключений.
