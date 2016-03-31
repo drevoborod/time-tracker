@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import random
 import core
 
@@ -35,7 +36,7 @@ for i in range(256, 1100):
 for i in range(32, 128):
     TASK_SYMBOLS.append(chr(i))
 
-TASKS_NUMBER = 200
+TASKS_NUMBER = 2000
 TASK_NAME_LEN = 25
 TAGS = ['tag %d' % x for x in range(1, 21)]
 DATES = ['11.02.2016', '19.09.1978', '01.06.2010', '14.11.2005', '04.08.2011', '02.02.2015']
@@ -44,7 +45,6 @@ core.check_database()
 
 # Инициализируем работу с БД:
 db = core.Db()
-
 
 # Добавляем теги в БД:
 for tag in TAGS:

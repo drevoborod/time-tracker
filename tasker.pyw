@@ -28,6 +28,7 @@ class TaskFrame(tk.Frame):
         super().__init__(parent, relief='groove', bd=2)
         self.db = core.Db()
         self.create_content()
+        self.bind("<Button-1>", lambda e: core.Params.selected_widget)
 
     def create_content(self):
         """Creates all window elements."""
@@ -904,8 +905,9 @@ class RightclickMenu(tk.Menu):
 
     def context_menu_show(self, event):
         """Function links context menu with current selected widget and pops menu up."""
-        self.post(event.x_root, event.y_root)
+        self.tk_popup(event.x_root, event.y_root)
         core.Params.selected_widget = event.widget
+
 
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
