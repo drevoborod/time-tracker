@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import time
+import datetime
+import copy
 
 import tkinter.font as fonter
 import tkinter as tk
@@ -12,7 +14,7 @@ import core
 
 
 class BindedWidget(tk.Widget):
-    """Frame with changed .bind() method. I applies recursive to all widget's children."""
+    """Widget with changed .bind() method. I applies recursive to all widget's children."""
     def bind(self, sequence=None, func=None, add=None):
         if not isinstance(self, tk.Menu):
             tk.Misc.bind(self, sequence, func, add)
@@ -59,7 +61,6 @@ class TaskFrame(tk.Frame):
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
-        self.start_time = 0     # Starting value of the counter.
         self.running_time = 0   # Current value of the counter.
         self.running = False
 
@@ -100,7 +101,13 @@ class TaskFrame(tk.Frame):
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
-        self.dialogue_window.listframe.taskslist.bind("<Double-1>", lambda event: self.get_task_name())
+        self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
+
+    def check_row(self, event):
+        """Check if mouse click is over the row, not another taskslist element."""
+        pos = self.dialogue_window.listframe.taskslist.identify_row(event.y)
+        if pos and pos != '#0':
+            self.get_task_name()
 
     def get_task_name(self):
         """Getting selected task's name."""
@@ -109,7 +116,7 @@ class TaskFrame(tk.Frame):
         if tasks:
             self.task_id = self.dialogue_window.tdict[tasks[0]][0]
             # Task parameters from database:
-            task = self.db.find_by_clause("tasks", "id", self.task_id, "*")[0]
+            task = self.db.select_task(self.task_id)
             # Checking if task is already open in another frame:
             if self.task_id not in core.Params.tasks:
                 # Checking if there is open task in this frame:
@@ -128,9 +135,15 @@ class TaskFrame(tk.Frame):
         """Prepares frame elements to work with."""
         # Adding task id to set of running tasks:
         core.Params.tasks.add(task[0])
-        self.task = list(task)
+        self.task = task
         # Taking current counter value from database:
         self.running_time = self.task[2]
+        # Set current time, just for this day:
+        if self.task[-1] is None:
+            self.date_exists = False
+            self.task[-1] = 0
+        else:
+            self.date_exists = True
         self.timer_window.config(text=core.time_format(self.running_time))
         self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
@@ -142,16 +155,27 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.config(state='normal')
         self.description.update_text(self.task[3])
 
+    def task_update(self):
+        """Updates time in the database."""
+        if not self.date_exists:
+            self.db.insert("activity", ("date", "task_id", "spent_time"),
+                           (core.date_format(datetime.datetime.now()), self.task[0], self.running_today_time))
+            self.date_exists = True
+        else:
+            self.db.update_task(self.task[0], value=self.running_today_time)
+
     def timer_update(self, counter=0):
         """Renewal of the counter."""
         interval = 250      # Time interval in milliseconds before next iteration of recursion.
         self.running_time = time.time() - self.start_time
-        self.timer_window.config(text=core.time_format(self.running_time))
+        self.running_today_time = time.time() - self.start_today_time
+        self.timer_window.config(text=core.time_format(self.running_time if self.running_time < 86400
+                                                       else self.running_today_time))
         # Checking if "Stop all" button is pressed:
         if not core.Params.stopall:
             # Every minute counter value is saved in database:
             if counter >= 60000:
-                self.db.update_task(self.task[0], value=self.running_time)
+                self.task_update()
                 counter = 0
             else:
                 counter += interval
@@ -166,6 +190,8 @@ class TaskFrame(tk.Frame):
             core.Params.stopall = False
             # Setting current counter value:
             self.start_time = time.time() - self.task[2]
+            # This value is used to add record to database:
+            self.start_today_time = time.time() - self.task[-1]
             self.timer_update()
             self.running = True
             self.startstopvar.set("Stop")
@@ -176,11 +202,12 @@ class TaskFrame(tk.Frame):
             # after_cancel() stops execution of callback with given ID.
             self.timer_window.after_cancel(self.timer)
             self.running_time = time.time() - self.start_time
+            self.running_today_time = time.time() - self.start_today_time
             self.running = False
-            self.start_time = 0
             # Writing value into database:
-            self.db.update_task(self.task[0], value=self.running_time)
+            self.task_update()
             self.task[2] = self.running_time
+            self.task[-1] = self.running_today_time
             self.startstopvar.set("Start")
             self.update_description()
 
@@ -225,27 +252,42 @@ class TaskList(tk.Frame):
             # Configuring columns with given ids:
             self.taskslist.column(columns[index][0], width=100, minwidth=100, anchor='center')
             # Configuring headers of columns with given ids:
-            self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]: self.sortlist(c, True))
+            self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]:
+                                   self.sortlist(c, True))
         self.taskslist.column('#0', anchor='w', width=70, minwidth=50, stretch=0)
         self.taskslist.column('taskname', width=600, anchor='w')
 
     def sortlist(self, col, reverse):
         """Sorting by click on column header."""
         # set(ID, column) returns name of every record in the column.
-        l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
+        if col in ("time", "date"):   # Sorting with int, not str:
+            l = []
+            for index, task in enumerate(self.taskslist.get_children()):
+                l.append((self.tasks[index][1] if col == "time" else self.tasks[index][2], task))
+            # Also sort tasks list by second field:
+            self.tasks.sort(key=lambda x: x[1] if col == "time" else x[2], reverse=reverse)
+        else:
+            l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
+            self.tasks.sort(key=lambda x: x[0], reverse=reverse)
         l.sort(reverse=reverse)
         for index, value in enumerate(l):
             self.taskslist.move(value[1], '', index)
         self.taskslist.heading(col, command=lambda: self.sortlist(col, not reverse))
 
     def insert_tasks(self, tasks):
-        # Insert rows in the table. Row contents are tuples given in values=.
-        for i, v in enumerate(tasks):
-            self.taskslist.insert('', i, text="#%d" % (i + 1), values=v)      # item, number, value
+        """Insert rows in the table. Row contents are tuples given in values=."""
+        for i, v in enumerate(tasks):           # item, number, value:
+            self.taskslist.insert('', i, text="#%d" % (i + 1), values=v)
 
     def update_list(self, tasks):
+        """Refill table contents."""
         for item in self.taskslist.get_children():
             self.taskslist.delete(item)
+        self.tasks = copy.deepcopy(tasks)
+        for t in tasks:
+            t[1] = core.time_format(t[1])
+        for t in self.tasks:
+            t[2] = core.date_format(t[2])
         self.insert_tasks(tasks)
 
     def focus_(self, item):
@@ -280,7 +322,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
         tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
-        self.fulltime_frame = TaskLabel(self, width=10, anchor='center')
+        self.fulltime_frame = TaskLabel(self, width=13, anchor='center')
         self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
         # Selected task description:
         self.description = Description(self, height=4)
@@ -290,7 +332,7 @@ class TaskSelectionWindow(tk.Toplevel):
         selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
         clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)
-        clearbutton.grid(row=3, column=1, sticky='w', padx=5, pady=5)
+        clearbutton.grid(row=3, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
         self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)
         self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
@@ -312,6 +354,22 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<Up>", self.descr_up)
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
         self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
+        # Need to avoid masquerading of default ttk.Treeview action on Shift+click and Control+click:
+        self.modifier_pressed = False
+        self.listframe.taskslist.bind("<KeyPress-Shift_L>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyPress-Shift_R>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyPress-Control_L>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyPress-Control_R>", lambda e: self.shift_control_pressed())
+        self.listframe.taskslist.bind("<KeyRelease-Shift_L>", lambda e: self.shift_control_released())
+        self.listframe.taskslist.bind("<KeyRelease-Shift_R>", lambda e: self.shift_control_released())
+        self.listframe.taskslist.bind("<KeyRelease-Control_L>", lambda e: self.shift_control_released())
+        self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
+
+    def shift_control_pressed(self):
+        self.modifier_pressed = True
+
+    def shift_control_released(self):
+        self.modifier_pressed = False
 
     def focus_first_item(self):
         """Selects first item in the table."""
@@ -328,7 +386,6 @@ class TaskSelectionWindow(tk.Toplevel):
         filename = asksaveasfilename(parent=self, defaultextension=".csv", filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
         if filename:
             core.export(filename, text)
-        # ToDo: Fix: In Windows, two same extensions are added by default.
 
     def add_new_task(self):
         """Adds new task into the database."""
@@ -337,7 +394,14 @@ class TaskSelectionWindow(tk.Toplevel):
             try:
                 self.db.insert_task(task_name)
             except core.DbErrors:
-                pass
+                self.db.reconnect()
+                for row in self.listframe.taskslist.get_children():
+                    if self.listframe.taskslist.item(row)['values'][0] == task_name:
+                        self.listframe.focus_(row)
+                        self.update_descr(row)
+                        break
+                else:
+                    showinfo("Task exists", "Task already exists. Change filter configuration to see it.")
             else:
                 self.update_list()
                 items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
@@ -346,19 +410,22 @@ class TaskSelectionWindow(tk.Toplevel):
                     if items[item]['values'][0] == task_name:
                         self.listframe.focus_(item)
                         break
+                else:
+                    showinfo("Task created", "Task successfully created. Change filter configuration to see it.")
 
     def update_list(self):
         """Updating table contents using database query."""
         # Restoring filter value:
-        query = self.db.find_by_clause('options', 'option_name', 'filter', 'value')[0][0]
+        query = self.db.find_by_clause('options', 'name', 'filter', 'value')[0][0]
         if query:
-            self.db.exec_script(query)
-            tlist = self.db.cur.fetchall()
             self.filterbutton.config(bg='lightblue')
+            self.db.exec_script(query)
         else:
-            tlist = self.db.find_all("tasks")
             self.filterbutton.config(bg=core.Params.colour)
-        self.listframe.update_list([(f[1], core.time_format(f[2]), f[4]) for f in tlist])
+            self.db.exec_script('SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, sum(spent_time) ' \
+                    'AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id')
+        tlist = self.db.cur.fetchall()
+        self.listframe.update_list([[f[1], f[2], f[4]] for f in tlist])
         # Dictionary with row ids and tasks info:
         self.tdict = {}
         i = 0
@@ -374,7 +441,10 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def descr_click(self, event):
         """Updates description for the task with item id of the row selected by click."""
-        self.update_descr(self.listframe.taskslist.identify_row(event.y))
+        pos = self.listframe.taskslist.identify_row(event.y)
+        if pos and pos != '#0' and not self.modifier_pressed:
+            self.listframe.focus_(pos)
+        self.update_descr(self.listframe.taskslist.focus())
 
     def descr_up(self, event):
         """Updates description for the item id which is BEFORE selected."""
@@ -396,7 +466,9 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def update_descr(self, item):
         """Filling task description frame."""
-        if item != '':
+        if item is None:
+            self.description.update_text('')
+        elif item != '':
             self.description.update_text(self.tdict[item][3])
 
     def select_all(self):
@@ -427,12 +499,13 @@ class TaskSelectionWindow(tk.Toplevel):
             TaskEditWindow(id_name[0], self, variable=task_changed)
             if task_changed.get() == 1:
                 # Reload task information from database:
-                new_task_info = self.db.find_by_clause("tasks", "id", id_name[0], "*")[0]
+                new_task_info = self.db.select_task(id_name[0])
                 # Update description:
                 self.tdict[item] = new_task_info
                 self.update_descr(item)
                 # Update data in a table:
-                self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]), new_task_info[4]))
+                self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]),
+                                                            new_task_info[4]))
                 self.update_fulltime()
         self.grab_set()
 
@@ -443,6 +516,7 @@ class TaskSelectionWindow(tk.Toplevel):
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
             self.update_list()
+            self.update_descr(None)
         self.grab_set()
 
 
@@ -454,9 +528,11 @@ class TaskEditWindow(tk.Toplevel):
         self.change = variable
         self.db = core.Db()
         # Task information from database:
-        self.task = self.db.find_by_clause("tasks", "id", taskid, "*")[0]
+        self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
-        dates = [x[0] for x in self.db.find_by_clause("dates", "task_id", taskid, "date")]
+        dates = sorted([core.date_format(x[0]) for x in self.db.find_by_clause("activity", "task_id", taskid, "date")])
+        for index, date in enumerate(dates):
+            dates[index] = core.date_format(date)
         self.grab_set()
         self.title("Task properties")
         self.minsize(width=400, height=300)
@@ -522,13 +598,13 @@ class TaskEditWindow(tk.Toplevel):
     def update_task(self):
         """Update task in database."""
         taskdata = self.description.get().rstrip()
-        self.db.update(self.task[0], field='description', value=taskdata)
+        self.db.update_task(self.task[0], field='description', value=taskdata)
         # Renew tags list for the task:
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
-                self.db.insert('tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
+                self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
-                self.db.exec_script('delete from tags where task_id={0} and tag_id={1}'.format(self.task[0], item[0]))
+                self.db.exec_script('DELETE FROM tasks_tags WHERE task_id={0} AND tag_id={1}'.format(self.task[0], item[0]))
         # Reporting to parent window that task has been changed:
         if self.change:
             self.change.set(1)
@@ -581,7 +657,7 @@ class TagsEditWindow(tk.Toplevel):
             try:
                 self.add_record(tagname)
             except core.DbErrors:
-                pass
+                self.db.reconnect()
             else:
                 self.tags_update()
 
@@ -601,10 +677,10 @@ class TagsEditWindow(tk.Toplevel):
         self.tags = Tagslist(self.db.simple_tagslist(), self, width=300, height=300)
 
     def add_record(self, tagname):
-        self.db.insert('tagnames', ('tag_id', 'tag_name'), (None, tagname))
+        self.db.insert('tags', ('id', 'name'), (None, tagname))
 
     def del_record(self, dellist):
-        self.db.delete(tuple(dellist), field='tag_id', table='tagnames')
+        self.db.delete(tuple(dellist), field='id', table='tags')
 
 
 class TimestampsWindow(TagsEditWindow):
@@ -750,13 +826,15 @@ class FilterWindow(tk.Toplevel):
         self.db = core.Db()
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
         # Lists of stored filter parameters:
-        stored_dates = self.db.find_by_clause('options', 'option_name', 'filter_dates', 'value')[0][0].split(',')
-        stored_tags = self.db.find_by_clause('options', 'option_name', 'filter_tags', 'value')[0][0].split(',')
+        stored_dates = self.db.find_by_clause('options', 'name', 'filter_dates', 'value')[0][0].split(',')
+        stored_tags = self.db.find_by_clause('options', 'name', 'filter_tags', 'value')[0][0].split(',')
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
-        self.db.exec_script('select distinct date from dates order by date desc')
-        dates = [x[0] for x in self.db.cur.fetchall()]
+        self.db.exec_script('SELECT DISTINCT date FROM activity')
+        dates = sorted([core.date_format(x[0]) for x in self.db.cur.fetchall()], reverse=True)
+        for index, date in enumerate(dates):
+            dates[index] = core.date_format(date)
         # Tags list:
         tags = self.db.simple_tagslist()
         # Checking checkboxes according to their values loaded from database:
@@ -795,19 +873,23 @@ class FilterWindow(tk.Toplevel):
             script = None
         else:
             if dates and tags:
-                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
-                        "join dates as datestable on taskstable.id = datestable.task_id where tagstable.tag_id in {0} "\
-                        "and datestable.date in {1}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                            tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                         'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
+                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
+                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                  tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
             elif not dates:
-                script = "select distinct taskstable.* from tasks as taskstable join tags as tagstable on taskstable.id = tagstable.task_id " \
-                        "where tagstable.tag_id in {0}".format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
+                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                         'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
+                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
+                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
             elif not tags:
-                script = "select distinct taskstable.* from tasks as taskstable join dates as datestable on taskstable.id = "\
-                        "datestable.task_id where datestable.date in {0}".format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-        self.db.update('filter', field='value', value=script, table='options', updfiled='option_name')
-        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='option_name')
-        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='option_name')
+                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                         'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY task_id) ' \
+                         'AS act ON act.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+        self.db.update('filter', field='value', value=script, table='options', updfiled='name')
+        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='name')
+        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='name')
         # Reporting to parent window that filter values have been changed:
         if self.changed:
             self.changed.set(1)
@@ -879,3 +961,6 @@ TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=
 TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
 run.mainloop()
 
+
+# ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.
+# ToDo: Fix: In Windows, two same extensions are added by default to exported file.
