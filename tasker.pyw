@@ -367,11 +367,9 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
-        print(self.modifier_pressed)
 
     def shift_control_released(self):
         self.modifier_pressed = False
-        print(self.modifier_pressed)
 
     def focus_first_item(self):
         """Selects first item in the table."""
