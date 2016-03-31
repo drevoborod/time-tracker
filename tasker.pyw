@@ -491,6 +491,7 @@ class TaskSelectionWindow(tk.Toplevel):
                 for item in items:
                     self.tdict.pop(item)
                 self.update_descr(None)
+                self.update_fulltime()
         self.grab_set()
 
     def edit(self):
