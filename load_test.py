@@ -48,12 +48,12 @@ db = core.Db()
 
 # Добавляем теги в БД:
 for tag in TAGS:
-    db.insert(table='tagnames', fields=('tag_name', 'tag_id'), values=(tag, None))
+    db.insert(table='tags', fields=('name', 'id'), values=(tag, None))
 
 # Добавляем задачи в БД:
 for n in range(1, int(TASKS_NUMBER / 2)):
     db.insert_task('%s %d' % (TASK_NAME, n))
-print('\nInserting of first portion of tasks completed')
+print('\nInserting of first portion of tasks completed.')
 
 
 # Добавляем ещё кучку задач с произвольными именами в БД:
@@ -63,22 +63,22 @@ for n in range(int(TASKS_NUMBER / 2)):
     for i in range(random.randint(4, TASK_NAME_LEN)):
         task_name.append(random.choice(TASK_SYMBOLS))
     db.insert_task(r''.join(task_name))
-print('\nInserting of second portion of tasks completed\n')
+print('\nInserting of second portion of tasks completed.\n')
 
 
 # набор id тегов:
-tag_ids = [x[1] for x in db.find_all('tagnames')]
+tag_ids = [x[1] for x in db.find_all('tags')]
 
 # Добавить к каждой таске кучку привязанных дат и тегов, а также задать время и описание:
 for task_id in [x[0] for x in db.find_all('tasks')]:
     for x in range(random.randint(1, len(tag_ids))):
-        db.insert(table='tags', fields=('tag_id', 'task_id'), values=(random.choice(tag_ids), task_id))
+        db.insert(table='tasks_tags', fields=('tag_id', 'task_id'), values=(random.choice(tag_ids), task_id))
     for x in range(random.randint(1, len(DATES))):
-        db.insert(table='dates', fields=('date', 'task_id'), values=(random.choice(DATES), task_id))
-    db.update_task(task_id, value=random.randint(0, 95000))
+        db.insert(table='activity', fields=('date', 'task_id', 'spent_time'), values=(random.choice(DATES), task_id,
+                                                                                   random.randint(0, 95000)))
     db.update_task(task_id, field='description', value=random.choice(DESCRIPTIONS))
     print('Task %d updated' % task_id)
-print('\nTasks parametrization completed\n')
+print('\nTasks parametrization completed.\n')
 
 db.cur.close()
 db.con.close()

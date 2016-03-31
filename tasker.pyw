@@ -104,7 +104,8 @@ class TaskFrame(tk.Frame):
 
     def check_row(self, event):
         """Check if mouse click is over the row, not another taskslist element."""
-        if self.dialogue_window.listframe.taskslist.identify_row(event.y):
+        pos = self.dialogue_window.listframe.taskslist.identify_row(event.y)
+        if pos and pos != '#0':
             self.get_task_name()
 
     def get_task_name(self):
@@ -249,7 +250,8 @@ class TaskList(tk.Frame):
             # Configuring columns with given ids:
             self.taskslist.column(columns[index][0], width=100, minwidth=100, anchor='center')
             # Configuring headers of columns with given ids:
-            self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]: self.sortlist(c, True))
+            self.taskslist.heading(columns[index][0], text=columns[index][1], command=lambda c=columns[index][0]:
+                                   self.sortlist(c, True))
         self.taskslist.column('#0', anchor='w', width=70, minwidth=50, stretch=0)
         self.taskslist.column('taskname', width=600, anchor='w')
 
@@ -368,7 +370,7 @@ class TaskSelectionWindow(tk.Toplevel):
                         self.update_descr(row)
                         break
                 else:
-                    showinfo("Task exists", "This task already exists but is not in current filter selection.")
+                    showinfo("Task exists", "Task already exists. Change filter configuration to see it.")
             else:
                 self.update_list()
                 items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
@@ -378,7 +380,7 @@ class TaskSelectionWindow(tk.Toplevel):
                         self.listframe.focus_(item)
                         break
                 else:
-                    showinfo("Task created", "Task successfully created. Change filter configuration to view it.")
+                    showinfo("Task created", "Task successfully created. Change filter configuration to see it.")
 
     def update_list(self):
         """Updating table contents using database query."""
@@ -408,8 +410,10 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def descr_click(self, event):
         """Updates description for the task with item id of the row selected by click."""
-        #print(self.listframe.taskslist.identify_row(event.y))
-        self.update_descr(self.listframe.taskslist.identify_row(event.y))
+        pos = self.listframe.taskslist.identify_row(event.y)
+        print(pos)
+        if pos and pos != '#0':
+            self.update_descr(self.listframe.taskslist.identify_row(event.y))
 
     def descr_up(self, event):
         """Updates description for the item id which is BEFORE selected."""
@@ -431,7 +435,9 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def update_descr(self, item):
         """Filling task description frame."""
-        if item != '':
+        if item is None:
+            self.description.update_text('')
+        elif item != '':
             self.description.update_text(self.tdict[item][3])
 
     def select_all(self):
@@ -467,7 +473,8 @@ class TaskSelectionWindow(tk.Toplevel):
                 self.tdict[item] = new_task_info
                 self.update_descr(item)
                 # Update data in a table:
-                self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]), new_task_info[4]))
+                self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]),
+                                                            new_task_info[4]))
                 self.update_fulltime()
         self.grab_set()
 
@@ -478,6 +485,7 @@ class TaskSelectionWindow(tk.Toplevel):
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
             self.update_list()
+            self.update_descr(None)
         self.grab_set()
 
 
@@ -919,6 +927,9 @@ TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, stic
 run.mainloop()
 
 
-# ToDo: Fix: при большом (проверено на 200) количестве тасок при сортировке отображается описание из другой таски.
+# ToDo: Fix: При сортировке отображается описание из другой таски.
+# Проблема в методе descr_click()
+# Когда происходит сортировка, itemid почему-то может измениться на itemid от другой строки.
+# В результате этого и описание подтягивается от другой строки.
 
 # ToDo: Добавить логирование исключений.
