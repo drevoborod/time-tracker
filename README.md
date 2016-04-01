@@ -1,5 +1,6 @@
 # tasker
 __Description__
+
 A program for logging time spent on different tasks.
 Has three stopwatch frames on main screen for visually logging work process.
 Tasks can be filtered by tags and by dates. Every time the task is opened
@@ -7,12 +8,17 @@ its state is saved to database and than user can find all tasks
 on which he had been working at in selected day.
 Filtered tasks list can be exported as .csv.
 
+
 __Installation__
+
 To run application, you need Python 3 with Tkinter framework to be installed. It can be found on https://www.python.org/downloads/ (tkinter is by default included) or in your repository if your operating system is Linux or *BSD.
 After Python interpreter installation, just extract archive with the application and execute tasker.pyw.
 
+
 __License__
+
 Copyright (c) 2016, Kallistov Alexey
+
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
