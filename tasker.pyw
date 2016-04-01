@@ -482,7 +482,7 @@ class TaskSelectionWindow(tk.Toplevel):
     def delete(self):
         """Remove selected tasks from the database and the table."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
-        items = self.listframe.taskslist.selection()
+        items = [x for x in self.listframe.taskslist.selection() if self.tdict[x][0] in ids]
         if ids:
             answer = askyesno("Warning", "Are you sure you want to delete selected tasks?", parent=self)
             if answer:
@@ -881,9 +881,10 @@ class FilterWindow(tk.Toplevel):
             if dates and tags:
                 script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
                          'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
-                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
-                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                  tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id ' \
+                         'JOIN activity ON activity.task_id=tasks.id WHERE t.tag_id IN {0} OR ' \
+                         'activity.date IN {1}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                       tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
             elif not dates:
                 script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
                          'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
