@@ -36,7 +36,7 @@ for i in range(256, 1100):
 for i in range(32, 128):
     TASK_SYMBOLS.append(chr(i))
 
-TASKS_NUMBER = 2000
+TASKS_NUMBER = 20
 TASK_NAME_LEN = 25
 TAGS = ['tag %d' % x for x in range(1, 21)]
 DATES = ['11.02.2016', '19.09.1978', '01.06.2010', '14.11.2005', '04.08.2011', '02.02.2015']
@@ -74,8 +74,8 @@ for task_id in [x[0] for x in db.find_all('tasks')]:
     for x in range(random.randint(1, len(tag_ids))):
         db.insert(table='tasks_tags', fields=('tag_id', 'task_id'), values=(random.choice(tag_ids), task_id))
     for x in range(random.randint(1, len(DATES))):
-        db.insert(table='activity', fields=('date', 'task_id', 'spent_time'), values=(random.choice(DATES), task_id,
-                                                                                   random.randint(0, 86000)))
+        db.exec_script("INSERT INTO activity (date, task_id, spent_time) VALUES ('{0}', {1}, {2})".format(random.choice(DATES),
+                                                                                                          task_id, random.randint(0, 86000)))
     db.update(task_id, "description", random.choice(DESCRIPTIONS))
     db.update(task_id, "creation_date", random.choice(DATES))
     print('Task %d updated' % task_id)

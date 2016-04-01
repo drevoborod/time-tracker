@@ -13,15 +13,6 @@ from tkinter import ttk
 import core
 
 
-class BindedWidget(tk.Widget):
-    """Widget with changed .bind() method. I applies recursive to all widget's children."""
-    def bind(self, sequence=None, func=None, add=None):
-        if not isinstance(self, tk.Menu):
-            tk.Misc.bind(self, sequence, func, add)
-        for child in self.winfo_children():
-            BindedWidget.bind(child, sequence, func, add)
-
-
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
@@ -887,6 +878,7 @@ class FilterWindow(tk.Toplevel):
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
         if not dates and not tags:
             script = None
+            self.operating_mode.set("AND")
         else:
             if self.operating_mode.get() == "OR":
                 if dates and tags:
@@ -1007,5 +999,5 @@ TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, stic
 run.mainloop()
 
 
-# ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.
+# ToDo: Fix: unexpected selections when sorting tasks table.
 # ToDo: Fix: In Windows, two same extensions are added by default to exported file.
