@@ -13,21 +13,13 @@ from tkinter import ttk
 import core
 
 
-class BindedWidget(tk.Widget):
-    """Widget with changed .bind() method. I applies recursive to all widget's children."""
-    def bind(self, sequence=None, func=None, add=None):
-        if not isinstance(self, tk.Menu):
-            tk.Misc.bind(self, sequence, func, add)
-        for child in self.winfo_children():
-            BindedWidget.bind(child, sequence, func, add)
-
-
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
         super().__init__(parent, relief='groove', bd=2)
         self.db = core.Db()
         self.create_content()
+        self.bind("<Button-1>", lambda e: core.Params.selected_widget)
 
     def create_content(self):
         """Creates all window elements."""
@@ -391,6 +383,8 @@ class TaskSelectionWindow(tk.Toplevel):
         """Adds new task into the database."""
         task_name = self.addentry.get()
         if task_name:
+            for x in ('"', "'", "`"):
+                task_name = task_name.replace(x, '')
             try:
                 self.db.insert_task(task_name)
             except core.DbErrors:
@@ -432,6 +426,7 @@ class TaskSelectionWindow(tk.Toplevel):
         for task_id in self.listframe.taskslist.get_children():
             self.tdict[task_id] = tlist[i]
             i += 1
+        self.update_descr(None)
         self.update_fulltime()
 
     def update_fulltime(self):
@@ -480,11 +475,16 @@ class TaskSelectionWindow(tk.Toplevel):
     def delete(self):
         """Remove selected tasks from the database and the table."""
         ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
+        items = [x for x in self.listframe.taskslist.selection() if self.tdict[x][0] in ids]
         if ids:
             answer = askyesno("Warning", "Are you sure you want to delete selected tasks?", parent=self)
             if answer:
                 self.db.delete_tasks(tuple(ids))
-                self.update_list()
+                self.listframe.taskslist.delete(*items)
+                for item in items:
+                    self.tdict.pop(item)
+                self.update_descr(None)
+                self.update_fulltime()
         self.grab_set()
 
     def edit(self):
@@ -516,7 +516,6 @@ class TaskSelectionWindow(tk.Toplevel):
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
             self.update_list()
-            self.update_descr(None)
         self.grab_set()
 
 
@@ -824,7 +823,9 @@ class FilterWindow(tk.Toplevel):
     def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
         self.db = core.Db()
+        self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
+        self.operating_mode = tk.StringVar()    # Operating mode of the filter: "AND", "OR".
         # Lists of stored filter parameters:
         stored_dates = self.db.find_by_clause('options', 'name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'name', 'filter_tags', 'value')[0][0].split(',')
@@ -849,9 +850,15 @@ class FilterWindow(tk.Toplevel):
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
         TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
         TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
-        tk.Frame(self, height=40).grid(row=3, column=0, columnspan=2, sticky='news')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=4, column=1, pady=5, padx=5, sticky='e')
-        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=4, column=0, pady=5, padx=5, sticky='w')
+        tk.Frame(self, height=20).grid(row=3, column=0, columnspan=2, sticky='news')
+        tk.Label(self, text="Filter operating mode:").grid(row=4, columnspan=2, pady=5)
+        tk.Radiobutton(self, text="AND", variable=self.operating_mode, value="AND").grid(row=5, column=0, sticky='e')
+        tk.Radiobutton(self, text="OR", variable=self.operating_mode, value="OR").grid(row=5, column=1, sticky='w')
+        self.operating_mode.set(self.db.find_by_clause(table="options", field="name",
+                                                       value="filter_operating_mode", searchfield="value")[0][0])
+        tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
+        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
         self.minsize(height=250, width=350)
         self.grid_columnconfigure('all', weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -871,22 +878,51 @@ class FilterWindow(tk.Toplevel):
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
         if not dates and not tags:
             script = None
+            self.operating_mode.set("AND")
         else:
-            if dates and tags:
-                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                         'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
-                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
-                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                  tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-            elif not dates:
-                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                         'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
-                         'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
-                         't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
-            elif not tags:
-                script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                         'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY task_id) ' \
-                         'AS act ON act.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+            if self.operating_mode.get() == "OR":
+                if dates and tags:
+                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                             'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
+                             'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id ' \
+                             'JOIN activity ON activity.task_id=tasks.id WHERE t.tag_id IN {0} OR ' \
+                             'activity.date IN {1}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                           tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                elif not dates:
+                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                             'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
+                             'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
+                             't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
+                elif not tags:
+                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                             'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY task_id) ' \
+                             'AS act ON act.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+            else:
+                if dates and tags:
+                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
+                             'task_id, sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY ' \
+                             'task_id) AS act ON act.task_id=tasks.id JOIN (SELECT tt.task_id FROM tasks_tags AS tt WHERE '\
+                             'tt.tag_id IN {1} GROUP BY tt.task_id HAVING COUNT(DISTINCT tt.tag_id)={3}) AS x ON ' \
+                             'x.task_id=tasks.id JOIN (SELECT act.task_id FROM activity AS act WHERE act.date IN {0} ' \
+                             'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={2}) AS y ON ' \
+                             'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
+                                                         tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                                                         len(dates), len(tags))
+                elif not dates:
+                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
+                             'task_id, sum(spent_time) AS total_time FROM activity GROUP BY ' \
+                             'task_id) AS act ON act.task_id=tasks.id JOIN (SELECT tt.task_id FROM tasks_tags AS tt WHERE ' \
+                             'tt.tag_id IN {0} GROUP BY tt.task_id HAVING COUNT(DISTINCT tt.tag_id)={1}) AS x ON ' \
+                             'x.task_id=tasks.id'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0], len(tags))
+                elif not tags:
+                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
+                             'task_id, sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY ' \
+                             'task_id) AS act ON act.task_id=tasks.id JOIN (SELECT act.task_id FROM activity AS act ' \
+                             'WHERE act.date IN {0} ' \
+                             'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={1}) AS y ON ' \
+                             'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
+                                                         len(dates))
+        self.db.update('filter_operating_mode', field='value', value=self.operating_mode.get(), table='options', updfiled='name')
         self.db.update('filter', field='value', value=script, table='options', updfiled='name')
         self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='name')
         self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='name')
@@ -904,8 +940,9 @@ class RightclickMenu(tk.Menu):
 
     def context_menu_show(self, event):
         """Function links context menu with current selected widget and pops menu up."""
-        self.post(event.x_root, event.y_root)
+        self.tk_popup(event.x_root, event.y_root)
         core.Params.selected_widget = event.widget
+
 
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
@@ -962,5 +999,5 @@ TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, stic
 run.mainloop()
 
 
-# ToDo: Fix: фантомные клики в список тасок при сортировке кликом по заголовку таблицы.
+# ToDo: Fix: unexpected selections when sorting tasks table.
 # ToDo: Fix: In Windows, two same extensions are added by default to exported file.
