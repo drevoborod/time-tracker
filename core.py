@@ -226,6 +226,7 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options (name) VALUES ('filter');
                 INSERT INTO options VALUES ('filter_tags', '');
                 INSERT INTO options VALUES ('filter_dates', '');
+                INSERT INTO options VALUES ('filter_operating_mode', 'AND');
                 """
 
 HELP_TEXT = get_help()
