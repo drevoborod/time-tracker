@@ -830,6 +830,7 @@ class FilterWindow(tk.Toplevel):
     def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
         self.db = core.Db()
+        self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
         # Lists of stored filter parameters:
         stored_dates = self.db.find_by_clause('options', 'name', 'filter_dates', 'value')[0][0].split(',')
