@@ -821,7 +821,7 @@ class Tagslist(ScrolledCanvas):
             item[1][0] = tk.IntVar()
             # Connecting new checkbox with this dynamic variable:
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
-            cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 5 if orientation == "horizontal"
+            cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 3 if orientation == "horizontal"
                                                           else item[1][1]), variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             # Setting dynamic variable value to previously saved state:
