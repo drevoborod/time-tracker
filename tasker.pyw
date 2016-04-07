@@ -59,6 +59,7 @@ class TaskFrame(tk.Frame):
     def timestamps_window(self):
         """Timestamps window opening."""
         TimestampsWindow(self.task_id, self.running_time, self)
+        run.lift()
 
     def add_timestamp(self):
         """Adding timestamp to database."""
@@ -91,7 +92,7 @@ class TaskFrame(tk.Frame):
         """Task selection window."""
         self.dialogue_window = TaskSelectionWindow(self)
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        TaskButton(self.dialogue_window, text="Cancel", command=self.close_task_selection).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
         self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
 
@@ -100,6 +101,10 @@ class TaskFrame(tk.Frame):
         pos = self.dialogue_window.listframe.taskslist.identify_row(event.y)
         if pos and pos != '#0':
             self.get_task_name()
+
+    def close_task_selection(self):
+        self.dialogue_window.destroy()
+        run.lift()
 
     def get_task_name(self):
         """Getting selected task's name."""
@@ -121,7 +126,7 @@ class TaskFrame(tk.Frame):
                 self.prepare_task(task)
             else:
                 # If selected task is already open in another frame, just closing window:
-                self.dialogue_window.destroy()
+                self.close_task_selection()
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
@@ -137,7 +142,7 @@ class TaskFrame(tk.Frame):
         else:
             self.date_exists = True
         self.timer_window.config(text=core.time_format(self.running_time))
-        self.dialogue_window.destroy()      # Close task selection window.
+        self.close_task_selection()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
         self.properties.config(state='normal')
@@ -485,7 +490,6 @@ class TaskSelectionWindow(tk.Toplevel):
                     self.tdict.pop(item)
                 self.update_descr(None)
                 self.update_fulltime()
-        self.grab_set()
 
     def edit(self):
         """Show task edit window."""
@@ -507,7 +511,7 @@ class TaskSelectionWindow(tk.Toplevel):
                 self.listframe.taskslist.item(item, values=(new_task_info[1], core.time_format(new_task_info[2]),
                                                             new_task_info[4]))
                 self.update_fulltime()
-        self.grab_set()
+        self.raise_window()
 
     def filterwindow(self):
         """Open filters window."""
@@ -516,8 +520,11 @@ class TaskSelectionWindow(tk.Toplevel):
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
             self.update_list()
-        self.grab_set()
+        self.raise_window()
 
+    def raise_window(self):
+        self.grab_set()
+        self.lift()
 
 class TaskEditWindow(tk.Toplevel):
     """Task properties window."""
@@ -587,6 +594,7 @@ class TaskEditWindow(tk.Toplevel):
         TagsEditWindow(self)
         self.tags_update()
         self.grab_set()
+        self.lift()
 
     def tags_update(self):
         """Tags list placing."""
@@ -680,6 +688,7 @@ class TagsEditWindow(tk.Toplevel):
 
     def del_record(self, dellist):
         self.db.delete(tuple(dellist), field='id', table='tags')
+        self.db.delete(tuple(dellist), field='tag_id', table='tasks_tags')
 
 
 class TimestampsWindow(TagsEditWindow):
@@ -812,7 +821,8 @@ class Tagslist(ScrolledCanvas):
             item[1][0] = tk.IntVar()
             # Connecting new checkbox with this dynamic variable:
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
-            cb = tk.Checkbutton(self.content_frame, text=item[1][1], variable=item[1][0])
+            cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 5 if orientation == "horizontal"
+                                                          else item[1][1]), variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             # Setting dynamic variable value to previously saved state:
             item[1][0].set(state)
