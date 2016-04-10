@@ -207,16 +207,23 @@ def get_help():
 
 
 def patch_database():
-    """Enable patches to database."""
+    """Apply patches to database."""
     con = sqlite3.connect(TABLE_FILE)
-    for script in PATCH_SCRIPTS:
-        try:
-            con.executescript(script)
-        except sqlite3.DatabaseError:
-            con.close()
-            con = sqlite3.connect(TABLE_FILE)
-        else:
-            con.commit()
+    cur = con.cursor()
+    cur.executescript("SELECT value FROM options WHERE name='patch_ver';")
+    res = cur.fetchone()
+    print(res)
+    if not res:
+        for key in PATCH_SCRIPTS:
+            for script in PATCH_SCRIPTS[key]:
+                con.executescript(script)
+                con.commit()
+    elif res[0] < PATCH_VER:
+        for key in PATCH_SCRIPTS:
+            if res[0] < key <= PATCH_VER:
+                for script in PATCH_SCRIPTS[key]:
+                    con.executescript(script)
+                    con.commit()
     con.close()
 
 
@@ -244,7 +251,11 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
                 """
-PATCH_SCRIPTS = ["INSERT INTO options VALUES ('timers_count', '3');",
-                 "INSERT INTO options VALUES ('minimize_to_tray', '0');",
-                 "INSERT INTO options VALUES ('always_on_top', '0');"
-                ]
+PATCH_VER = 1
+PATCH_SCRIPTS = {1:
+                    ["INSERT INTO options VALUES ('patch_ver', '1');",
+                    "INSERT INTO options VALUES ('timers_count', '3');",
+                    "INSERT INTO options VALUES ('minimize_to_tray', '0');",
+                    "INSERT INTO options VALUES ('always_on_top', '0');"
+                    ]
+                }
