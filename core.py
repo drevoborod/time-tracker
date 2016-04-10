@@ -161,6 +161,7 @@ def check_database():
         with sqlite3.connect(TABLE_FILE) as con:
             con.executescript(TABLE_STRUCTURE)
             con.commit()
+    patch_database()
 
 
 def export(filename, text):
@@ -205,6 +206,21 @@ def get_help():
     return helptext
 
 
+def patch_database():
+    """Enable patches to database."""
+    con = sqlite3.connect(TABLE_FILE)
+    for script in PATCH_SCRIPTS:
+        try:
+            con.executescript(script)
+        except sqlite3.DatabaseError:
+            con.close()
+            con = sqlite3.connect(TABLE_FILE)
+        else:
+            con.commit()
+    con.close()
+
+
+HELP_TEXT = get_help()
 TABLE_FILE = 'tasks.db'
 TABLE_STRUCTURE = """\
                 CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -228,5 +244,7 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
                 """
-
-HELP_TEXT = get_help()
+PATCH_SCRIPTS = ["INSERT INTO options VALUES ('timers_count', '3');",
+                 "INSERT INTO options VALUES ('minimize_to_tray', '0');",
+                 "INSERT INTO options VALUES ('always_on_top', '0');"
+                ]
