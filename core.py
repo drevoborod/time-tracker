@@ -210,17 +210,16 @@ def patch_database():
     """Apply patches to database."""
     con = sqlite3.connect(TABLE_FILE)
     cur = con.cursor()
-    cur.executescript("SELECT value FROM options WHERE name='patch_ver';")
+    cur.execute("SELECT value FROM options WHERE name='patch_ver';")
     res = cur.fetchone()
-    print(res)
     if not res:
         for key in PATCH_SCRIPTS:
             for script in PATCH_SCRIPTS[key]:
                 con.executescript(script)
                 con.commit()
-    elif res[0] < PATCH_VER:
+    elif int(res[0]) < PATCH_VER:
         for key in PATCH_SCRIPTS:
-            if res[0] < key <= PATCH_VER:
+            if int(res[0]) < key <= PATCH_VER:
                 for script in PATCH_SCRIPTS[key]:
                     con.executescript(script)
                     con.commit()
