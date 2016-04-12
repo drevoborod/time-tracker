@@ -16,7 +16,7 @@ import core
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
-        super().__init__(parent, relief='groove', bd=2)
+        super().__init__(master=parent, relief='groove', bd=2)
         self.db = core.Db()
         self.create_content()
         self.bind("<Button-1>", lambda e: core.Params.selected_widget)
@@ -787,8 +787,8 @@ class Description(tk.Frame):
 
 class ScrolledCanvas(tk.Frame):
     """Scrollable Canvas. Scroll may be horizontal or vertical."""
-    def __init__(self, parent=None, orientation="vertical", **options):
-        super().__init__(master=parent, relief='groove', bd=2)
+    def __init__(self, parent=None, orientation="vertical", bd=2, **options):
+        super().__init__(master=parent, relief='groove', bd=bd)
         scroller = tk.Scrollbar(self, orient=orientation)
         self.canvbox = tk.Canvas(self, **options)
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
@@ -954,6 +954,20 @@ class RightclickMenu(tk.Menu):
         core.Params.selected_widget = event.widget
 
 
+class MainFrame(ScrolledCanvas):
+    """Container for all task frames."""
+    def __init__(self, parent):
+        super().__init__(parent=parent, bd=0)
+        self.fill()
+
+    def fill(self):
+        for w in self.content_frame.winfo_children():
+            w.destroy()
+        for row_number in list(range(TASKFRAMES_COUNT)):
+            TaskFrame(parent=self.content_frame).grid(row=row_number, pady=5, padx=5, ipady=3)
+            tk.Frame(self.content_frame, height=15).grid(row=row_number + 1)
+
+
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
@@ -975,6 +989,10 @@ def copy_to_clipboard():
 
 def stopall():
     core.Params.stopall = True
+
+
+def clearall():
+    taskframes.fill()
 
 
 def quit():
@@ -999,13 +1017,13 @@ run = tk.Tk()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
-run.resizable(width=0, height=0)
-for row_number in list(range(TASKFRAMES_COUNT)):
-    TaskFrame(parent=run).grid(row=row_number, pady=5, padx=5, ipady=3, columnspan=5)
-    tk.Frame(run, height=15).grid(row=row_number+1)
-TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0, sticky='sw', pady=5, padx=5)
-TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
+run.resizable(width=0, height=1)
+taskframes = MainFrame(run)         # Main window content.
+taskframes.grid(row=0, columnspan=6)
+TaskButton(run, text="Help", command=helpwindow).grid(row=1, column=0, sticky='sw', pady=5, padx=5)
+TaskButton(run, text="Stop all", command=stopall).grid(row=1, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Clear all", command=clearall).grid(row=1, column=3, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=1, column=5, sticky='se', pady=5, padx=5)
 run.mainloop()
 
 
