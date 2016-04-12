@@ -970,15 +970,15 @@ class MainFrame(ScrolledCanvas):
 
     def fill(self):
         """Create contents of the main frame."""
-        if self.frames_count < global_options['timers_count'].get():
-            for row_number in list(range(global_options['timers_count'].get() - self.frames_count)):
+        if self.frames_count < int(global_options['timers_count']):
+            for row_number in list(range(int(global_options['timers_count']) - self.frames_count)):
                 tf = TaskFrame(parent=self.content_frame)
                 tf.grid(row=self.frames_count + row_number, pady=5, padx=5, ipady=3, sticky='ew')
                 f = tk.Frame(self.content_frame, height=15)
                 f.grid(row=self.frames_count + row_number + 1)
             self.content_frame.update()
             self.canvbox.config(width=self.content_frame.winfo_width())
-            self.frames_count = global_options['timers_count'].get()
+            self.frames_count = int(global_options['timers_count'])
             if self.frames_count <= 3:
                 self.canvbox.config(height=self.content_frame.winfo_height())
             else:
@@ -998,21 +998,28 @@ class MainMenu(tk.Menu):
 
     def options_window(self):
         """Open options window."""
-        Options(run)
-        db = core.Db()
-        db.update(table='options', field='value', value=str(global_options['timers_count'].get()),
-                  field_id='timers_count', updfiled='name')
-        taskframes.fill()
+        var = tk.IntVar(self)
+        var.set(global_options['timers_count'])
+        try:
+            Options(run, var)
+        except Exception:
+            pass
+        else:
+            db = core.Db()
+            db.update(table='options', field='value', value=str(var.get()),
+                      field_id='timers_count', updfiled='name')
+            global_options['timers_count'] = var.get()
+            taskframes.fill()
         run.lift()
 
 
 class Options(tk.Toplevel):
-    def __init__(self, parent, **options):
+    def __init__(self, parent, frames, **options):
         super().__init__(master=parent, width=300, height=200, **options)
         self.title("Options")
         self.resizable(height=0, width=0)
         tk.Label(self, text="Timers on main window: ").grid(row=0, column=0, sticky='w')
-        tk.Entry(self, width=3, textvariable=global_options['timers_count']).grid(row=0, column=1, sticky='e', padx=5, pady=5)
+        tk.Entry(self, width=3, textvariable=frames).grid(row=0, column=1, sticky='e', padx=5, pady=5)
         tk.Frame(self, height=20).grid(row=1)
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
         self.focus_get()
@@ -1050,11 +1057,7 @@ def clearall():
 def get_options():
     """Get program preferencies from database."""
     db = core.Db()
-    opts = {x[0]: x[1] for x in db.find_all(table='options')}
-    frames_count = int(opts['timers_count'])
-    opts['timers_count'] = tk.IntVar(run)
-    opts['timers_count'].set(frames_count)
-    return opts
+    return {x[0]: x[1] for x in db.find_all(table='options')}
 
 
 def quit():
@@ -1065,6 +1068,8 @@ def quit():
 
 # Check if tasks database actually exists:
 core.check_database()
+# Create options dictionary:
+global_options = get_options()
 # Global tasks ids set. Used for preserve duplicates:
 core.Params.tasks = set()
 # If True, all running timers will be stopped:
@@ -1074,8 +1079,6 @@ core.Params.selected_widget = None
 
 # Main window:
 run = tk.Tk()
-# Create options dictionary:
-global_options = get_options()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
