@@ -962,19 +962,55 @@ class MainFrame(ScrolledCanvas):
         self.fill()
 
     def fill(self):
+        """Create contents of the main frame."""
         for w in self.content_frame.winfo_children():
             w.destroy()
-        for row_number in list(range(TASKFRAMES_COUNT)):
+        for row_number in list(range(global_options['timers_count'].get())):
             tf = TaskFrame(parent=self.content_frame)
             tf.grid(row=row_number, pady=5, padx=5, ipady=3, sticky='ew')
             f = tk.Frame(self.content_frame, height=15)
             f.grid(row=row_number + 1)
         self.content_frame.update()
         self.canvbox.config(width=self.content_frame.winfo_width())
-        if TASKFRAMES_COUNT <= 3:
+        if global_options['timers_count'].get() <= 3:
             self.canvbox.config(height=self.content_frame.winfo_height())
         else:
             self.canvbox.config(height=((tf.winfo_height() + f.winfo_height()) * 3))
+
+
+class MainMenu(tk.Menu):
+    """Main window menu."""
+    def __init__(self, parent=None, **options):
+        super().__init__(master=parent, **options)
+        file = tk.Menu(self, tearoff=0)
+        file.add_command(label="Timers...", command=self.options_window, underline=0)
+        file.add_separator()
+        file.add_command(label="Exit", command=quit, underline=1)
+        #file.add_checkbutton(label='test')
+        self.add_cascade(label="Main menu", menu=file, underline=0)
+
+    def options_window(self):
+        """Open options window."""
+        Options(run)
+        db = core.Db()
+        db.update(table='options', field='value', value=str(global_options['timers_count'].get()),
+                  field_id='timers_count', updfiled='name')
+        taskframes.fill()
+        run.lift()
+
+
+class Options(tk.Toplevel):
+    def __init__(self, parent, **options):
+        super().__init__(master=parent, width=300, height=200, **options)
+        self.title("Options")
+        self.resizable(height=0, width=0)
+        tk.Label(self, text="Timers on main window: ").grid(row=0, column=0, sticky='w')
+        tk.Entry(self, width=3, textvariable=global_options['timers_count']).grid(row=0, column=1, sticky='e', padx=5, pady=5)
+        tk.Frame(self, height=20).grid(row=1)
+        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
+        self.focus_get()
+        self.wait_window()
+
 
 
 def big_font(unit, size=20):
@@ -1004,14 +1040,22 @@ def clearall():
     taskframes.fill()
 
 
+def get_options():
+    """Get program preferencies from database."""
+    db = core.Db()
+    opts = {x[0]: x[1] for x in db.find_all(table='options')}
+    frames_count = int(opts['timers_count'])
+    opts['timers_count'] = tk.IntVar(run)
+    opts['timers_count'].set(frames_count)
+    return opts
+
+
 def quit():
     answer = askyesno("Quit confirmation", "Do you really want to quit?")
     if answer:
         run.destroy()
 
 
-# Quantity of task frames on main screen:
-TASKFRAMES_COUNT = 4
 # Check if tasks database actually exists:
 core.check_database()
 # Global tasks ids set. Used for preserve duplicates:
@@ -1023,10 +1067,14 @@ core.Params.selected_widget = None
 
 # Main window:
 run = tk.Tk()
+# Create options dictionary:
+global_options = get_options()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
 run.resizable(width=0, height=0)
+main_menu = MainMenu(run)           # Create main menu.
+run.config(menu=main_menu)
 taskframes = MainFrame(run)         # Main window content.
 taskframes.grid(row=0, columnspan=6)
 TaskButton(run, text="Help", command=helpwindow).grid(row=1, column=0, sticky='sw', pady=5, padx=5)
