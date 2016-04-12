@@ -959,23 +959,30 @@ class MainFrame(ScrolledCanvas):
     def __init__(self, parent):
         super().__init__(parent=parent, bd=0)
         self.content_frame.grid_columnconfigure('all', weight=1)
+        self.frames_count = 0
+        self.fill()
+
+    def clear(self):
+        for w in self.content_frame.winfo_children():
+            w.destroy()
+        self.frames_count = 0
         self.fill()
 
     def fill(self):
         """Create contents of the main frame."""
-        for w in self.content_frame.winfo_children():
-            w.destroy()
-        for row_number in list(range(global_options['timers_count'].get())):
-            tf = TaskFrame(parent=self.content_frame)
-            tf.grid(row=row_number, pady=5, padx=5, ipady=3, sticky='ew')
-            f = tk.Frame(self.content_frame, height=15)
-            f.grid(row=row_number + 1)
-        self.content_frame.update()
-        self.canvbox.config(width=self.content_frame.winfo_width())
-        if global_options['timers_count'].get() <= 3:
-            self.canvbox.config(height=self.content_frame.winfo_height())
-        else:
-            self.canvbox.config(height=((tf.winfo_height() + f.winfo_height()) * 3))
+        if self.frames_count < global_options['timers_count'].get():
+            for row_number in list(range(global_options['timers_count'].get() - self.frames_count)):
+                tf = TaskFrame(parent=self.content_frame)
+                tf.grid(row=self.frames_count + row_number, pady=5, padx=5, ipady=3, sticky='ew')
+                f = tk.Frame(self.content_frame, height=15)
+                f.grid(row=self.frames_count + row_number + 1)
+            self.content_frame.update()
+            self.canvbox.config(width=self.content_frame.winfo_width())
+            self.frames_count = global_options['timers_count'].get()
+            if self.frames_count <= 3:
+                self.canvbox.config(height=self.content_frame.winfo_height())
+            else:
+                self.canvbox.config(height=((tf.winfo_height() + f.winfo_height()) * 3))
 
 
 class MainMenu(tk.Menu):
@@ -1037,7 +1044,7 @@ def stopall():
 
 
 def clearall():
-    taskframes.fill()
+    taskframes.clear()
 
 
 def get_options():
