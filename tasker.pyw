@@ -958,14 +958,23 @@ class MainFrame(ScrolledCanvas):
     """Container for all task frames."""
     def __init__(self, parent):
         super().__init__(parent=parent, bd=0)
+        self.content_frame.grid_columnconfigure('all', weight=1)
         self.fill()
 
     def fill(self):
         for w in self.content_frame.winfo_children():
             w.destroy()
         for row_number in list(range(TASKFRAMES_COUNT)):
-            TaskFrame(parent=self.content_frame).grid(row=row_number, pady=5, padx=5, ipady=3)
-            tk.Frame(self.content_frame, height=15).grid(row=row_number + 1)
+            tf = TaskFrame(parent=self.content_frame)
+            tf.grid(row=row_number, pady=5, padx=5, ipady=3, sticky='ew')
+            f = tk.Frame(self.content_frame, height=15)
+            f.grid(row=row_number + 1)
+        self.content_frame.update()
+        self.canvbox.config(width=self.content_frame.winfo_width())
+        if TASKFRAMES_COUNT <= 3:
+            self.canvbox.config(height=self.content_frame.winfo_height())
+        else:
+            self.canvbox.config(height=((tf.winfo_height() + f.winfo_height()) * 3))
 
 
 def big_font(unit, size=20):
@@ -1002,7 +1011,7 @@ def quit():
 
 
 # Quantity of task frames on main screen:
-TASKFRAMES_COUNT = 3
+TASKFRAMES_COUNT = 4
 # Check if tasks database actually exists:
 core.check_database()
 # Global tasks ids set. Used for preserve duplicates:
@@ -1017,7 +1026,7 @@ run = tk.Tk()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
-run.resizable(width=0, height=1)
+run.resizable(width=0, height=0)
 taskframes = MainFrame(run)         # Main window content.
 taskframes.grid(row=0, columnspan=6)
 TaskButton(run, text="Help", command=helpwindow).grid(row=1, column=0, sticky='sw', pady=5, padx=5)
