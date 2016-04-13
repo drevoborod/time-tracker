@@ -17,7 +17,7 @@ After Python interpreter installation, just extract archive with the application
 
 __License__
 
-Copyright (c) 2016, Kallistov Alexey
+Copyright (c) 2016, Alexey Kallistov
 
 All rights reserved.
 

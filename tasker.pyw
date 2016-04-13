@@ -7,7 +7,7 @@ import copy
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askyesno, showinfo
+from tkinter.messagebox import askyesno, showinfo, showwarning
 from tkinter import ttk
 
 import core
@@ -983,6 +983,9 @@ class MainFrame(ScrolledCanvas):
                 self.canvbox.config(height=self.content_frame.winfo_height())
             else:
                 self.canvbox.config(height=((tf.winfo_height() + f.winfo_height()) * 3))
+        elif self.frames_count > int(global_options['timers_count']):
+            showwarning("Press 'Clear all' to refresh", "Number of task frames is less than current.\nPress 'Clear all'"
+                                                        " to refresh them.\nAll current timers will be closed!")
 
 
 class MainMenu(tk.Menu):
@@ -990,27 +993,35 @@ class MainMenu(tk.Menu):
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         file = tk.Menu(self, tearoff=0)
-        file.add_command(label="Timers...", command=self.options_window, underline=0)
+        file.add_command(label="Task frames...", command=self.options_window, underline=0)
         file.add_separator()
         file.add_command(label="Exit", command=quit, underline=1)
         #file.add_checkbutton(label='test')
         self.add_cascade(label="Main menu", menu=file, underline=0)
+        helpmenu = tk.Menu(self, tearoff=0)
+        helpmenu.add_command(label="Help...", command=helpwindow)
+        helpmenu.add_command(label="About...", command=aboutwindow)
+        self.add_cascade(label="Help", menu=helpmenu)
 
     def options_window(self):
         """Open options window."""
         var = tk.IntVar(self)
         var.set(global_options['timers_count'])
+        Options(run, var)
         try:
-            Options(run, var)
-        except Exception:
-            pass
+            count = var.get()
+        except tk.TclError:
+            showwarning("Wrong format", "Wrong values entered!")
         else:
-            db = core.Db()
-            db.update(table='options', field='value', value=str(var.get()),
-                      field_id='timers_count', updfiled='name')
-            global_options['timers_count'] = var.get()
-            taskframes.fill()
-        run.lift()
+            if 0 < count <= 30:
+                db = core.Db()
+                db.update(table='options', field='value', value=str(count),
+                          field_id='timers_count', updfiled='name')
+                global_options['timers_count'] = var.get()
+                taskframes.fill()
+            else:
+                showwarning("Incorrect frames number", "Number of task frames should be between 1 and 30.")
+            run.lift()
 
 
 class Options(tk.Toplevel):
@@ -1018,7 +1029,7 @@ class Options(tk.Toplevel):
         super().__init__(master=parent, width=300, height=200, **options)
         self.title("Options")
         self.resizable(height=0, width=0)
-        tk.Label(self, text="Timers on main window: ").grid(row=0, column=0, sticky='w')
+        tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
         tk.Entry(self, width=3, textvariable=frames).grid(row=0, column=1, sticky='e', padx=5, pady=5)
         tk.Frame(self, height=20).grid(row=1)
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
@@ -1035,6 +1046,10 @@ def big_font(unit, size=20):
 
 def helpwindow():
     HelpWindow(run)
+
+
+def aboutwindow():
+    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, 2016".format(VERSION))
 
 
 def copy_to_clipboard():
@@ -1066,6 +1081,7 @@ def quit():
         run.destroy()
 
 
+VERSION = '1.1'
 # Check if tasks database actually exists:
 core.check_database()
 # Create options dictionary:
@@ -1086,13 +1102,14 @@ run.resizable(width=0, height=0)
 main_menu = MainMenu(run)           # Create main menu.
 run.config(menu=main_menu)
 taskframes = MainFrame(run)         # Main window content.
-taskframes.grid(row=0, columnspan=6)
-TaskButton(run, text="Help", command=helpwindow).grid(row=1, column=0, sticky='sw', pady=5, padx=5)
+taskframes.grid(row=0, columnspan=5)
+#TaskButton(run, text="Help", command=helpwindow).grid(row=1, column=0, sticky='sw', pady=5, padx=5)
 TaskButton(run, text="Stop all", command=stopall).grid(row=1, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Clear all", command=clearall).grid(row=1, column=3, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=1, column=5, sticky='se', pady=5, padx=5)
+TaskButton(run, text="Clear all", command=clearall).grid(row=1, column=0, sticky='wsn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=1, column=4, sticky='sne', pady=5, padx=5)
 run.mainloop()
 
 
+# ToDo: Fix: После нажатия на ClearAll не открываются таски, открывавшиеся сегодня.
 # ToDo: Fix: unexpected selections when sorting tasks table.
 # ToDo: Fix: In Windows, two same extensions are added by default to exported file.
