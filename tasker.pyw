@@ -26,6 +26,7 @@ class TaskFrame(tk.Frame):
         self.startstopvar = tk.StringVar()     # Text on "Start" button.
         self.startstopvar.set("Start")
         self.task = None       # Fake name of running task (which actually is not selected yet).
+        self.task_id = None
         l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
@@ -111,11 +112,11 @@ class TaskFrame(tk.Frame):
         # List of selected tasks item id's:
         tasks = self.dialogue_window.listframe.taskslist.selection()
         if tasks:
-            self.task_id = self.dialogue_window.tdict[tasks[0]][0]
-            # Task parameters from database:
-            task = self.db.select_task(self.task_id)
+            task_id = self.dialogue_window.tdict[tasks[0]][0]
+            #task = self.db.select_task(task_id)
             # Checking if task is already open in another frame:
-            if self.task_id not in core.Params.tasks:
+            if task_id not in core.Params.tasks:
+                self.task_id = task_id
                 # Checking if there is open task in this frame:
                 if self.task:
                     # If it is, we remove it from running tasks set:
@@ -123,10 +124,12 @@ class TaskFrame(tk.Frame):
                     # Stopping current timer and saving its state:
                     self.timer_stop()
                 # Preparing new task:
-                self.prepare_task(task)
+                self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
             else:
-                # If selected task is already open in another frame, just closing window:
+                # If selected task is already open in another frame, close window:
                 self.close_task_selection()
+                if self.task_id != task_id:
+                    showinfo("Task exists", "Task is already opened.")
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
@@ -967,10 +970,12 @@ class MainFrame(ScrolledCanvas):
         self.fill()
 
     def clear(self):
-        for w in self.content_frame.winfo_children():
-            w.destroy()
-        self.frames_count = 0
-        self.fill()
+        answer = askyesno("Really clear?", "Are you sure you want to close all task frames?")
+        if answer:
+            for w in self.content_frame.winfo_children():
+                w.destroy()
+            self.frames_count = 0
+            self.fill()
 
     def fill(self):
         """Create contents of the main frame."""
