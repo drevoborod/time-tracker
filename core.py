@@ -213,16 +213,20 @@ def patch_database():
     cur.execute("SELECT value FROM options WHERE name='patch_ver';")
     res = cur.fetchone()
     if not res:
-        for key in PATCH_SCRIPTS:
+        for key in sorted(PATCH_SCRIPTS):
             for script in PATCH_SCRIPTS[key]:
                 con.executescript(script)
                 con.commit()
-    elif int(res[0]) < PATCH_VER:
-        for key in PATCH_SCRIPTS:
-            if int(res[0]) < key <= PATCH_VER:
+        res = (1, )
+    else:
+        for key in sorted(PATCH_SCRIPTS):
+            if int(res[0]) < key:
                 for script in PATCH_SCRIPTS[key]:
                     con.executescript(script)
                     con.commit()
+    if res[0] != key:
+        con.executescript("UPDATE options SET value='{0}' WHERE name='patch_ver';".format(str(key)))
+        con.commit()
     con.close()
 
 
@@ -250,11 +254,16 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
                 """
-PATCH_VER = 1
 PATCH_SCRIPTS = {1:
                     ["INSERT INTO options VALUES ('patch_ver', '1');",
-                    "INSERT INTO options VALUES ('timers_count', '3');",
-                    "INSERT INTO options VALUES ('minimize_to_tray', '0');",
-                    "INSERT INTO options VALUES ('always_on_top', '0');"
-                    ]
-                }
+                     "INSERT INTO options VALUES ('timers_count', '3');",
+                     "INSERT INTO options VALUES ('minimize_to_tray', '0');",
+                     "INSERT INTO options VALUES ('always_on_top', '0');"
+                     ],
+                 2: ["INSERT INTO options VALUES ('version', '1.1');"
+                     ],
+                 3: ["UPDATE options SET value='1.1.1' WHERE name='version';"
+                     ]
+                 }
+
+# "UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled

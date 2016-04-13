@@ -750,6 +750,8 @@ class HelpWindow(tk.Toplevel):
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.focus_set()
 
 
 class Description(tk.Frame):
@@ -1035,6 +1037,7 @@ class Options(tk.Toplevel):
         tk.Entry(self, width=3, textvariable=frames).grid(row=0, column=1, sticky='e', padx=5, pady=5)
         tk.Frame(self, height=20).grid(row=1)
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
+        self.bind("<Return>", lambda e: self.destroy())
         self.focus_get()
         self.wait_window()
 
@@ -1051,7 +1054,7 @@ def helpwindow():
 
 
 def aboutwindow():
-    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, 2016".format(VERSION))
+    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, 2016".format(global_options['version']))
 
 
 def copy_to_clipboard():
@@ -1083,7 +1086,6 @@ def quit():
         run.destroy()
 
 
-VERSION = '1.1'
 # Check if tasks database actually exists:
 core.check_database()
 # Create options dictionary:
