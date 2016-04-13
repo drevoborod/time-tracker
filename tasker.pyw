@@ -216,6 +216,8 @@ class TaskFrame(tk.Frame):
     def destroy(self):
         """Closes frame and writes counter value into database."""
         self.timer_stop()
+        if self.task:
+            core.Params.tasks.remove(self.task[0])
         tk.Frame.destroy(self)
 
 
@@ -1110,6 +1112,5 @@ TaskButton(run, text="Quit", command=quit).grid(row=1, column=4, sticky='sne', p
 run.mainloop()
 
 
-# ToDo: Fix: После нажатия на ClearAll не открываются таски, открывавшиеся сегодня.
 # ToDo: Fix: unexpected selections when sorting tasks table.
 # ToDo: Fix: In Windows, two same extensions are added by default to exported file.
