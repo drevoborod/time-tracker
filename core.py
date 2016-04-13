@@ -265,5 +265,3 @@ PATCH_SCRIPTS = {1:
                  3: ["UPDATE options SET value='beta_1.1' WHERE name='version';"
                      ]
                  }
-
-# "UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled
