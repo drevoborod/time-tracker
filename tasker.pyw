@@ -16,7 +16,7 @@ import core
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
-        super().__init__(master=parent, relief='groove', bd=2)
+        super().__init__(master=parent, relief='raised', bd=2)
         self.db = core.Db()
         self.create_content()
         self.bind("<Button-1>", lambda e: core.Params.selected_widget)
@@ -970,7 +970,6 @@ class MainFrame(ScrolledCanvas):
     """Container for all task frames."""
     def __init__(self, parent):
         super().__init__(parent=parent, bd=0)
-        #self.grid_rowconfigure('all', weight=1)
         self.frames_count = 0
         self.fill()
 
@@ -986,14 +985,15 @@ class MainFrame(ScrolledCanvas):
         """Create contents of the main frame."""
         if self.frames_count < int(global_options['timers_count']):
             for row_number in list(range(int(global_options['timers_count']) - self.frames_count)):
-                TaskFrame(parent=self.content_frame).grid(row=self.frames_count + row_number, pady=5, padx=5, ipady=3, sticky='ew')
-                tk.Frame(self.content_frame, height=15).grid(row=self.frames_count + row_number + 1)
+                TaskFrame(parent=self.content_frame).grid(row=self.frames_count + row_number, pady=5,
+                                                          padx=5, ipady=3, sticky='ew')
             self.content_frame.update()
             self.canvbox.config(width=self.content_frame.winfo_width())
             self.frames_count = int(global_options['timers_count'])
         elif self.frames_count > int(global_options['timers_count']):
             showwarning("Press 'Clear all' to refresh", "Number of task frames is less than current.\nPress 'Clear all'"
                                                         " to refresh them.\nAll current timers will be closed!")
+        self.content_frame.config(bg='#cfcfcf')
 
 
 class MainMenu(tk.Menu):
