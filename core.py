@@ -161,6 +161,7 @@ def check_database():
         with sqlite3.connect(TABLE_FILE) as con:
             con.executescript(TABLE_STRUCTURE)
             con.commit()
+    patch_database()
 
 
 def export(filename, text):
@@ -198,13 +199,38 @@ def date_format(date):
 def get_help():
     """Reading help from the file."""
     try:
-        with open('help.txt', encoding='UTF-8') as helpfile:
+        with open('resource/help.txt', encoding='UTF-8') as helpfile:
             helptext = helpfile.read()
     except Exception:
         helptext = ''
     return helptext
 
 
+def patch_database():
+    """Apply patches to database."""
+    con = sqlite3.connect(TABLE_FILE)
+    cur = con.cursor()
+    cur.execute("SELECT value FROM options WHERE name='patch_ver';")
+    res = cur.fetchone()
+    if not res:
+        for key in sorted(PATCH_SCRIPTS):
+            for script in PATCH_SCRIPTS[key]:
+                con.executescript(script)
+                con.commit()
+        res = (1, )
+    else:
+        for key in sorted(PATCH_SCRIPTS):
+            if int(res[0]) < key:
+                for script in PATCH_SCRIPTS[key]:
+                    con.executescript(script)
+                    con.commit()
+    if res[0] != key:
+        con.executescript("UPDATE options SET value='{0}' WHERE name='patch_ver';".format(str(key)))
+        con.commit()
+    con.close()
+
+
+HELP_TEXT = get_help()
 TABLE_FILE = 'tasks.db'
 TABLE_STRUCTURE = """\
                 CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -228,5 +254,16 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
                 """
-
-HELP_TEXT = get_help()
+PATCH_SCRIPTS = {1:
+                    ["INSERT INTO options VALUES ('patch_ver', '1');",
+                     "INSERT INTO options VALUES ('timers_count', '3');",
+                     "INSERT INTO options VALUES ('minimize_to_tray', '0');",
+                     "INSERT INTO options VALUES ('always_on_top', '0');"
+                     ],
+                 2: ["INSERT INTO options VALUES ('version', '1.1');"
+                     ],
+                 3: ["UPDATE options SET value='beta_1.1' WHERE name='version';"
+                     ],
+                 4: ["UPDATE options SET value='1.1' WHERE name='version';"
+                     ]
+                 }

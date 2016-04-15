@@ -7,7 +7,7 @@ import copy
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askyesno, showinfo
+from tkinter.messagebox import askyesno, showinfo, showwarning
 from tkinter import ttk
 
 import core
@@ -16,7 +16,7 @@ import core
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
-        super().__init__(parent, relief='groove', bd=2)
+        super().__init__(master=parent, relief='raised', bd=2)
         self.db = core.Db()
         self.create_content()
         self.bind("<Button-1>", lambda e: core.Params.selected_widget)
@@ -26,6 +26,7 @@ class TaskFrame(tk.Frame):
         self.startstopvar = tk.StringVar()     # Text on "Start" button.
         self.startstopvar.set("Start")
         self.task = None       # Fake name of running task (which actually is not selected yet).
+        self.task_id = None
         l1 = tk.Label(self, text='Task name:')
         big_font(l1, size=12)
         l1.grid(row=0, column=1, columnspan=3)
@@ -91,8 +92,8 @@ class TaskFrame(tk.Frame):
     def name_dialogue(self):
         """Task selection window."""
         self.dialogue_window = TaskSelectionWindow(self)
-        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self.dialogue_window, text="Cancel", command=self.close_task_selection).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self.dialogue_window, text="Cancel", command=self.close_task_selection).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
         self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
 
@@ -111,11 +112,10 @@ class TaskFrame(tk.Frame):
         # List of selected tasks item id's:
         tasks = self.dialogue_window.listframe.taskslist.selection()
         if tasks:
-            self.task_id = self.dialogue_window.tdict[tasks[0]][0]
-            # Task parameters from database:
-            task = self.db.select_task(self.task_id)
+            task_id = self.dialogue_window.tdict[tasks[0]][0]
             # Checking if task is already open in another frame:
-            if self.task_id not in core.Params.tasks:
+            if task_id not in core.Params.tasks:
+                self.task_id = task_id
                 # Checking if there is open task in this frame:
                 if self.task:
                     # If it is, we remove it from running tasks set:
@@ -123,10 +123,12 @@ class TaskFrame(tk.Frame):
                     # Stopping current timer and saving its state:
                     self.timer_stop()
                 # Preparing new task:
-                self.prepare_task(task)
+                self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
             else:
-                # If selected task is already open in another frame, just closing window:
+                # If selected task is already open in another frame, close window:
                 self.close_task_selection()
+                if self.task_id != task_id:
+                    showinfo("Task exists", "Task is already opened.")
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
@@ -216,6 +218,8 @@ class TaskFrame(tk.Frame):
     def destroy(self):
         """Closes frame and writes counter value into database."""
         self.timer_stop()
+        if self.task:
+            core.Params.tasks.remove(self.task[0])
         tk.Frame.destroy(self)
 
 
@@ -299,7 +303,11 @@ class TaskSelectionWindow(tk.Toplevel):
     """Task selection and creation window."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
+        # Initialize database operating class:
         self.db = core.Db()
+        # Basic script for retrieving tasks from database:
+        self.main_script = 'SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                           'sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id'
         self.title("Task selection")
         self.minsize(width=450, height=300)
         self.grab_set()
@@ -311,38 +319,52 @@ class TaskSelectionWindow(tk.Toplevel):
         self.addentry.bind('<Return>', lambda event: self.add_new_task())
         self.addentry.focus_set()
         # "Add task" button:
-        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)
+        self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=0)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
+        # Entry for typing search requests:
+        self.searchentry = tk.Entry(self, width=25)
+        self.searchentry.grid(row=1, column=1, columnspan=2, sticky='we', padx=5, pady=5)
+        # Case sensitive checkbutton:
+        self.ignore_case = tk.IntVar(self)
+        self.ignore_case.set(1)
+        tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
+        # Search button:
+        TaskButton(self, takefocus=0, text='Search', command=self.locate_task).grid(row=1, column=3,
+                                                                                   sticky='w', padx=5, pady=5)
+        # Refresh button:
+        TaskButton(self, takefocus=0, text='Refresh', command=self.update_list).grid(row=1, column=4,
+                                                                                     sticky='e', padx=5, pady=5)
+        # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         # Scrollable tasks table:
         self.listframe = TaskList(columnnames, self)
-        self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
-        tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        self.listframe.grid(row=2, column=0, columnspan=5, pady=10, sticky='news')
+        tk.Label(self, text="Summary time:").grid(row=3, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
         self.fulltime_frame = TaskLabel(self, width=13, anchor='center')
-        self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
+        self.fulltime_frame.grid(row=3, column=1, padx=6, pady=5, sticky='e')
         # Selected task description:
         self.description = Description(self, height=4)
-        self.description.grid(row=2, column=2, rowspan=2, pady=5, padx=5, sticky='news')
+        self.description.grid(row=3, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         # "Select all" button:
         selbutton = TaskButton(self, text="Select all...", width=10, command=self.select_all)
-        selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        selbutton.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
         clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)
-        clearbutton.grid(row=3, column=1, sticky='e', padx=5, pady=5)
+        clearbutton.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
         self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)
-        self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
+        self.editbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         # Remove task button:
         self.delbutton = TaskButton(self, text="Remove", width=10, command=self.delete)
-        self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
+        self.delbutton.grid(row=4, column=3, sticky='w', padx=5, pady=5)
         # Export button:
         self.exportbutton = TaskButton(self, text="Export...", command=self.export)
-        self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
+        self.exportbutton.grid(row=4, column=4, padx=5, pady=5, sticky='e')
         # Filter button:
         self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
-        self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
-        tk.Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
+        self.filterbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
+        tk.Frame(self, height=40).grid(row=5, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()      # Fill table contents.
@@ -350,7 +372,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<Down>", self.descr_down)
         self.listframe.taskslist.bind("<Up>", self.descr_up)
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
-        self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
+        self.searchentry.bind("<Tab>", lambda e: self.focus_first_item())
         # Need to avoid masquerading of default ttk.Treeview action on Shift+click and Control+click:
         self.modifier_pressed = False
         self.listframe.taskslist.bind("<KeyPress-Shift_L>", lambda e: self.shift_control_pressed())
@@ -361,6 +383,8 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Shift_R>", lambda e: self.shift_control_released())
         self.listframe.taskslist.bind("<KeyRelease-Control_L>", lambda e: self.shift_control_released())
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
+        self.searchentry.bind("<Return>", lambda e: self.locate_task())
+        self.bind("<F5>", lambda e: self.update_list())
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
@@ -373,6 +397,22 @@ class TaskSelectionWindow(tk.Toplevel):
         item = self.listframe.taskslist.get_children()[0]
         self.listframe.focus_(item)
         self.update_descr(item)
+
+    def locate_task(self):
+        """Search task by keywords."""
+        searchword = self.searchentry.get()
+        if searchword:
+            self.clear_all()
+            if self.ignore_case.get():
+                task_items = [key for key in self.tdict if
+                              searchword.lower() in self.tdict[key][1].lower() or searchword in self.tdict[key][3].lower()]
+            else:
+                task_items = [key for key in self.tdict if searchword in self.tdict[key][1] or searchword in self.tdict[key][3]]
+            if task_items:
+                for item in task_items:
+                    self.listframe.taskslist.selection_add(item)
+            else:
+                showinfo("No results", "No tasks found.\nMaybe need to change filter settings?")
 
     def export(self):
         """Export all tasks from the table into the file."""
@@ -412,17 +452,19 @@ class TaskSelectionWindow(tk.Toplevel):
                 else:
                     showinfo("Task created", "Task successfully created. Change filter configuration to see it.")
 
+    def filter_query(self):
+        return self.db.find_by_clause('options', 'name', 'filter', 'value')[0][0]
+
     def update_list(self):
         """Updating table contents using database query."""
         # Restoring filter value:
-        query = self.db.find_by_clause('options', 'name', 'filter', 'value')[0][0]
+        query = self.filter_query()
         if query:
             self.filterbutton.config(bg='lightblue')
             self.db.exec_script(query)
         else:
             self.filterbutton.config(bg=core.Params.colour)
-            self.db.exec_script('SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, sum(spent_time) ' \
-                    'AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id')
+            self.db.exec_script(self.main_script)
         tlist = self.db.cur.fetchall()
         self.listframe.update_list([[f[1], f[2], f[4]] for f in tlist])
         # Dictionary with row ids and tasks info:
@@ -630,6 +672,7 @@ class TagsEditWindow(tk.Toplevel):
         self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
         self.closebutton.grid(row=2, column=0, pady=5, padx=5, sticky='w')
         self.deletebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        self.maxsize(width=500, height=500)
         self.window_elements_config()
         self.wait_window()
 
@@ -748,6 +791,8 @@ class HelpWindow(tk.Toplevel):
         TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.focus_set()
 
 
 class Description(tk.Frame):
@@ -787,8 +832,8 @@ class Description(tk.Frame):
 
 class ScrolledCanvas(tk.Frame):
     """Scrollable Canvas. Scroll may be horizontal or vertical."""
-    def __init__(self, parent=None, orientation="vertical", **options):
-        super().__init__(master=parent, relief='groove', bd=2)
+    def __init__(self, parent=None, orientation="vertical", bd=2, **options):
+        super().__init__(master=parent, relief='groove', bd=bd)
         scroller = tk.Scrollbar(self, orient=orientation)
         self.canvbox = tk.Canvas(self, **options)
         scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
@@ -801,12 +846,13 @@ class ScrolledCanvas(tk.Frame):
                       anchor='s' if orientation == 'horizontal' else 'e')
         self.content_frame = tk.Frame(self.canvbox)
         self.canvbox.create_window((0, 0), window=self.content_frame, anchor='nw')
-        self.content_frame.bind("<Configure>", self.reconf_canvas)
+        self.canvbox.bind("<Configure>", self.reconf_canvas)
         self.canvbox.pack(fill="x" if orientation == "horizontal" else "both", expand=1)
 
     def reconf_canvas(self, event):
         """Resizing of canvas scrollable region."""
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
+        self.canvbox.config(height=self.content_frame.winfo_height())
 
 
 class Tagslist(ScrolledCanvas):
@@ -821,7 +867,7 @@ class Tagslist(ScrolledCanvas):
             item[1][0] = tk.IntVar()
             # Connecting new checkbox with this dynamic variable:
             # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
-            cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 5 if orientation == "horizontal"
+            cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 3 if orientation == "horizontal"
                                                           else item[1][1]), variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             # Setting dynamic variable value to previously saved state:
@@ -862,15 +908,19 @@ class FilterWindow(tk.Toplevel):
         TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
         tk.Frame(self, height=20).grid(row=3, column=0, columnspan=2, sticky='news')
         tk.Label(self, text="Filter operating mode:").grid(row=4, columnspan=2, pady=5)
-        tk.Radiobutton(self, text="AND", variable=self.operating_mode, value="AND").grid(row=5, column=0, sticky='e')
-        tk.Radiobutton(self, text="OR", variable=self.operating_mode, value="OR").grid(row=5, column=1, sticky='w')
+        checkframe = tk.Frame(self)
+        checkframe.grid(row=5, columnspan=2, pady=5)
+        tk.Radiobutton(checkframe, text="AND", variable=self.operating_mode, value="AND").grid(row=0, column=0, sticky='e')
+        tk.Radiobutton(checkframe, text="OR", variable=self.operating_mode, value="OR").grid(row=0, column=1, sticky='w')
         self.operating_mode.set(self.db.find_by_clause(table="options", field="name",
                                                        value="filter_operating_mode", searchfield="value")[0][0])
         tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
-        self.minsize(height=250, width=350)
-        self.grid_columnconfigure('all', weight=1)
+        self.minsize(height=350, width=350)
+        self.maxsize(width=750, height=600)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=5)
         self.grid_rowconfigure(1, weight=1)
         self.wait_window()
 
@@ -954,6 +1004,99 @@ class RightclickMenu(tk.Menu):
         core.Params.selected_widget = event.widget
 
 
+class MainFrame(ScrolledCanvas):
+    """Container for all task frames."""
+    def __init__(self, parent):
+        super().__init__(parent=parent, bd=0)
+        self.frames_count = 0
+        self.fill()
+
+    def clear(self):
+        answer = askyesno("Really clear?", "Are you sure you want to close all task frames?")
+        if answer:
+            for w in self.content_frame.winfo_children():
+                w.destroy()
+            self.frames_count = 0
+            self.fill()
+
+    def fill(self):
+        """Create contents of the main frame."""
+        if self.frames_count < int(global_options['timers_count']):
+            for row_number in list(range(int(global_options['timers_count']) - self.frames_count)):
+                TaskFrame(parent=self.content_frame).grid(row=self.frames_count + row_number, pady=5,
+                                                          padx=5, ipady=3, sticky='ew')
+            self.content_frame.update()
+            self.canvbox.config(width=self.content_frame.winfo_width())
+            self.frames_count = int(global_options['timers_count'])
+        elif self.frames_count > int(global_options['timers_count']):
+            showwarning("Press 'Clear all' to refresh", "Number of task frames is less than current.\nPress 'Clear all'"
+                                                        " to refresh them.\nAll current timers will be closed!")
+        self.content_frame.config(bg='#cfcfcf')
+
+
+class MainMenu(tk.Menu):
+    """Main window menu."""
+    def __init__(self, parent=None, **options):
+        super().__init__(master=parent, **options)
+        file = tk.Menu(self, tearoff=0)
+        file.add_command(label="Task frames...", command=self.options_window, underline=0)
+        file.add_separator()
+        file.add_command(label="Exit", command=quit, underline=1)
+        #file.add_checkbutton(label='test')
+        self.add_cascade(label="Main menu", menu=file, underline=0)
+        helpmenu = tk.Menu(self, tearoff=0)
+        helpmenu.add_command(label="Help...", command=helpwindow)
+        helpmenu.add_command(label="About...", command=aboutwindow)
+        self.add_cascade(label="Help", menu=helpmenu)
+
+    def options_window(self):
+        """Open options window."""
+        var = tk.IntVar(self)
+        var.set(global_options['timers_count'])
+        Options(run, var)
+        try:
+            count = var.get()
+        except tk.TclError:
+            showwarning("Wrong format", "Wrong values entered!")
+        else:
+            if 0 < count <= MAX_TASKS:
+                db = core.Db()
+                db.update(table='options', field='value', value=str(count),
+                          field_id='timers_count', updfiled='name')
+                global_options['timers_count'] = var.get()
+                taskframes.fill()
+            else:
+                showwarning("Incorrect frames number", "Number of task frames should be between 1 and %d." % MAX_TASKS)
+            run.lift()
+
+
+class Options(tk.Toplevel):
+    """Options window which can be opened from main menu."""
+    def __init__(self, parent, counter, **options):
+        super().__init__(master=parent, width=300, height=200, **options)
+        self.title("Options")
+        self.resizable(height=0, width=0)
+        self.counter = counter
+        tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
+        counterframe = tk.Frame(self)
+        tk.Button(counterframe, width=3, text='+', command=self.increase).grid(row=0, column=0)
+        tk.Entry(counterframe, width=3, textvariable=counter, justify='center').grid(row=0, column=1, sticky='e')
+        tk.Button(counterframe, width=3, text='-', command=self.decrease).grid(row=0, column=2)
+        counterframe.grid(row=0, column=1)
+        tk.Frame(self, height=20).grid(row=1)
+        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
+        self.bind("<Return>", lambda e: self.destroy())
+        self.focus_get()
+        self.wait_window()
+
+    def increase(self):
+        if self.counter.get() < MAX_TASKS:
+            self.counter.set(self.counter.get() + 1)
+
+    def decrease(self):
+        if self.counter.get() > 1:
+            self.counter.set(self.counter.get() - 1)
+
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
@@ -962,6 +1105,10 @@ def big_font(unit, size=20):
 
 def helpwindow():
     HelpWindow(run)
+
+
+def aboutwindow():
+    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, 2016".format(global_options['version']))
 
 
 def copy_to_clipboard():
@@ -974,7 +1121,19 @@ def copy_to_clipboard():
 
 
 def stopall():
+    """Stop all running timers."""
     core.Params.stopall = True
+
+
+def clearall():
+    """Clear all task frames in main window."""
+    taskframes.clear()
+
+
+def get_options():
+    """Get program preferences from database."""
+    db = core.Db()
+    return {x[0]: x[1] for x in db.find_all(table='options')}
 
 
 def quit():
@@ -983,29 +1142,35 @@ def quit():
         run.destroy()
 
 
-# Quantity of task frames on main screen:
-TASKFRAMES_COUNT = 3
 # Check if tasks database actually exists:
 core.check_database()
+# Create options dictionary:
+global_options = get_options()
 # Global tasks ids set. Used for preserve duplicates:
 core.Params.tasks = set()
 # If True, all running timers will be stopped:
 core.Params.stopall = False
 # Widget which is currently connected to context menu:
 core.Params.selected_widget = None
+# Maximum number of tsk frames:
+MAX_TASKS = 10
 
 # Main window:
 run = tk.Tk()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
-run.resizable(width=0, height=0)
-for row_number in list(range(TASKFRAMES_COUNT)):
-    TaskFrame(parent=run).grid(row=row_number, pady=5, padx=5, ipady=3, columnspan=5)
-    tk.Frame(run, height=15).grid(row=row_number+1)
-TaskButton(run, text="Help", command=helpwindow).grid(row=row_number+2, column=0, sticky='sw', pady=5, padx=5)
-TaskButton(run, text="Stop all", command=stopall).grid(row=row_number+2, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=row_number+2, column=4, sticky='se', pady=5, padx=5)
+run.minsize(height=250, width=300)
+run.resizable(width=0, height=1)
+main_menu = MainMenu(run)           # Create main menu.
+run.config(menu=main_menu)
+taskframes = MainFrame(run)         # Main window content.
+taskframes.grid(row=0, columnspan=5)
+run.bind("<Configure>", taskframes.reconf_canvas)
+TaskButton(run, text="Stop all", command=stopall).grid(row=1, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Clear all", command=clearall).grid(row=1, column=0, sticky='wsn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=1, column=4, sticky='sne', pady=5, padx=5)
+run.grid_rowconfigure(0, weight=1)
 run.mainloop()
 
 
