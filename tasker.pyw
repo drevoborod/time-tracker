@@ -319,7 +319,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.addentry.bind('<Return>', lambda event: self.add_new_task())
         self.addentry.focus_set()
         # "Add task" button:
-        self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)
+        self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=0)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         # Entry for typing search requests:
         self.searchentry = tk.Entry(self, width=25)
@@ -328,17 +328,12 @@ class TaskSelectionWindow(tk.Toplevel):
         self.ignore_case = tk.IntVar(self)
         self.ignore_case.set(1)
         tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
-        # Image for search button and search button with an image:
-        magnifier = tk.PhotoImage(file='resource/magnifier1.png')
-        #image1 = magnifier.subsample(1, 1)     # If need to downscale.
-        searchbutton = tk.Button(self, takefocus=0, text='Search', image=magnifier, compound='left', command=self.locate_task)
-        searchbutton.image = magnifier      # Dirty hack, see http://effbot.org/pyfaq/why-do-my-tkinter-images-not-appear.htm
-        searchbutton.grid(row=1, column=3, sticky='e', padx=5, pady=5)
+        # Search button:
+        TaskButton(self, takefocus=0, text='Search', command=self.locate_task).grid(row=1, column=3,
+                                                                                   sticky='w', padx=5, pady=5)
         # Refresh button:
-        refresh = tk.PhotoImage(file='resource/refresh1.png')
-        refreshbutton = tk.Button(self, takefocus=0, image=refresh, command=self.update_list)
-        refreshbutton.image = refresh
-        refreshbutton.grid(row=1, column=4, sticky='e', padx=5, pady=5)
+        TaskButton(self, takefocus=0, text='Refresh', command=self.update_list).grid(row=1, column=4,
+                                                                                     sticky='e', padx=5, pady=5)
         # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         # Scrollable tasks table:
