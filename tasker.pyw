@@ -322,8 +322,12 @@ class TaskSelectionWindow(tk.Toplevel):
         self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         # Entry for typing search requests:
-        self.searchentry = tk.Entry(self, width=35)
-        self.searchentry.grid(row=1, column=0, columnspan=3, sticky='we', padx=5, pady=5)
+        self.searchentry = tk.Entry(self, width=25)
+        self.searchentry.grid(row=1, column=1, columnspan=2, sticky='we', padx=5, pady=5)
+        # Case sensitive checkbutton:
+        self.ignore_case = tk.IntVar(self)
+        self.ignore_case.set(1)
+        tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
         # Image for search button and search button with an image:
         magnifier = tk.PhotoImage(file='resource/magnifier1.png')
         #image1 = magnifier.subsample(1, 1)     # If need to downscale.
@@ -404,7 +408,11 @@ class TaskSelectionWindow(tk.Toplevel):
         searchword = self.searchentry.get()
         if searchword:
             self.clear_all()
-            task_items = [key for key in self.tdict if searchword in self.tdict[key][1] or searchword in self.tdict[key][3]]
+            if self.ignore_case.get():
+                task_items = [key for key in self.tdict if
+                              searchword.lower() in self.tdict[key][1].lower() or searchword in self.tdict[key][3].lower()]
+            else:
+                task_items = [key for key in self.tdict if searchword in self.tdict[key][1] or searchword in self.tdict[key][3]]
             if task_items:
                 for item in task_items:
                     self.listframe.taskslist.selection_add(item)
