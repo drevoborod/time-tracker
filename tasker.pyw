@@ -92,8 +92,8 @@ class TaskFrame(tk.Frame):
     def name_dialogue(self):
         """Task selection window."""
         self.dialogue_window = TaskSelectionWindow(self)
-        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=5, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self.dialogue_window, text="Cancel", command=self.close_task_selection).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self.dialogue_window, text="Cancel", command=self.close_task_selection).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
         self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
 
@@ -303,7 +303,11 @@ class TaskSelectionWindow(tk.Toplevel):
     """Task selection and creation window."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
+        # Initialize database operating class:
         self.db = core.Db()
+        # Basic script for retrieving tasks from database:
+        self.main_script = 'SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
+                           'sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id'
         self.title("Task selection")
         self.minsize(width=450, height=300)
         self.grab_set()
@@ -317,36 +321,51 @@ class TaskSelectionWindow(tk.Toplevel):
         # "Add task" button:
         self.addbutton = tk.Button(self, text="Add task", command=self.add_new_task, takefocus=0)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
+        # Entry for typing search requests:
+        self.searchentry = tk.Entry(self, width=35)
+        self.searchentry.grid(row=1, column=0, columnspan=3, sticky='we', padx=5, pady=5)
+        # Image for search button and search button with an image:
+        magnifier = tk.PhotoImage(file='resource/magnifier1.png')
+        #image1 = magnifier.subsample(1, 1)     # If need to downscale.
+        searchbutton = tk.Button(self, takefocus=0, text='Search', image=magnifier, compound='left', command=self.locate_task)
+        searchbutton.image = magnifier      # Dirty hack, see http://effbot.org/pyfaq/why-do-my-tkinter-images-not-appear.htm
+        searchbutton.grid(row=1, column=3, sticky='e', padx=5, pady=5)
+        # Refresh button:
+        refresh = tk.PhotoImage(file='resource/refresh1.png')
+        refreshbutton = tk.Button(self, takefocus=0, image=refresh, command=self.update_list)
+        refreshbutton.image = refresh
+        refreshbutton.grid(row=1, column=4, sticky='e', padx=5, pady=5)
+        # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         # Scrollable tasks table:
         self.listframe = TaskList(columnnames, self)
-        self.listframe.grid(row=1, column=0, columnspan=5, pady=10, sticky='news')
-        tk.Label(self, text="Summary time:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        self.listframe.grid(row=2, column=0, columnspan=5, pady=10, sticky='news')
+        tk.Label(self, text="Summary time:").grid(row=3, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
         self.fulltime_frame = TaskLabel(self, width=13, anchor='center')
-        self.fulltime_frame.grid(row=2, column=1, padx=6, pady=5, sticky='e')
+        self.fulltime_frame.grid(row=3, column=1, padx=6, pady=5, sticky='e')
         # Selected task description:
         self.description = Description(self, height=4)
-        self.description.grid(row=2, column=2, rowspan=2, pady=5, padx=5, sticky='news')
+        self.description.grid(row=3, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         # "Select all" button:
         selbutton = TaskButton(self, text="Select all...", width=10, command=self.select_all)
-        selbutton.grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        selbutton.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
         clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)
-        clearbutton.grid(row=3, column=1, sticky='e', padx=5, pady=5)
+        clearbutton.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
         self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)
-        self.editbutton.grid(row=2, column=3, sticky='w', padx=5, pady=5)
+        self.editbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         # Remove task button:
         self.delbutton = TaskButton(self, text="Remove", width=10, command=self.delete)
-        self.delbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
+        self.delbutton.grid(row=4, column=3, sticky='w', padx=5, pady=5)
         # Export button:
         self.exportbutton = TaskButton(self, text="Export...", command=self.export)
-        self.exportbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
+        self.exportbutton.grid(row=4, column=4, padx=5, pady=5, sticky='e')
         # Filter button:
         self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
-        self.filterbutton.grid(row=2, column=4, padx=5, pady=5, sticky='e')
-        tk.Frame(self, height=40).grid(row=4, columnspan=5, sticky='news')
+        self.filterbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
+        tk.Frame(self, height=40).grid(row=5, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.update_list()      # Fill table contents.
@@ -354,7 +373,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<Down>", self.descr_down)
         self.listframe.taskslist.bind("<Up>", self.descr_up)
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
-        self.addentry.bind("<Tab>", lambda e: self.focus_first_item())
+        self.searchentry.bind("<Tab>", lambda e: self.focus_first_item())
         # Need to avoid masquerading of default ttk.Treeview action on Shift+click and Control+click:
         self.modifier_pressed = False
         self.listframe.taskslist.bind("<KeyPress-Shift_L>", lambda e: self.shift_control_pressed())
@@ -365,6 +384,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Shift_R>", lambda e: self.shift_control_released())
         self.listframe.taskslist.bind("<KeyRelease-Control_L>", lambda e: self.shift_control_released())
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
+        self.searchentry.bind("<Return>", lambda e: self.locate_task())
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
@@ -377,6 +397,18 @@ class TaskSelectionWindow(tk.Toplevel):
         item = self.listframe.taskslist.get_children()[0]
         self.listframe.focus_(item)
         self.update_descr(item)
+
+    def locate_task(self):
+        """Search task by keywords."""
+        searchword = self.searchentry.get()
+        if searchword:
+            self.clear_all()
+            task_items = [key for key in self.tdict if searchword in self.tdict[key][1] or searchword in self.tdict[key][3]]
+            if task_items:
+                for item in task_items:
+                    self.listframe.taskslist.selection_add(item)
+            else:
+                showinfo("No results", "No tasks found.\nMaybe need to change filter settings?")
 
     def export(self):
         """Export all tasks from the table into the file."""
@@ -416,17 +448,19 @@ class TaskSelectionWindow(tk.Toplevel):
                 else:
                     showinfo("Task created", "Task successfully created. Change filter configuration to see it.")
 
+    def filter_query(self):
+        return self.db.find_by_clause('options', 'name', 'filter', 'value')[0][0]
+
     def update_list(self):
         """Updating table contents using database query."""
         # Restoring filter value:
-        query = self.db.find_by_clause('options', 'name', 'filter', 'value')[0][0]
+        query = self.filter_query()
         if query:
             self.filterbutton.config(bg='lightblue')
             self.db.exec_script(query)
         else:
             self.filterbutton.config(bg=core.Params.colour)
-            self.db.exec_script('SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, sum(spent_time) ' \
-                    'AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id')
+            self.db.exec_script(self.main_script)
         tlist = self.db.cur.fetchall()
         self.listframe.update_list([[f[1], f[2], f[4]] for f in tlist])
         # Dictionary with row ids and tasks info:
