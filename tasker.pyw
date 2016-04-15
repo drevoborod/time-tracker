@@ -385,6 +385,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Control_L>", lambda e: self.shift_control_released())
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
+        self.bind("<F5>", lambda e: self.update_list())
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
@@ -1055,14 +1056,14 @@ class MainMenu(tk.Menu):
         except tk.TclError:
             showwarning("Wrong format", "Wrong values entered!")
         else:
-            if 0 < count <= 30:
+            if 0 < count <= MAX_TASKS:
                 db = core.Db()
                 db.update(table='options', field='value', value=str(count),
                           field_id='timers_count', updfiled='name')
                 global_options['timers_count'] = var.get()
                 taskframes.fill()
             else:
-                showwarning("Incorrect frames number", "Number of task frames should be between 1 and 30.")
+                showwarning("Incorrect frames number", "Number of task frames should be between 1 and %d." % MAX_TASKS)
             run.lift()
 
 
@@ -1086,7 +1087,7 @@ class Options(tk.Toplevel):
         self.wait_window()
 
     def increase(self):
-        if self.counter.get() < 30:
+        if self.counter.get() < MAX_TASKS:
             self.counter.set(self.counter.get() + 1)
 
     def decrease(self):
@@ -1148,6 +1149,8 @@ core.Params.tasks = set()
 core.Params.stopall = False
 # Widget which is currently connected to context menu:
 core.Params.selected_widget = None
+# Maximum number of tsk frames:
+MAX_TASKS = 10
 
 # Main window:
 run = tk.Tk()
