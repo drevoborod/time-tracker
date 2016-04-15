@@ -199,7 +199,7 @@ def date_format(date):
 def get_help():
     """Reading help from the file."""
     try:
-        with open('help.txt', encoding='UTF-8') as helpfile:
+        with open('resource/help.txt', encoding='UTF-8') as helpfile:
             helptext = helpfile.read()
     except Exception:
         helptext = ''
