@@ -319,7 +319,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.addentry.bind('<Return>', lambda event: self.add_new_task())
         self.addentry.focus_set()
         # Context menu with 'Paste' option:
-        addentry_context_menu = RightclickMenu(action='paste')
+        addentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.addentry.bind("<Button-3>", addentry_context_menu.context_menu_show)
         # "Add task" button:
         self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=0)
@@ -327,7 +327,7 @@ class TaskSelectionWindow(tk.Toplevel):
         # Entry for typing search requests:
         self.searchentry = tk.Entry(self, width=25)
         self.searchentry.grid(row=1, column=1, columnspan=2, sticky='we', padx=5, pady=5)
-        searchentry_context_menu = RightclickMenu(action='paste')
+        searchentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.searchentry.bind("<Button-3>", searchentry_context_menu.context_menu_show)
         # Case sensitive checkbutton:
         self.ignore_case = tk.IntVar(self)
@@ -601,12 +601,10 @@ class TaskEditWindow(tk.Toplevel):
         big_font(description, 10)
         description.grid(row=3, column=0, pady=5, padx=5, sticky='w')
         # Task description frame. Editable:
-        self.description = Description(self, width=60, height=6)
+        self.description = Description(self, paste_menu=True, width=60, height=6)
         self.description.config(state='normal', bg='white')
         if self.task[3]:
             self.description.insert(self.task[3])
-        # Additional command for context menu:
-        self.description.context_menu.add_command(label="Paste", command=self.paste_description)
         self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
         #
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
@@ -631,10 +629,6 @@ class TaskEditWindow(tk.Toplevel):
         self.grid_rowconfigure(4, weight=1)
         self.description.text.focus_set()
         self.wait_window()
-
-    def paste_description(self):
-        """Insert text from clipboard to a description field."""
-        self.description.insert(self.clipboard_get())
 
     def tags_edit(self):
         """Open tags editor window."""
@@ -802,9 +796,9 @@ class HelpWindow(tk.Toplevel):
 
 class Description(tk.Frame):
     """Description frame - Text frame with scroll."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
         super().__init__(master=parent)
-        self.text = tk.Text(self, bg=core.Params.colour, state='disabled', wrap='word', **options)
+        self.text = tk.Text(self, bg=core.Params.colour, state=state, wrap='word', **options)
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.text.yview)
         self.text.config(yscrollcommand=scroller.set)
@@ -813,7 +807,7 @@ class Description(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure('all', weight=1)
         # Context menu for copying contents:
-        self.context_menu = RightclickMenu()
+        self.context_menu = RightclickMenu(copy_item=copy_menu, paste_item=paste_menu)
         self.text.bind("<Button-3>", self.context_menu.context_menu_show)
 
     def config(self, cnf=None, **kw):
@@ -999,11 +993,11 @@ class FilterWindow(tk.Toplevel):
 
 class RightclickMenu(tk.Menu):
     """Popup menu. By default has one menuitem - "copy"."""
-    def __init__(self, parent=None, action='copy', **options):
+    def __init__(self, parent=None, copy_item=True, paste_item=False, **options):
         super().__init__(master=parent, tearoff=0, **options)
-        if action == 'copy':
+        if copy_item:
             self.add_command(label="Copy", command=copy_to_clipboard)
-        elif action == 'paste':
+        if paste_item:
             self.add_command(label="Paste", command=paste_from_clipboard)
 
     def context_menu_show(self, event):
@@ -1015,7 +1009,7 @@ class RightclickMenu(tk.Menu):
 class MainFrame(ScrolledCanvas):
     """Container for all task frames."""
     def __init__(self, parent):
-        super().__init__(parent=parent, bd=0)
+        super().__init__(parent=parent, bd=2)
         self.frames_count = 0
         self.fill()
 
@@ -1178,15 +1172,18 @@ run = tk.Tk()
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
 run.minsize(height=250, width=300)
+run.maxsize(height=run.winfo_screenheight() - 150, width=0)
+run.geometry('+100+50')
 run.resizable(width=0, height=1)
 main_menu = MainMenu(run)           # Create main menu.
 run.config(menu=main_menu)
 taskframes = MainFrame(run)         # Main window content.
 taskframes.grid(row=0, columnspan=5)
 run.bind("<Configure>", taskframes.reconf_canvas)
-TaskButton(run, text="Stop all", command=stopall).grid(row=1, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Clear all", command=clearall).grid(row=1, column=0, sticky='wsn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=1, column=4, sticky='sne', pady=5, padx=5)
+tk.Frame(run, height=35).grid(row=1, columnspan=5)
+TaskButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Clear all", command=clearall).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
 run.grid_rowconfigure(0, weight=1)
 run.mainloop()
 
