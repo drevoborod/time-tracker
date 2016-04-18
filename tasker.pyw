@@ -318,6 +318,9 @@ class TaskSelectionWindow(tk.Toplevel):
         # Enter adds new task:
         self.addentry.bind('<Return>', lambda event: self.add_new_task())
         self.addentry.focus_set()
+        # Context menu with 'Paste' option:
+        addentry_context_menu = RightclickMenu(action='paste')
+        self.addentry.bind("<Button-3>", addentry_context_menu.context_menu_show)
         # "Add task" button:
         self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=0)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
@@ -994,9 +997,12 @@ class FilterWindow(tk.Toplevel):
 
 class RightclickMenu(tk.Menu):
     """Popup menu. By default has one menuitem - "copy"."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, parent=None, action='copy', **options):
         super().__init__(master=parent, tearoff=0, **options)
-        self.add_command(label="Copy", command=copy_to_clipboard)
+        if action == 'copy':
+            self.add_command(label="Copy", command=copy_to_clipboard)
+        elif action == 'paste':
+            self.add_command(label="Paste", command=paste_from_clipboard)
 
     def context_menu_show(self, event):
         """Function links context menu with current selected widget and pops menu up."""
@@ -1118,6 +1124,15 @@ def copy_to_clipboard():
         core.Params.selected_widget.clipboard_append(core.Params.selected_widget.get(1.0, 'end'))
     else:
         core.Params.selected_widget.clipboard_append(core.Params.selected_widget.cget("text"))
+
+
+def paste_from_clipboard():
+    """Paste text from clipboard."""
+    if isinstance(core.Params.selected_widget, tk.Text):
+        core.Params.selected_widget.insert(1.0, core.Params.selected_widget.clipboard_get())
+    elif isinstance(core.Params.selected_widget, tk.Entry):
+        core.Params.selected_widget.insert(0, core.Params.selected_widget.clipboard_get())
+
 
 
 def stopall():
