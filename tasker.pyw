@@ -327,6 +327,8 @@ class TaskSelectionWindow(tk.Toplevel):
         # Entry for typing search requests:
         self.searchentry = tk.Entry(self, width=25)
         self.searchentry.grid(row=1, column=1, columnspan=2, sticky='we', padx=5, pady=5)
+        searchentry_context_menu = RightclickMenu(action='paste')
+        self.searchentry.bind("<Button-3>", searchentry_context_menu.context_menu_show)
         # Case sensitive checkbutton:
         self.ignore_case = tk.IntVar(self)
         self.ignore_case.set(1)
