@@ -354,16 +354,16 @@ class TaskSelectionWindow(tk.Toplevel):
         self.description = Description(self, height=4)
         self.description.grid(row=3, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         # "Select all" button:
-        selbutton = TaskButton(self, text="Select all...", width=10, command=self.select_all)
+        selbutton = TaskButton(self, text="Select all", command=self.select_all)
         selbutton.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
-        clearbutton = TaskButton(self, text="Clear all...", width=10, command=self.clear_all)
+        clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)
         clearbutton.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
-        self.editbutton = TaskButton(self, text="Properties", width=10, command=self.edit)
+        self.editbutton = TaskButton(self, text="Properties...", width=10, command=self.edit)
         self.editbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         # Remove task button:
-        self.delbutton = TaskButton(self, text="Remove", width=10, command=self.delete)
+        self.delbutton = TaskButton(self, text="Remove...", width=10, command=self.delete)
         self.delbutton.grid(row=4, column=3, sticky='w', padx=5, pady=5)
         # Export button:
         self.exportbutton = TaskButton(self, text="Export...", command=self.export)
