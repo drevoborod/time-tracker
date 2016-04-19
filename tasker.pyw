@@ -1074,14 +1074,15 @@ class MainMenu(tk.Menu):
         except tk.TclError:
             showwarning("Wrong format", "Wrong values entered!")
         else:
-            if 0 < count <= MAX_TASKS:
-                db = core.Db()
-                db.update(table='options', field='value', value=str(count),
-                          field_id='timers_count', updfiled='name')
-                global_options['timers_count'] = count
-                taskframes.fill()
-            else:
-                showwarning("Incorrect frames number", "Number of task frames should be between 1 and %d." % MAX_TASKS)
+            if count < 1:
+                count = 1
+            elif count > MAX_TASKS:
+                count = MAX_TASKS
+            db = core.Db()
+            db.update(table='options', field='value', value=str(count),
+                      field_id='timers_count', updfiled='name')
+            global_options['timers_count'] = count
+            taskframes.fill()
 
 
 class Options(tk.Toplevel):
