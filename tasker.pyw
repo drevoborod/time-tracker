@@ -60,7 +60,7 @@ class TaskFrame(tk.Frame):
     def timestamps_window(self):
         """Timestamps window opening."""
         TimestampsWindow(self.task_id, self.running_time, self)
-        run.lift()
+        self.raise_main_window()
 
     def add_timestamp(self):
         """Adding timestamp to database."""
@@ -77,9 +77,10 @@ class TaskFrame(tk.Frame):
     def properties_window(self):
         """Task properties window."""
         edited = tk.IntVar()
-        self.editwindow = TaskEditWindow(self.task[0], self, variable=edited)
+        TaskEditWindow(self.task[0], self, variable=edited)
         if edited.get() == 1:
             self.update_description()
+        self.raise_main_window()
 
     def clear(self):
         """Recreation of frame contents."""
@@ -93,7 +94,7 @@ class TaskFrame(tk.Frame):
         """Task selection window."""
         self.dialogue_window = TaskSelectionWindow(self)
         TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self.dialogue_window, text="Cancel", command=self.close_task_selection).grid(row=6, column=4, padx=5, pady=5, sticky='e')
+        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
         self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
 
@@ -102,10 +103,6 @@ class TaskFrame(tk.Frame):
         pos = self.dialogue_window.listframe.taskslist.identify_row(event.y)
         if pos and pos != '#0':
             self.get_task_name()
-
-    def close_task_selection(self):
-        self.dialogue_window.destroy()
-        run.lift()
 
     def get_task_name(self):
         """Getting selected task's name."""
@@ -126,7 +123,7 @@ class TaskFrame(tk.Frame):
                 self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
             else:
                 # If selected task is already open in another frame, close window:
-                self.close_task_selection()
+                self.dialogue_window.destroy()
                 if self.task_id != task_id:
                     showinfo("Task exists", "Task is already opened.")
 
@@ -144,7 +141,7 @@ class TaskFrame(tk.Frame):
         else:
             self.date_exists = True
         self.timer_window.config(text=core.time_format(self.running_time))
-        self.close_task_selection()      # Close task selection window.
+        self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
         self.properties.config(state='normal')
@@ -214,6 +211,11 @@ class TaskFrame(tk.Frame):
         """Update text in "Description" field."""
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
         self.description.update_text(self.task[3])
+
+    def raise_main_window(self):
+        """Function to set main window on top of others."""
+        self.focus_set()
+        run.lift()
 
     def destroy(self):
         """Closes frame and writes counter value into database."""
@@ -588,6 +590,12 @@ class TaskSelectionWindow(tk.Toplevel):
         self.grab_set()
         self.lift()
 
+    def destroy(self):
+        run.focus_set()
+        run.lift()
+        tk.Toplevel.destroy(self)
+
+
 class TaskEditWindow(tk.Toplevel):
     """Task properties window."""
     def __init__(self, taskid, parent=None, variable=None, **options):
@@ -602,7 +610,7 @@ class TaskEditWindow(tk.Toplevel):
         for index, date in enumerate(dates):
             dates[index] = core.date_format(date)
         self.grab_set()
-        self.title("Task properties")
+        self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         taskname_label = tk.Label(self, text="Task name:")
         big_font(taskname_label, 10)
@@ -651,6 +659,7 @@ class TaskEditWindow(tk.Toplevel):
         self.tags_update()
         self.grab_set()
         self.lift()
+        self.focus_set()
 
     def tags_update(self):
         """Tags list placing."""
@@ -765,7 +774,7 @@ class TimestampsWindow(TagsEditWindow):
 
     def window_elements_config(self):
         """Configure some window parameters."""
-        self.title("Timestamps")
+        self.title("Timestamps: {}".format(self.db.find_by_clause('tasks', 'id', self.taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
@@ -791,6 +800,7 @@ class HelpWindow(tk.Toplevel):
     """Help window."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
+        self.title("Help")
         main_frame = tk.Frame(self)
         self.helptext = tk.Text(main_frame, wrap='word')
         scroll = tk.Scrollbar(main_frame, command=self.helptext.yview)
@@ -892,6 +902,7 @@ class FilterWindow(tk.Toplevel):
     """Filters window."""
     def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
+        self.grab_set()
         self.db = core.Db()
         self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
@@ -1105,6 +1116,7 @@ class Options(tk.Toplevel):
     """Options window which can be opened from main menu."""
     def __init__(self, parent, counter, **options):
         super().__init__(master=parent, width=300, height=200, **options)
+        self.grab_set()
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
@@ -1117,7 +1129,6 @@ class Options(tk.Toplevel):
         tk.Frame(self, height=20).grid(row=1)
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
-        self.focus_get()
         self.wait_window()
 
     def increase(self):
