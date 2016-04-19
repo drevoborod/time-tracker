@@ -1011,28 +1011,41 @@ class MainFrame(ScrolledCanvas):
     def __init__(self, parent):
         super().__init__(parent=parent, bd=2)
         self.frames_count = 0
+        self.rows_counter = 0
         self.fill()
 
     def clear(self):
+        """Clear all task frames except with opened tasks."""
+        for w in self.content_frame.winfo_children():
+            if self.frames_count == int(global_options['timers_count']) or self.frames_count == len(core.Params.tasks):
+                break
+            if hasattr(w, 'task'):
+                if w.task is None:
+                    self.frames_count -= 1
+                    w.destroy()
+
+    def clear_all(self):
+        """Clear all task frames."""
         answer = askyesno("Really clear?", "Are you sure you want to close all task frames?")
         if answer:
             for w in self.content_frame.winfo_children():
+                self.frames_count -= 1
                 w.destroy()
-            self.frames_count = 0
             self.fill()
 
     def fill(self):
         """Create contents of the main frame."""
         if self.frames_count < int(global_options['timers_count']):
-            for row_number in list(range(int(global_options['timers_count']) - self.frames_count)):
-                TaskFrame(parent=self.content_frame).grid(row=self.frames_count + row_number, pady=5,
+            row_count = range(int(global_options['timers_count']) - self.frames_count)
+            for row_number in row_count:
+                TaskFrame(parent=self.content_frame).grid(row=self.rows_counter, pady=5,
                                                           padx=5, ipady=3, sticky='ew')
+                self.rows_counter += 1
+            self.frames_count += len(row_count)
             self.content_frame.update()
             self.canvbox.config(width=self.content_frame.winfo_width())
-            self.frames_count = int(global_options['timers_count'])
-        elif self.frames_count > int(global_options['timers_count']):
-            showwarning("Press 'Clear all' to refresh", "Number of task frames is less than current.\nPress 'Clear all'"
-                                                        " to refresh them.\nAll current timers will be closed!")
+        elif len(core.Params.tasks) < self.frames_count > int(global_options['timers_count']):
+            self.clear()
         self.content_frame.config(bg='#cfcfcf')
 
 
@@ -1044,7 +1057,6 @@ class MainMenu(tk.Menu):
         file.add_command(label="Task frames...", command=self.options_window, underline=0)
         file.add_separator()
         file.add_command(label="Exit", command=quit, underline=1)
-        #file.add_checkbutton(label='test')
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
         helpmenu.add_command(label="Help...", command=helpwindow)
@@ -1056,6 +1068,7 @@ class MainMenu(tk.Menu):
         var = tk.IntVar(self)
         var.set(global_options['timers_count'])
         Options(run, var)
+        run.lift()
         try:
             count = var.get()
         except tk.TclError:
@@ -1065,11 +1078,10 @@ class MainMenu(tk.Menu):
                 db = core.Db()
                 db.update(table='options', field='value', value=str(count),
                           field_id='timers_count', updfiled='name')
-                global_options['timers_count'] = var.get()
+                global_options['timers_count'] = count
                 taskframes.fill()
             else:
                 showwarning("Incorrect frames number", "Number of task frames should be between 1 and %d." % MAX_TASKS)
-            run.lift()
 
 
 class Options(tk.Toplevel):
@@ -1098,6 +1110,7 @@ class Options(tk.Toplevel):
     def decrease(self):
         if self.counter.get() > 1:
             self.counter.set(self.counter.get() - 1)
+
 
 def big_font(unit, size=20):
     """Font size of a given unit increase."""
@@ -1130,15 +1143,9 @@ def paste_from_clipboard():
         core.Params.selected_widget.insert(0, core.Params.selected_widget.clipboard_get())
 
 
-
 def stopall():
     """Stop all running timers."""
     core.Params.stopall = True
-
-
-def clearall():
-    """Clear all task frames in main window."""
-    taskframes.clear()
 
 
 def get_options():
@@ -1171,9 +1178,7 @@ run = tk.Tk()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
 run.title("Tasker")
-run.minsize(height=250, width=300)
-run.maxsize(height=run.winfo_screenheight() - 150, width=0)
-run.geometry('+100+50')
+run.minsize(height=250, width=0)
 run.resizable(width=0, height=1)
 main_menu = MainMenu(run)           # Create main menu.
 run.config(menu=main_menu)
@@ -1182,9 +1187,17 @@ taskframes.grid(row=0, columnspan=5)
 run.bind("<Configure>", taskframes.reconf_canvas)
 tk.Frame(run, height=35).grid(row=1, columnspan=5)
 TaskButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Clear all", command=clearall).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
+TaskButton(run, text="Clear all", command=taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
 TaskButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
 run.grid_rowconfigure(0, weight=1)
+# Make main window always appear in good position and with adequate size:
+run.update()
+if run.winfo_height() < run.winfo_screenheight() - 250:
+    window_height = run.winfo_height()
+else:
+    window_height = run.winfo_screenheight() - 250
+run.geometry('%dx%d+100+50' % (run.winfo_width(), window_height))
+
 run.mainloop()
 
 
