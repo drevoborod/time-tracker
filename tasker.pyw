@@ -369,6 +369,10 @@ class TaskSelectionWindow(tk.Toplevel):
         # Filter button:
         self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
         self.filterbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
+        # Filter button context menu:
+        filter_context_menu = RightclickMenu(copy_item=False)
+        filter_context_menu.add_command(label='Clear filter', command=self.apply_filter)
+        self.filterbutton.bind("<Button-3>", filter_context_menu.context_menu_show)
         tk.Frame(self, height=40).grid(row=5, columnspan=5, sticky='news')
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -563,11 +567,22 @@ class TaskSelectionWindow(tk.Toplevel):
     def filterwindow(self):
         """Open filters window."""
         filter_changed = tk.IntVar()
-        self.filteroptions = FilterWindow(self, variable=filter_changed)
+        FilterWindow(self, variable=filter_changed)
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
-            self.update_list()
+            self.apply_filter(core.Params.filter_dict['operating_mode'], core.Params.filter_dict['script'],
+                              core.Params.filter_dict['tags'], core.Params.filter_dict['dates'])
         self.raise_window()
+
+    def apply_filter(self, operating_mode='AND', script=None, tags='', dates=''):
+        """Record filter parameters to database and apply it."""
+        update = self.filter_query()
+        self.db.update('filter_operating_mode', field='value', value=operating_mode, table='options', updfiled='name')
+        self.db.update('filter', field='value', value=script, table='options', updfiled='name')
+        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='name')
+        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='name')
+        if update != self.filter_query():
+            self.update_list()
 
     def raise_window(self):
         self.grab_set()
@@ -981,10 +996,11 @@ class FilterWindow(tk.Toplevel):
                              'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={1}) AS y ON ' \
                              'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
                                                          len(dates))
-        self.db.update('filter_operating_mode', field='value', value=self.operating_mode.get(), table='options', updfiled='name')
-        self.db.update('filter', field='value', value=script, table='options', updfiled='name')
-        self.db.update('filter_tags', field='value', value=','.join([str(x) for x in tags]), table='options', updfiled='name')
-        self.db.update('filter_dates', field='value', value=','.join(dates), table='options', updfiled='name')
+        core.Params.filter_dict = {}
+        core.Params.filter_dict['operating_mode'] = self.operating_mode.get()
+        core.Params.filter_dict['script'] = script
+        core.Params.filter_dict['tags'] = tags
+        core.Params.filter_dict['dates'] = dates
         # Reporting to parent window that filter values have been changed:
         if self.changed:
             self.changed.set(1)
