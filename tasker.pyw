@@ -48,9 +48,9 @@ class TaskFrame(tk.Frame):
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, column=2, sticky='w', padx=5)
-        self.timestamps_window_button = TaskButton(self, text='View\ntimestamps', width=10, state='disabled', command=self.timestamps_window)
+        self.timestamps_window_button = TaskButton(self, text='View\ntimestamps...', width=11, state='disabled', command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
-        self.properties = TaskButton(self, text="Properties", width=10, state='disabled', command=self.properties_window)
+        self.properties = TaskButton(self, text="Properties...", width=10, state='disabled', command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
@@ -693,8 +693,6 @@ class TagsEditWindow(tk.Toplevel):
         self.tags_update()
         self.closebutton = TaskButton(self, text='Close', command=self.destroy)
         self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
-        self.closebutton.grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        self.deletebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
         self.maxsize(width=500, height=500)
         self.window_elements_config()
         self.wait_window()
@@ -703,6 +701,8 @@ class TagsEditWindow(tk.Toplevel):
         """Window additional parameters configuration."""
         self.title("Tags editor")
         self.minsize(width=300, height=300)
+        self.closebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        self.deletebutton.grid(row=2, column=0, pady=5, padx=5, sticky='w')
 
     def addentry(self):
         """New element addition field"""
@@ -779,8 +779,8 @@ class TimestampsWindow(TagsEditWindow):
         TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
         TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         tk.Frame(self, height=40).grid(row=3)
-        self.closebutton.grid(row=4, column=0, pady=5, padx=5, sticky='w')
-        self.deletebutton.grid(row=4, column=2, pady=5, padx=5, sticky='e')
+        self.closebutton.grid(row=4, column=2, pady=5, padx=5, sticky='w')
+        self.deletebutton.grid(row=4, column=0, pady=5, padx=5, sticky='e')
 
     def addentry(self):
         """Empty method just for suppressing unnecessary element creation."""
@@ -1099,7 +1099,7 @@ class MainMenu(tk.Menu):
         try:
             count = var.get()
         except tk.TclError:
-            showwarning("Wrong format", "Wrong values entered!")
+            pass
         else:
             if count < 1:
                 count = 1
