@@ -7,7 +7,7 @@ import copy
 import tkinter.font as fonter
 import tkinter as tk
 from tkinter.filedialog import asksaveasfilename
-from tkinter.messagebox import askyesno, showinfo, showwarning
+from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
 
 import core
