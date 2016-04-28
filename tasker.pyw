@@ -56,6 +56,7 @@ class TaskFrame(tk.Frame):
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.running_time = 0   # Current value of the counter.
         self.running = False
+        self.timestamp = 0
 
     def timestamps_window(self):
         """Timestamps window opening."""
@@ -132,6 +133,7 @@ class TaskFrame(tk.Frame):
         # Adding task id to set of running tasks:
         core.Params.tasks.add(task[0])
         self.task = task
+        self.current_date = core.date_format(datetime.datetime.now())
         # Taking current counter value from database:
         self.running_time = self.task[2]
         # Set current time, just for this day:
@@ -151,14 +153,24 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.config(state='normal')
         self.description.update_text(self.task[3])
 
+    def check_date(self):
+        """Used to check if date has been changed since last timer value save."""
+        current_date = core.date_format(datetime.datetime.now())
+        if current_date != self.current_date:
+            self.current_date = current_date
+            self.date_exists = False
+            self.running_today_time = self.running_today_time - self.timestamp
+        self.task_update()
+
     def task_update(self):
         """Updates time in the database."""
         if not self.date_exists:
             self.db.insert("activity", ("date", "task_id", "spent_time"),
-                           (core.date_format(datetime.datetime.now()), self.task[0], self.running_today_time))
+                           (self.current_date, self.task[0], self.running_today_time))
             self.date_exists = True
         else:
             self.db.update_task(self.task[0], value=self.running_today_time)
+        self.timestamp = self.running_today_time
 
     def timer_update(self, counter=0):
         """Renewal of the counter."""
@@ -171,12 +183,12 @@ class TaskFrame(tk.Frame):
         if not core.Params.stopall:
             # Every minute counter value is saved in database:
             if counter >= 60000:
-                self.task_update()
+                self.check_date()
                 counter = 0
             else:
                 counter += interval
             # self.timer variable becomes ID created by after():
-            self.timer = self.timer_window.after(250, self.timer_update, counter)
+            self.timer = self.timer_window.after(interval, self.timer_update, counter)
         else:
             self.timer_stop()
 
@@ -201,7 +213,7 @@ class TaskFrame(tk.Frame):
             self.running_today_time = time.time() - self.start_today_time
             self.running = False
             # Writing value into database:
-            self.task_update()
+            self.check_date()
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
             self.startstopvar.set("Start")
@@ -1198,13 +1210,22 @@ core.Params.tasks = set()
 core.Params.stopall = False
 # Widget which is currently connected to context menu:
 core.Params.selected_widget = None
-# Maximum number of tsk frames:
+# Maximum number of task frames:
 MAX_TASKS = 10
 
 # Main window:
 run = tk.Tk()
 # Default widget colour:
 core.Params.colour = run.cget('bg')
+"""
+# Default button height:
+test_button = tk.Button(run, text='test')
+test_button.grid()
+test_button.update()
+BUTTON_HEIGHT = test_button.winfo_height()
+test_button.destroy()
+#
+"""
 run.title("Tasker")
 run.minsize(height=250, width=0)
 run.resizable(width=0, height=1)
@@ -1227,7 +1248,3 @@ else:
 run.geometry('%dx%d+100+50' % (run.winfo_width(), window_height))
 
 run.mainloop()
-
-
-# ToDo: Fix: unexpected selections when sorting tasks table.
-# ToDo: Fix: In Windows, two same extensions are added by default to exported file.

@@ -55,14 +55,11 @@ class Db:
             self.exec_script('SELECT * FROM {0} ORDER BY {1} ASC'.format(table, sortfield))
         return self.cur.fetchall()
 
-    def select_task(self, task_id, date=None):
+    def select_task(self, task_id):
         """Returns tuple of values for given task_id."""
         task = list(self.find_by_clause(searchfield='*', field='id', value=task_id, table='tasks')[0])
         # Adding full spent time:
-        if date:
-            self.exec_script('SELECT sum(spent_time) FROM activity WHERE task_id={0} AND date={1}'.format(task_id, date))
-        else:
-            self.exec_script('SELECT sum(spent_time) FROM activity WHERE task_id=%s' % task_id)
+        self.exec_script('SELECT sum(spent_time) FROM activity WHERE task_id=%s' % task_id)
         # Adding spent time on position 3:
         task.insert(2, self.cur.fetchone()[0])
         # Append today's spent time:
@@ -269,5 +266,7 @@ PATCH_SCRIPTS = {1:
                  5: ["UPDATE options SET value='1.1.1' WHERE name='version';"
                      ],
                  6: ["UPDATE options SET value='1.1.2' WHERE name='version';"
+                     ],
+                 7: ["UPDATE options SET value='1.2_beta' WHERE name='version';"
                      ]
                  }
