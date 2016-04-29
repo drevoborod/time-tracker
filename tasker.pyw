@@ -160,6 +160,7 @@ class TaskFrame(tk.Frame):
             self.current_date = current_date
             self.date_exists = False
             self.running_today_time = self.running_today_time - self.timestamp
+            self.start_today_time = time.time() - self.running_today_time
         self.task_update()
 
     def task_update(self):
