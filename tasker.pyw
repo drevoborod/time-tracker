@@ -1179,7 +1179,7 @@ def copy_to_clipboard():
 def paste_from_clipboard():
     """Paste text from clipboard."""
     if isinstance(core.Params.selected_widget, tk.Text):
-        core.Params.selected_widget.insert(1.0, core.Params.selected_widget.clipboard_get())
+        core.Params.selected_widget.insert(tk.INSERT, core.Params.selected_widget.clipboard_get())
     elif isinstance(core.Params.selected_widget, tk.Entry):
         core.Params.selected_widget.insert(0, core.Params.selected_widget.clipboard_get())
 
