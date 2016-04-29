@@ -1171,7 +1171,10 @@ def copy_to_clipboard():
     """Copy widget text to clipboard."""
     core.Params.selected_widget.clipboard_clear()
     if isinstance(core.Params.selected_widget, tk.Text):
-        core.Params.selected_widget.clipboard_append(core.Params.selected_widget.get(1.0, 'end'))
+        try:
+            core.Params.selected_widget.clipboard_append(core.Params.selected_widget.selection_get())
+        except tk.TclError:
+            core.Params.selected_widget.clipboard_append(core.Params.selected_widget.get(1.0, 'end'))
     else:
         core.Params.selected_widget.clipboard_append(core.Params.selected_widget.cget("text"))
 
