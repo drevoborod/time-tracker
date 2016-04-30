@@ -93,40 +93,28 @@ class TaskFrame(tk.Frame):
 
     def name_dialogue(self):
         """Task selection window."""
-        self.dialogue_window = TaskSelectionWindow(self)
-        TaskButton(self.dialogue_window, text="Open", command=self.get_task_name).grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self.dialogue_window, text="Cancel", command=self.dialogue_window.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
-        self.dialogue_window.listframe.taskslist.bind("<Return>", lambda event: self.get_task_name())
-        self.dialogue_window.listframe.taskslist.bind("<Double-1>", self.check_row)
+        var = tk.IntVar()
+        TaskSelectionWindow(self, taskvar=var)
+        if var.get():
+            self.get_task_name(var.get())
 
-    def check_row(self, event):
-        """Check if mouse click is over the row, not another taskslist element."""
-        pos = self.dialogue_window.listframe.taskslist.identify_row(event.y)
-        if pos and pos != '#0':
-            self.get_task_name()
-
-    def get_task_name(self):
+    def get_task_name(self, task_id):
         """Getting selected task's name."""
-        # List of selected tasks item id's:
-        tasks = self.dialogue_window.listframe.taskslist.selection()
-        if tasks:
-            task_id = self.dialogue_window.tdict[tasks[0]][0]
-            # Checking if task is already open in another frame:
-            if task_id not in core.Params.tasks:
-                self.task_id = task_id
-                # Checking if there is open task in this frame:
-                if self.task:
-                    # If it is, we remove it from running tasks set:
-                    core.Params.tasks.remove(self.task[0])
-                    # Stopping current timer and saving its state:
-                    self.timer_stop()
-                # Preparing new task:
-                self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
-            else:
-                # If selected task is already open in another frame, close window:
-                self.dialogue_window.destroy()
-                if self.task_id != task_id:
-                    showinfo("Task exists", "Task is already opened.")
+        # Checking if task is already open in another frame:
+        if task_id not in core.Params.tasks:
+            self.task_id = task_id
+            # Checking if there is open task in this frame:
+            if self.task:
+                # If it is, we remove it from running tasks set:
+                core.Params.tasks.remove(self.task[0])
+                # Stopping current timer and saving its state:
+                self.timer_stop()
+            # Preparing new task:
+            self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
+        else:
+            # If selected task is already open in another frame:
+            if self.task_id != task_id:
+                showinfo("Task exists", "Task is already opened.")
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
@@ -143,7 +131,6 @@ class TaskFrame(tk.Frame):
         else:
             self.date_exists = True
         self.timer_window.config(text=core.time_format(self.running_time))
-        self.dialogue_window.destroy()      # Close task selection window.
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
         self.properties.config(state='normal')
@@ -331,7 +318,6 @@ class CanvasButton(tk.Canvas):
         self.create_polygon([195, 185], [300, 335], [280, 365], [175, 205], smooth=1, tag='image')
 
 
-
 class TaskList(tk.Frame):
     """Scrollable tasks table."""
     def __init__(self, columns, parent=None, **options):
@@ -396,10 +382,13 @@ class TaskList(tk.Frame):
 
 class TaskSelectionWindow(tk.Toplevel):
     """Task selection and creation window."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, parent=None, taskvar=None, **options):
         super().__init__(master=parent, **options)
         # Initialize database operating class:
         self.db = core.Db()
+        # Variable which will contain selected task id:
+        if taskvar:
+            self.taskidvar = taskvar
         # Basic script for retrieving tasks from database:
         self.main_script = 'SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
                            'sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id'
@@ -489,6 +478,24 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
+        TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
+        self.listframe.taskslist.bind("<Return>", lambda event: self.get_task_id())
+        self.listframe.taskslist.bind("<Double-1>", self.check_row)
+        self.wait_window()
+
+    def check_row(self, event):
+        """Check if mouse click is over the row, not another taskslist element."""
+        pos = self.listframe.taskslist.identify_row(event.y)
+        if pos and pos != '#0':
+            self.get_task_id()
+
+    def get_task_id(self):
+        # List of selected tasks item id's:
+        tasks = self.listframe.taskslist.selection()
+        if tasks:
+            self.taskidvar.set(self.tdict[tasks[0]][0])
+            self.destroy()
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
