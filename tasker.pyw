@@ -19,7 +19,7 @@ class TaskFrame(tk.Frame):
         super().__init__(master=parent, relief='raised', bd=2)
         self.db = core.Db()
         self.create_content()
-        self.bind("<Button-1>", lambda e: core.Params.selected_widget)
+        self.bind("<Button-1>", lambda e: global_options["selected_widget"])
 
     def create_content(self):
         """Creates all window elements."""
@@ -46,11 +46,14 @@ class TaskFrame(tk.Frame):
         self.timer_window = TaskLabel(self, width=10, state='disabled')
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, pady=5)
-        self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', command=self.add_timestamp)
+        self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', 
+                                               command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, column=2, sticky='w', padx=5)
-        self.timestamps_window_button = TaskButton(self, text='View\ntimestamps...', width=11, state='disabled', command=self.timestamps_window)
+        self.timestamps_window_button = TaskButton(self, text='View\ntimestamps...', width=11, state='disabled', 
+                                                   command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
-        self.properties = TaskButton(self, text="Properties...", width=10, state='disabled', command=self.properties_window)
+        self.properties = TaskButton(self, text="Properties...", width=10, state='disabled', 
+                                     command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
@@ -88,7 +91,7 @@ class TaskFrame(tk.Frame):
         self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
-        core.Params.tasks.remove(self.task[0])
+            global_options["tasks"].remove(self.task[0])
         self.create_content()
 
     def name_dialogue(self):
@@ -101,12 +104,12 @@ class TaskFrame(tk.Frame):
     def get_task_name(self, task_id):
         """Getting selected task's name."""
         # Checking if task is already open in another frame:
-        if task_id not in core.Params.tasks:
+        if task_id not in global_options["tasks"]:
             self.task_id = task_id
             # Checking if there is open task in this frame:
             if self.task:
                 # If it is, we remove it from running tasks set:
-                core.Params.tasks.remove(self.task[0])
+                global_options["tasks"].remove(self.task[0])
                 # Stopping current timer and saving its state:
                 self.timer_stop()
             # Preparing new task:
@@ -119,7 +122,7 @@ class TaskFrame(tk.Frame):
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
         # Adding task id to set of running tasks:
-        core.Params.tasks.add(task[0])
+        global_options["tasks"].add(task[0])
         self.task = task
         self.current_date = core.date_format(datetime.datetime.now())
         # Taking current counter value from database:
@@ -168,7 +171,7 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(text=core.time_format(self.running_time if self.running_time < 86400
                                                        else self.running_today_time))
         # Checking if "Stop all" button is pressed:
-        if not core.Params.stopall:
+        if not global_options["stopall"]:
             # Every minute counter value is saved in database:
             if counter >= 60000:
                 self.check_date()
@@ -183,7 +186,7 @@ class TaskFrame(tk.Frame):
     def timer_start(self):
         """Counter start."""
         if not self.running:
-            core.Params.stopall = False
+            global_options["stopall"] = False
             # Setting current counter value:
             self.start_time = time.time() - self.task[2]
             # This value is used to add record to database:
@@ -221,7 +224,7 @@ class TaskFrame(tk.Frame):
         """Closes frame and writes counter value into database."""
         self.timer_stop()
         if self.task:
-            core.Params.tasks.remove(self.task[0])
+            global_options["tasks"].remove(self.task[0])
         tk.Frame.destroy(self)
 
 
@@ -241,7 +244,8 @@ class TaskButton(tk.Button):
 
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
-    def __init__(self, parent=None, buttonheight=400, image=None, text=None, fontsize=9, opacity='right', relief='raised', bg=None, bd=3, command=None, **options):
+    def __init__(self, parent=None, buttonheight=400, image=None, text=None, fontsize=9, opacity='right',
+                 relief='raised', bg=None, bd=3, command=None, **options):
         super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
         self.buttonheight = buttonheight    # Final height of the button.
         default_height = 400
@@ -574,7 +578,7 @@ class TaskSelectionWindow(tk.Toplevel):
             self.filterbutton.config(bg='lightblue')
             self.db.exec_script(query)
         else:
-            self.filterbutton.config(bg=core.Params.colour)
+            self.filterbutton.config(bg=global_options["colour"])
             self.db.exec_script(self.main_script)
         tlist = self.db.cur.fetchall()
         self.listframe.update_list([[f[1], f[2], f[4]] for f in tlist])
@@ -632,7 +636,8 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def delete(self):
         """Remove selected tasks from the database and the table."""
-        ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0] not in core.Params.tasks]
+        ids = [self.tdict[x][0] for x in self.listframe.taskslist.selection() if self.tdict[x][0]
+               not in global_options["tasks"]]
         items = [x for x in self.listframe.taskslist.selection() if self.tdict[x][0] in ids]
         if ids:
             answer = askyesno("Warning", "Are you sure you want to delete selected tasks?", parent=self)
@@ -672,8 +677,8 @@ class TaskSelectionWindow(tk.Toplevel):
         FilterWindow(self, variable=filter_changed)
         # Update tasks list only if filter parameters have been changed:
         if filter_changed.get() == 1:
-            self.apply_filter(core.Params.filter_dict['operating_mode'], core.Params.filter_dict['script'],
-                              core.Params.filter_dict['tags'], core.Params.filter_dict['dates'])
+            self.apply_filter(global_options["filter_dict"]['operating_mode'], global_options["filter_dict"]['script'],
+                              global_options["filter_dict"]['tags'], global_options["filter_dict"]['dates'])
         self.raise_window()
 
     def apply_filter(self, operating_mode='AND', script=None, tags='', dates=''):
@@ -716,7 +721,7 @@ class TaskEditWindow(tk.Toplevel):
         big_font(taskname_label, 10)
         taskname_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
         # Frame containing task name:
-        taskname = TaskLabel(self, width=60, height=1, bg=core.Params.colour, text=self.task[1], anchor='w')
+        taskname = TaskLabel(self, width=60, height=1, bg=global_options["colour"], text=self.task[1], anchor='w')
         big_font(taskname, 9)
         taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
         tk.Frame(self, height=30).grid(row=2)
@@ -923,7 +928,7 @@ class Description(tk.Frame):
     """Description frame - Text frame with scroll."""
     def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
         super().__init__(master=parent)
-        self.text = tk.Text(self, bg=core.Params.colour, state=state, wrap='word', **options)
+        self.text = tk.Text(self, bg=global_options["colour"], state=state, wrap='word', **options)
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.text.yview)
         self.text.config(yscrollcommand=scroller.set)
@@ -1107,11 +1112,11 @@ class FilterWindow(tk.Toplevel):
                              'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={1}) AS y ON ' \
                              'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
                                                          len(dates))
-        core.Params.filter_dict = {}
-        core.Params.filter_dict['operating_mode'] = self.operating_mode.get()
-        core.Params.filter_dict['script'] = script
-        core.Params.filter_dict['tags'] = tags
-        core.Params.filter_dict['dates'] = dates
+        global_options["filter_dict"] = {}
+        global_options["filter_dict"]['operating_mode'] = self.operating_mode.get()
+        global_options["filter_dict"]['script'] = script
+        global_options["filter_dict"]['tags'] = tags
+        global_options["filter_dict"]['dates'] = dates
         # Reporting to parent window that filter values have been changed:
         if self.changed:
             self.changed.set(1)
@@ -1130,7 +1135,7 @@ class RightclickMenu(tk.Menu):
     def context_menu_show(self, event):
         """Function links context menu with current selected widget and pops menu up."""
         self.tk_popup(event.x_root, event.y_root)
-        core.Params.selected_widget = event.widget
+        global_options["selected_widget"] = event.widget
 
 
 class MainFrame(ScrolledCanvas):
@@ -1144,7 +1149,7 @@ class MainFrame(ScrolledCanvas):
     def clear(self):
         """Clear all task frames except with opened tasks."""
         for w in self.content_frame.winfo_children():
-            if self.frames_count == int(global_options['timers_count']) or self.frames_count == len(core.Params.tasks):
+            if self.frames_count == int(global_options['timers_count']) or self.frames_count == len(global_options["tasks"]):
                 break
             if hasattr(w, 'task'):
                 if w.task is None:
@@ -1171,7 +1176,7 @@ class MainFrame(ScrolledCanvas):
             self.frames_count += len(row_count)
             self.content_frame.update()
             self.canvbox.config(width=self.content_frame.winfo_width())
-        elif len(core.Params.tasks) < self.frames_count > int(global_options['timers_count']):
+        elif len(global_options["tasks"]) < self.frames_count > int(global_options['timers_count']):
             self.clear()
         self.content_frame.config(bg='#cfcfcf')
 
@@ -1257,27 +1262,27 @@ def aboutwindow():
 
 def copy_to_clipboard():
     """Copy widget text to clipboard."""
-    core.Params.selected_widget.clipboard_clear()
-    if isinstance(core.Params.selected_widget, tk.Text):
+    global_options["selected_widget"].clipboard_clear()
+    if isinstance(global_options["selected_widget"], tk.Text):
         try:
-            core.Params.selected_widget.clipboard_append(core.Params.selected_widget.selection_get())
+            global_options["selected_widget"].clipboard_append(global_options["selected_widget"].selection_get())
         except tk.TclError:
-            core.Params.selected_widget.clipboard_append(core.Params.selected_widget.get(1.0, 'end'))
+            global_options["selected_widget"].clipboard_append(global_options["selected_widget"].get(1.0, 'end'))
     else:
-        core.Params.selected_widget.clipboard_append(core.Params.selected_widget.cget("text"))
+        global_options["selected_widget"].clipboard_append(global_options["selected_widget"].cget("text"))
 
 
 def paste_from_clipboard():
     """Paste text from clipboard."""
-    if isinstance(core.Params.selected_widget, tk.Text):
-        core.Params.selected_widget.insert(tk.INSERT, core.Params.selected_widget.clipboard_get())
-    elif isinstance(core.Params.selected_widget, tk.Entry):
-        core.Params.selected_widget.insert(0, core.Params.selected_widget.clipboard_get())
+    if isinstance(global_options["selected_widget"], tk.Text):
+        global_options["selected_widget"].insert(tk.INSERT, global_options["selected_widget"].clipboard_get())
+    elif isinstance(global_options["selected_widget"], tk.Entry):
+        global_options["selected_widget"].insert(0, global_options["selected_widget"].clipboard_get())
 
 
 def stopall():
     """Stop all running timers."""
-    core.Params.stopall = True
+    global_options["stopall"] = True
 
 
 def get_options():
@@ -1297,18 +1302,18 @@ core.check_database()
 # Create options dictionary:
 global_options = get_options()
 # Global tasks ids set. Used for preserve duplicates:
-core.Params.tasks = set()
+global_options["tasks"] = set()
 # If True, all running timers will be stopped:
-core.Params.stopall = False
+global_options["stopall"] = False
 # Widget which is currently connected to context menu:
-core.Params.selected_widget = None
+global_options["selected_widget"] = None
 # Maximum number of task frames:
 MAX_TASKS = 10
 
 # Main window:
 run = tk.Tk()
 # Default widget colour:
-core.Params.colour = run.cget('bg')
+global_options["colour"] = run.cget('bg')
 """
 # Default button height:
 test_button = tk.Button(run, text='test')

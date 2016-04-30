@@ -147,11 +147,6 @@ class Db:
         return res
 
 
-class Params:
-    """Empty class used as a variable storage."""
-    pass
-
-
 def check_database():
     """Check if database file exists."""
     if not os.path.exists(TABLE_FILE):
