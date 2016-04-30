@@ -46,9 +46,9 @@ class TaskFrame(tk.Frame):
         self.timer_window = TaskLabel(self, width=10, state='disabled')
         big_font(self.timer_window)
         self.timer_window.grid(row=3, column=1, pady=5)
-        self.add_timestamp_button = TaskButton(self, text='Add\ntimestamp', width=10, state='disabled', 
+        self.add_timestamp_button = CanvasButton(self, text='Add\ntimestamp', fontsize=9, state='disabled',
                                                command=self.add_timestamp)
-        self.add_timestamp_button.grid(row=3, column=2, sticky='w', padx=5)
+        self.add_timestamp_button.grid(row=3, sticky='sn',  column=2, padx=5)
         self.timestamps_window_button = TaskButton(self, text='View\ntimestamps...', width=11, state='disabled', 
                                                    command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
@@ -244,11 +244,12 @@ class TaskButton(tk.Button):
 
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
-    def __init__(self, parent=None, buttonheight=400, image=None, text=None, fontsize=9, opacity='right',
-                 relief='raised', bg=None, bd=3, command=None, **options):
-        super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
-        self.buttonheight = buttonheight    # Final height of the button.
+    def __init__(self, parent=None, image=None, text=None, state='normal',
+                 fontsize=14, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
+        super().__init__(master=parent, relief=relief, bg=bg, bd=bd, state=state, **options)
+        self.buttonheight = global_options['default_button_height']    # Final height of the button.
         default_height = 400
+        self.state = state
         self.bdsize = bd
         self.command = command      # Will be executed on mouse button release.
         # Collection of built-in "pictures".
@@ -262,27 +263,36 @@ class CanvasButton(tk.Canvas):
             self.add_text(text, fontsize, opacity)
         self.bind("<Button-1>", self.press_button)
         self.bind("<ButtonRelease-1>", self.release_button)
+        self.bind("<Configure>", self.resize)
+        self.config(width=self.new_width, height=self.new_height)
+
+    def resize(self, event):
+        """Place elements correctly after button resizing."""
+        if self.bbox('text'):
+            self.move('text', 0, self.winfo_height() / 2 - (self.bbox('text')[3] - self.bbox('text')[1]) / 2)
+        if self.bbox('image'):
+            self.move('image', 0, self.winfo_height() / 2 - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
 
     def press_button(self, event):
         """AWill be executed on button press."""
-        self.config(relief='sunken')
-        self.move('all', 0, self.bdsize)
+        if self.state == 'normal':
+            self.config(relief='sunken')
+            self.move('all', 0, self.bdsize)
 
     def release_button(self, event):
         """Will be executed on mouse button release."""
-        self.config(relief='raised')
-        self.move('all', 0, -self.bdsize)
-        if callable(self.command):
-            self.command()
+        if self.state == 'normal':
+            self.config(relief='raised')
+            self.move('all', 0, -self.bdsize)
+            if callable(self.command):
+                self.command()
 
     def button_scale(self, height, image_exists):
         """Scale all button elements according to needed button height."""
         scale_factor = height / self.buttonheight
-        self.scale('image', 5, 5, 1 / scale_factor,  1 / scale_factor)
+        self.scale('image', self.bdsize, self.bdsize, 1 / scale_factor,  1 / scale_factor)
         self.new_height = height / scale_factor
         self.new_width = self.new_height if image_exists else 0
-        self.config(height=self.new_height, width=self.new_width)
-
 
     def add_text(self, text, fontsize, opacity="right"):
         """Add text on button. Can be multiline, with different font size and be placed left or right to the image."""
@@ -295,17 +305,15 @@ class CanvasButton(tk.Canvas):
         length = font.measure(longest_string)
         length_char = font.measure('0')
         string_height = font.metrics('linespace')
-        new_width = self.new_width + length_char + length - self.bdsize
-        self.config(width=new_width)
-        self.create_text(self.new_width + self.bdsize + length_char / 2, self.new_height  / 2 + self.new_height / 10, anchor='w',
-                         font=font, text=text, justify='center', tags='text')
+        new_width = self.new_width + length_char * 2 + length - self.bdsize
+        self.text = self.create_text(self.new_width + self.bdsize + length_char, 0, anchor='nw',
+                         font=font, text=text, justify='center', disabledfill='gray', tags='text')
         if opacity == 'left':
             self.move('text', -self.new_width, 0)
             self.move('image', new_width - self.new_width, 0)
+        self.new_width = new_width
         if len(string) > 1:
-            new_height = self.new_height + string_height * len(string)
-            self.config(height=new_height)
-            self.move('all', 0, (new_height - self.new_height) / 2)
+            self.new_height = self.new_height + string_height * (len(string) - 1)
 
     def button_image(self, imagefunction):
         """Calls a function to create corresponding image from collection."""
@@ -1297,6 +1305,9 @@ def quit():
         run.destroy()
 
 
+# Maximum number of task frames:
+MAX_TASKS = 10
+
 # Check if tasks database actually exists:
 core.check_database()
 # Create options dictionary:
@@ -1307,27 +1318,23 @@ global_options["tasks"] = set()
 global_options["stopall"] = False
 # Widget which is currently connected to context menu:
 global_options["selected_widget"] = None
-# Maximum number of task frames:
-MAX_TASKS = 10
 
 # Main window:
 run = tk.Tk()
 # Default widget colour:
 global_options["colour"] = run.cget('bg')
-"""
-# Default button height:
-test_button = tk.Button(run, text='test')
-test_button.grid()
-test_button.update()
-BUTTON_HEIGHT = test_button.winfo_height()
-test_button.destroy()
-#
-"""
 run.title("Tasker")
 run.minsize(height=250, width=0)
 run.resizable(width=0, height=1)
 main_menu = MainMenu(run)           # Create main menu.
 run.config(menu=main_menu)
+# Default button height:
+test_button = tk.Button(text='test')
+test_button.grid()
+test_button.update()
+global_options["default_button_height"] = test_button.winfo_height()
+test_button.destroy()
+#
 taskframes = MainFrame(run)         # Main window content.
 taskframes.grid(row=0, columnspan=5)
 run.bind("<Configure>", taskframes.reconf_canvas)
