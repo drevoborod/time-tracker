@@ -252,6 +252,86 @@ class TaskButton(tk.Button):
         super().__init__(master=parent, width=width, **kwargs)
 
 
+class CanvasButton(tk.Canvas):
+    """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
+    def __init__(self, parent=None, buttonheight=400, image=None, text=None, fontsize=9, opacity='right', relief='raised', bg=None, bd=3, command=None, **options):
+        super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
+        self.buttonheight = buttonheight    # Final height of the button.
+        default_height = 400
+        self.bdsize = bd
+        self.command = command      # Will be executed on mouse button release.
+        # Collection of built-in "pictures".
+        images_collection = {'magnifier': self.image_magnifier}
+        if image in images_collection:
+            self.button_image(images_collection[image])
+            self.button_scale(default_height, True)
+        else:
+            self.button_scale(default_height, False)
+        if text:
+            self.add_text(text, fontsize, opacity)
+        self.bind("<Button-1>", self.press_button)
+        self.bind("<ButtonRelease-1>", self.release_button)
+
+    def press_button(self, event):
+        """AWill be executed on button press."""
+        self.config(relief='sunken')
+        self.move('all', 0, self.bdsize)
+
+    def release_button(self, event):
+        """Will be executed on mouse button release."""
+        self.config(relief='raised')
+        self.move('all', 0, -self.bdsize)
+        if callable(self.command):
+            self.command()
+
+    def button_scale(self, height, image_exists):
+        """Scale all button elements according to needed button height."""
+        scale_factor = height / self.buttonheight
+        self.scale('image', 5, 5, 1 / scale_factor,  1 / scale_factor)
+        self.new_height = height / scale_factor
+        self.new_width = self.new_height if image_exists else 0
+        self.config(height=self.new_height, width=self.new_width)
+
+
+    def add_text(self, text, fontsize, opacity="right"):
+        """Add text on button. Can be multiline, with different font size and be placed left or right to the image."""
+        string = text.split('\n')
+        longest_string = ''
+        for s in string:
+            if len(s) > len(longest_string):
+                longest_string = s
+        font = fonter.Font(size=fontsize)
+        length = font.measure(longest_string)
+        length_char = font.measure('0')
+        string_height = font.metrics('linespace')
+        new_width = self.new_width + length_char + length - self.bdsize
+        self.config(width=new_width)
+        self.create_text(self.new_width + self.bdsize + length_char / 2, self.new_height  / 2 + self.new_height / 10, anchor='w',
+                         font=font, text=text, justify='center', tags='text')
+        if opacity == 'left':
+            self.move('text', -self.new_width, 0)
+            self.move('image', new_width - self.new_width, 0)
+        if len(string) > 1:
+            new_height = self.new_height + string_height * len(string)
+            self.config(height=new_height)
+            self.move('all', 0, (new_height - self.new_height) / 2)
+
+    def button_image(self, imagefunction):
+        """Calls a function to create corresponding image from collection."""
+        imagefunction()
+
+    def image_magnifier(self):
+        """Magnifier image."""
+        self.create_oval(30, 30, 230, 230, fill='black', tag='image')
+        self.create_oval(50, 50, 210, 210, fill=self.cget('bg'), tag='image')
+        self.create_arc(70, 70, 170, 170, fill='black', start=90, extent=90, tag='image')
+        self.create_arc(86, 86, 186, 186, outline=self.cget('bg'), fill=self.cget('bg'), start=90, extent=90, tag='image')
+        self.create_arc(70, 110, 89, 124, start=180, extent=180, fill='black', tag='image')
+        self.create_arc(110, 70, 124, 89, start=270, extent=180, fill='black', tag='image')
+        self.create_polygon([195, 185], [300, 335], [280, 365], [175, 205], smooth=1, tag='image')
+
+
+
 class TaskList(tk.Frame):
     """Scrollable tasks table."""
     def __init__(self, columns, parent=None, **options):
@@ -1164,7 +1244,8 @@ def helpwindow():
 
 
 def aboutwindow():
-    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, 2016".format(global_options['version']))
+    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
+        global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
 
 
 def copy_to_clipboard():
