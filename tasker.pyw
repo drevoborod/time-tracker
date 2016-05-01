@@ -40,7 +40,7 @@ class TaskFrame(tk.Frame):
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
-                                        textvariable=self.startstopvar)
+                                        textvariable=self.startstopvar, image='start')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
@@ -48,13 +48,13 @@ class TaskFrame(tk.Frame):
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = CanvasButton(self, text='Add\ntimestamp', state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, sticky='sn',  column=2, padx=5)
-        self.timestamps_window_button = TaskButton(self, text='View\ntimestamps...', width=11, state='disabled', 
+        self.timestamps_window_button = CanvasButton(self, text='View\ntimestamps...', image='magnifier', state='disabled',
                                                    command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
         self.properties = TaskButton(self, text="Properties...", width=10, state='disabled', 
                                      command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
-        self.clearbutton = TaskButton(self, text="Clear", state='disabled', command=self.clear)  # Clear frame button.
+        self.clearbutton = CanvasButton(self, image='magnifier', state='disabled', command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.running_time = 0   # Current value of the counter.
         self.running = False
@@ -244,19 +244,20 @@ class TaskButton(tk.Button):
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
     def __init__(self, parent=None, image=None, text=None, textvariable=None,
-                 fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
+                 fontsize=9, opacity='right', relief='raised', bg=None, bd=10, command=None, **options):
         super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
-        self.buttonheight = global_options['default_button_height']    # Final height of the button.
-        default_height = 400
+        #self.buttonheight = global_options['default_button_height']    # Final height of the button.
+        self.buttonheight = 70
+        self.default_height = 400
         self.bdsize = bd
         self.command = command      # Will be executed on mouse button release.
         # Collection of built-in "pictures".
-        images_collection = {'magnifier': self.image_magnifier}
+        images_collection = {'magnifier': self.image_magnifier, 'start': self.image_start, 'stop': self.image_stop}
         if image in images_collection:
             self.button_image(images_collection[image])
-            self.button_scale(default_height, True)
+            self.image_scale()
         else:
-            self.button_scale(default_height, False)
+            self.set_new_sizes()
         if text:
             self.add_text(text, fontsize, opacity)
         elif isinstance(textvariable, tk.Variable):
@@ -272,49 +273,53 @@ class CanvasButton(tk.Canvas):
             self.move('text', 0, self.winfo_height() / 2 - (self.bbox('text')[3] - self.bbox('text')[1]) / 2)
         if self.bbox('image'):
             self.move('image', 0, self.winfo_height() / 2 - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
-        #self.move('all', self.winfo_width() / 2 - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
+        self.move('all', (self.winfo_width() / 2 - self.bdsize * 2) - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
 
     def press_button(self, event):
         """AWill be executed on button press."""
         if self.cget('state') == 'normal':
             self.config(relief='sunken')
-            self.move('all', 0, self.bdsize)
+            self.move('all', 1, 1)
 
     def release_button(self, event):
         """Will be executed on mouse button release."""
         if self.cget('state') == 'normal':
             self.config(relief='raised')
-            self.move('all', 0, -self.bdsize)
+            self.move('all', -1, -1)
             if callable(self.command) and event.x_root in range(self.winfo_rootx(), self.winfo_rootx() +
                     self.winfo_width()) and event.y_root in range(self.winfo_rooty(), self.winfo_rooty() +
                     self.winfo_height()):
                 self.command()
 
-    def button_scale(self, height, image_exists):
+    def set_new_sizes(self, image_exists=False):
+        scale_factor = self.default_height / self.buttonheight
+        self.new_height = self.default_height / scale_factor
+        self.new_width = self.new_height if image_exists else self.bdsize * 2
+
+    def image_scale(self):
         """Scale all button elements according to needed button height."""
-        scale_factor = height / self.buttonheight
-        self.scale('image', self.bdsize, self.bdsize, 1 / scale_factor,  1 / scale_factor)
-        self.new_height = height / scale_factor
-        self.new_width = self.new_height if image_exists else 0
+        scale_factor = (self.bbox('all')[3] - self.bbox('image')[1]) / self.buttonheight
+        self.scale('image', 0, 0, 1 / scale_factor,  1 / scale_factor)
+        self.set_new_sizes(True)
 
     def add_text(self, textorvariable, fontsize, opacity="right"):
-        """Add text variable. A workaround to use 'textvariable' option."""
+        """Add text. Text can be tkinter.Variable or string."""
         font = fonter.Font(size=fontsize)
-        length_char = font.measure('0')
         if isinstance(textorvariable, tk.Variable):
-            self.textlabel = tk.Label(self, textvariable=textorvariable, font=font, justify='center',
+            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, font=font, justify='center',
                                       state=self.cget('state'))
         else:
-            self.textlabel = tk.Label(self, text=textorvariable, font=font, justify='center',
+            self.textlabel = tk.Label(self, text=textorvariable, bd=0, font=font, justify='center',
                                       state=self.cget('state'))
-        self.create_window(self.new_width + self.bdsize + length_char, 0, anchor='nw', window=self.textlabel, tags='text')
+        self.create_window((self.new_width + (self.new_width / 100 * 20)) if self.bbox('image') else self.new_width, 0, anchor='nw',
+                           window=self.textlabel, tags='text')
         length = self.bbox('text')[2] - self.bbox('text')[0]
-        new_width = self.new_width + length_char * 2 + length - self.bdsize
+        new_width = self.new_width + length
         if opacity == 'left':
             self.move('text', -self.new_width, 0)
             self.move('image', new_width - self.new_width, 0)
-        self.new_width = new_width
-        self.new_height = self.bbox('all')[3] - self.bbox('all')[1] + self.bdsize
+        self.new_width = self.bbox('all')[2] - self.bbox('all')[0] + self.bdsize
+        self.new_height = self.bbox('all')[3] - self.bbox('all')[1]
         self.textlabel.bind("<Button-1>", self.press_button)
         self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
@@ -326,6 +331,9 @@ class CanvasButton(tk.Canvas):
     def button_image(self, imagefunction):
         """Calls a function to create corresponding image from collection."""
         imagefunction()
+        #scale_factor = self.default_height / self.buttonheight * self.bdsize
+        #self.scale('image', scale_factor, scale_factor, 1, 1)
+        #self.move('image', scale_factor, -scale_factor / 2)
 
     def image_magnifier(self):
         """Magnifier image."""
@@ -336,6 +344,12 @@ class CanvasButton(tk.Canvas):
         self.create_arc(70, 110, 89, 124, start=180, extent=180, fill='black', disabledfill='gray', tag='image')
         self.create_arc(110, 70, 124, 89, start=270, extent=180, fill='black', disabledfill='gray', tag='image')
         self.create_polygon([195, 185], [300, 335], [280, 365], [175, 205], smooth=1, disabledfill='gray', tag='image')
+
+    def image_start(self):
+        self.create_polygon([30, 30], [370, 200], [30, 370], disabledfill='gray', tag='image')
+
+    def image_stop(self):
+        self.create_rectangle(30, 30, 370, 370, disabledfill='gray', tag='image')
 
 
 
@@ -1361,3 +1375,6 @@ else:
 run.geometry('%dx%d+100+50' % (run.winfo_width(), window_height))
 
 run.mainloop()
+
+
+# ToDo: Fix: Даблклик на списке задач пробивает на кастомные кнопки основного окна.
