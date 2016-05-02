@@ -244,10 +244,10 @@ class TaskButton(tk.Button):
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
     def __init__(self, parent=None, image=None, text=None, textvariable=None,
-                 fontsize=9, opacity='right', relief='raised', bg=None, bd=10, command=None, **options):
+                 fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
         super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
-        #self.buttonheight = global_options['default_button_height']    # Final height of the button.
-        self.buttonheight = 70
+        self.buttonheight = global_options['default_button_height']    # Final height of the button.
+        #self.buttonheight = 70
         self.default_height = 400
         self.bdsize = bd
         self.command = command      # Will be executed on mouse button release.
@@ -272,8 +272,9 @@ class CanvasButton(tk.Canvas):
         if self.bbox('text'):
             self.move('text', 0, self.winfo_height() / 2 - (self.bbox('text')[3] - self.bbox('text')[1]) / 2)
         if self.bbox('image'):
-            self.move('image', 0, self.winfo_height() / 2 - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
-        self.move('all', (self.winfo_width() / 2 - self.bdsize * 2) - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
+            self.move('image', 0, (self.winfo_height() / 2 - self.bdsize) - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
+        self.move('text', (self.winfo_width() / 2 - self.bdsize * 2) - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
+        self.move('image', (self.winfo_width() / 2 - self.bdsize) - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
 
     def press_button(self, event):
         """AWill be executed on button press."""
@@ -298,8 +299,9 @@ class CanvasButton(tk.Canvas):
 
     def image_scale(self):
         """Scale all button elements according to needed button height."""
-        scale_factor = (self.bbox('all')[3] - self.bbox('image')[1]) / self.buttonheight
-        self.scale('image', 0, 0, 1 / scale_factor,  1 / scale_factor)
+        scale_factor = (self.bbox('all')[3] - self.bbox('image')[1]) / (self.buttonheight - self.bdsize * 2)
+        self.scale('image', self.bdsize, self.bdsize, 1 / scale_factor,  1 / scale_factor)
+        #self.move('image', 0, self.winfo_height() / 2 - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
         self.set_new_sizes(True)
 
     def add_text(self, textorvariable, fontsize, opacity="right"):
