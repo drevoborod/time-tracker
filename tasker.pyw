@@ -244,12 +244,13 @@ class TaskButton(tk.Button):
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
     def __init__(self, parent=None, image=None, text=None, textvariable=None,
-                 fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
+                 fontsize=9, opacity='left', relief='raised', bg=None, bd=10, command=None, **options):
         super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
-        self.buttonheight = global_options['default_button_height']    # Final height of the button.
-        #self.buttonheight = 70
+        #self.buttonheight = global_options['default_button_height']    # Final height of the button.
+        self.buttonheight = 120
         self.default_height = 400
         self.bdsize = bd
+        self.opacity = opacity
         self.command = command      # Will be executed on mouse button release.
         # Collection of built-in "pictures".
         images_collection = {'magnifier': self.image_magnifier, 'start': self.image_start, 'stop': self.image_stop}
@@ -262,19 +263,30 @@ class CanvasButton(tk.Canvas):
             self.add_text(text, fontsize, opacity)
         elif isinstance(textvariable, tk.Variable):
             self.add_text(textvariable, fontsize, opacity)
+        self.config(width=self.new_width, height=self.new_height)
         self.bind("<Button-1>", self.press_button)
         self.bind("<ButtonRelease-1>", self.release_button)
         self.bind("<Configure>", self.resize)
-        self.config(width=self.new_width, height=self.new_height)
+
 
     def resize(self, event):
         """Place elements correctly after button resizing."""
+        if self.bbox('image'):
+            self.move('image', 0, ((self.winfo_height() - self.bdsize * 2) / 2) -
+                      ((self.bbox('image')[3] - self.bbox('image')[1]) + self.bdsize) / 2)
         if self.bbox('text'):
             self.move('text', 0, self.winfo_height() / 2 - (self.bbox('text')[3] - self.bbox('text')[1]) / 2)
-        if self.bbox('image'):
-            self.move('image', 0, (self.winfo_height() / 2 - self.bdsize) - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
-        self.move('text', (self.winfo_width() / 2 - self.bdsize * 2) - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
-        self.move('image', (self.winfo_width() / 2 - self.bdsize) - (self.bbox('all')[2] - self.bbox('all')[0]) / 2, 0)
+        if self.bbox('text') and not self.bbox('image'):
+            self.move('text', (self.winfo_width() / 2) - (self.bbox('text')[2] - self.bbox('text')[0]) / 2, 0)
+        elif self.bbox('image') and not self.bbox('text'):
+            self.move('image', ((self.winfo_width() - self.bdsize * 2) / 2) -
+                      ((self.bbox('image')[2] - self.bbox('image')[0]) + self.bdsize) / 2, 0)
+        elif self.bbox('image') and self.bbox('text'):
+            self.move('text', ((self.winfo_width() - (self.bbox('image')[2] - self.bbox('image')[0]) - self.bdsize * 2) / 2) - (self.bbox('text')[2] - self.bbox('text')[0]) / 2, 0)
+            self.move('image', (((self.winfo_width() - (self.bbox('text')[2] - self.bbox('text')[0])) - self.bdsize * 2) / 2) -
+                      ((self.bbox('image')[2] - self.bbox('image')[0]) + self.bdsize) / 2, 0)
+
+
 
     def press_button(self, event):
         """AWill be executed on button press."""
@@ -292,31 +304,31 @@ class CanvasButton(tk.Canvas):
                     self.winfo_height()):
                 self.command()
 
-    def set_new_sizes(self, image_exists=False):
+    def set_new_sizes(self):
+        """Configure new button dimentions."""
         scale_factor = self.default_height / self.buttonheight
         self.new_height = self.default_height / scale_factor
-        self.new_width = self.new_height if image_exists else self.bdsize * 2
+        self.new_width = self.new_height if self.bbox('image') else 0
 
     def image_scale(self):
         """Scale all button elements according to needed button height."""
         scale_factor = (self.bbox('all')[3] - self.bbox('image')[1]) / (self.buttonheight - self.bdsize * 2)
         self.scale('image', self.bdsize, self.bdsize, 1 / scale_factor,  1 / scale_factor)
-        #self.move('image', 0, self.winfo_height() / 2 - (self.bbox('image')[3] - self.bbox('image')[1]) / 2)
-        self.set_new_sizes(True)
+        self.set_new_sizes()
 
     def add_text(self, textorvariable, fontsize, opacity="right"):
         """Add text. Text can be tkinter.Variable or string."""
         font = fonter.Font(size=fontsize)
         if isinstance(textorvariable, tk.Variable):
-            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, font=font, justify='center',
+            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=1, bg='red', font=font, justify='center',
                                       state=self.cget('state'))
         else:
-            self.textlabel = tk.Label(self, text=textorvariable, bd=0, font=font, justify='center',
+            self.textlabel = tk.Label(self, text=textorvariable, bd=1, bg='red', font=font, justify='center',
                                       state=self.cget('state'))
-        self.create_window((self.new_width + (self.new_width / 100 * 20)) if self.bbox('image') else self.new_width, 0, anchor='nw',
+        self.create_window((self.new_width + (self.new_width / 100 * 20)) if self.bbox('image') else 0, 0, anchor='nw',
                            window=self.textlabel, tags='text')
         length = self.bbox('text')[2] - self.bbox('text')[0]
-        new_width = self.new_width + length
+        new_width = self.new_width + length + self.bdsize * 2
         if opacity == 'left':
             self.move('text', -self.new_width, 0)
             self.move('image', new_width - self.new_width, 0)
@@ -333,12 +345,10 @@ class CanvasButton(tk.Canvas):
     def button_image(self, imagefunction):
         """Calls a function to create corresponding image from collection."""
         imagefunction()
-        #scale_factor = self.default_height / self.buttonheight * self.bdsize
-        #self.scale('image', scale_factor, scale_factor, 1, 1)
-        #self.move('image', scale_factor, -scale_factor / 2)
 
     def image_magnifier(self):
         """Magnifier image."""
+        self.create_rectangle(30, 30, 300, 365, tag='image')
         self.create_oval(30, 30, 230, 230, fill='black', disabledfill='gray', disabledoutline='gray', tag='image')
         self.create_oval(50, 50, 210, 210, fill=self.cget('bg'), disabledoutline='gray', tag='image')
         self.create_arc(70, 70, 170, 170, fill='black', disabledfill='gray', disabledoutline='gray', start=90, extent=90, tag='image')
