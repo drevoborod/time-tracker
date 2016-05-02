@@ -244,10 +244,10 @@ class TaskButton(tk.Button):
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
     def __init__(self, parent=None, image=None, text=None, textvariable=None,
-                 fontsize=9, opacity='left', relief='raised', bg=None, bd=10, command=None, **options):
+                 fontsize=9, opacity='right', relief='raised', bg=None, bd=10, command=None, **options):
         super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
         #self.buttonheight = global_options['default_button_height']    # Final height of the button.
-        self.buttonheight = 120
+        self.buttonheight = 40
         self.default_height = 400
         self.bdsize = bd
         self.opacity = opacity
@@ -282,7 +282,8 @@ class CanvasButton(tk.Canvas):
             self.move('image', ((self.winfo_width() - self.bdsize * 2) / 2) -
                       ((self.bbox('image')[2] - self.bbox('image')[0]) + self.bdsize) / 2, 0)
         elif self.bbox('image') and self.bbox('text'):
-            self.move('text', ((self.winfo_width() - (self.bbox('image')[2] - self.bbox('image')[0]) - self.bdsize * 2) / 2) - (self.bbox('text')[2] - self.bbox('text')[0]) / 2, 0)
+            #self.move('text', (self.winfo_width() - ((self.bbox('image')[2] - self.bbox('image')[0]) + self.bdsize * 2) /
+            #                   2) - ((self.bbox('text')[2] - self.bbox('text')[0])) / 2, 0)
             self.move('image', (((self.winfo_width() - (self.bbox('text')[2] - self.bbox('text')[0])) - self.bdsize * 2) / 2) -
                       ((self.bbox('image')[2] - self.bbox('image')[0]) + self.bdsize) / 2, 0)
 
