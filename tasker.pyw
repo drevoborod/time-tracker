@@ -34,13 +34,13 @@ class TaskFrame(tk.Frame):
         self.tasklabel = TaskLabel(self, width=50, anchor='w')
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
-        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
+        self.openbutton = CanvasButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
         # Task description field:
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
-                                        textvariable=self.startstopvar, image='start')
+                                        textvariable=self.startstopvar, width=0, image='start')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
@@ -48,13 +48,13 @@ class TaskFrame(tk.Frame):
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = CanvasButton(self, text='Add\ntimestamp', state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, sticky='sn',  column=2, padx=5)
-        self.timestamps_window_button = CanvasButton(self, text='View\ntimestamps...', image='magnifier', state='disabled',
+        self.timestamps_window_button = CanvasButton(self, text='View\ntimestamps...', state='disabled',
                                                    command=self.timestamps_window)
-        self.timestamps_window_button.grid(row=3, column=3, sticky='w', padx=5)
-        self.properties = TaskButton(self, text="Properties...", width=10, state='disabled', 
+        self.timestamps_window_button.grid(row=3, column=3, sticky='wsn', padx=5)
+        self.properties = CanvasButton(self, text="Properties...", width=10, state='disabled',
                                      command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
-        self.clearbutton = CanvasButton(self, image='magnifier', state='disabled', command=self.clear)  # Clear frame button.
+        self.clearbutton = CanvasButton(self, text='Clear', state='disabled', width=7, command=self.clear)  # Clear frame button.
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.running_time = 0   # Current value of the counter.
         self.running = False
@@ -193,6 +193,7 @@ class TaskFrame(tk.Frame):
             self.timer_update()
             self.running = True
             self.startstopvar.set("Stop")
+            self.startbutton.config(image='stop')
 
     def timer_stop(self):
         """Stop counter and save its value to database."""
@@ -207,6 +208,7 @@ class TaskFrame(tk.Frame):
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
             self.startstopvar.set("Start")
+            self.startbutton.config(image='start')
             self.update_description()
 
     def update_description(self):
@@ -243,20 +245,17 @@ class TaskButton(tk.Button):
 
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
-    def __init__(self, parent=None, image=None, text=None, textvariable=None,
+    def __init__(self, parent=None, image=None, text=None, textvariable=None, width=8, height=None,
                  fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
-        super().__init__(master=parent, relief=relief, bg=bg, bd=bd, **options)
+        super().__init__(master=parent)
         # Button dimensions:
         self.buttonwidth = DEFAULT_BUTTON_HEIGHT
         self.buttonheight = DEFAULT_BUTTON_HEIGHT
-        self.command = command      # Will be executed on mouse button release.
+        self.command = None
         # Collection of built-in "pictures".
-        images_collection = {'magnifier': self.image_magnifier, 'start': self.image_start, 'stop': self.image_stop}
-        if image in images_collection:
-            self.button_image(images_collection[image])
-        if text or textvariable:
-            self.add_text(text if text else textvariable, fontsize, bg, opacity)
-        self.config(width=self.buttonwidth + bd * 2, height=self.buttonheight + bd * 2)
+        self.images_collection = {'magnifier': self.image_magnifier, 'start': self.image_start, 'stop': self.image_stop}
+        self.config(image=image, text=text, textvariable=textvariable, width=width, height=height,
+                 fontsize=fontsize, opacity=opacity, relief=relief, bg=bg, bd=bd, command=command, **options)
         self.bind("<Button-1>", self.press_button)
         self.bind("<ButtonRelease-1>", self.release_button)
         self.bind("<Configure>", self.resize)
@@ -264,11 +263,24 @@ class CanvasButton(tk.Canvas):
     def resize(self, event):
         """Place elements correctly after button resizing."""
         if self.bbox('image'):
-            self.move('image', 0, (self.winfo_height() / 2) -
-                      ((self.bbox('image')[3] - self.bbox('image')[1]) +4) / 2)
+            self.place_image()
         if self.bbox('text'):
-            self.move('text', 0, (self.winfo_height() / 2) - ((self.bbox('text')[3] - self.bbox('text')[1]) + 4) / 2)
+            self.place_text()
         self.move('all', (self.winfo_width() / 2) - ((self.bbox('all')[2] - self.bbox('all')[0]) + 4) / 2, 0)
+
+    def place_image(self, coordinates=None):
+        if coordinates:
+            print(coordinates)
+            print(self.coords('image'))
+            self.move('image', coordinates[0] - self.coords('image')[0], coordinates[1] - self.coords('image')[1])
+        else:
+            self.move('image', 0, (self.winfo_height() / 2) - ((self.bbox('image')[3] - self.bbox('image')[1]) + 4) / 2)
+
+    def place_text(self, coordinates=None):
+        if coordinates:
+            self.move('text', self.coords('text')[0] - coordinates[0], self.coords('text')[1] - coordinates[1])
+        else:
+            self.move('text', 0, (self.winfo_height() / 2) - ((self.bbox('text')[3] - self.bbox('text')[1]) + 4) / 2)
 
     def press_button(self, event):
         """AWill be executed on button press."""
@@ -286,20 +298,20 @@ class CanvasButton(tk.Canvas):
                     self.winfo_height()):
                 self.command()
 
-    def add_text(self, textorvariable, fontsize, bg=None, opacity="right"):
+    def add_text(self, textorvariable, fontsize, bg=None, opacity="right", width=None, height=None):
         """Add text. Text can be tkinter.Variable or string."""
         font = fonter.Font(size=fontsize)
         if isinstance(textorvariable, tk.Variable):
-            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg='red', font=font, justify='center',
-                                      state=self.cget('state'))
+            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg=bg, font=font, justify='center',
+                                      state=self.cget('state'), width=width, height=height)
         else:
-            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg='red', font=font, justify='center',
-                                      state=self.cget('state'))
+            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=bg, font=font, justify='center',
+                                      state=self.cget('state'), width=width, height=height)
         self.create_window((self.buttonwidth + 2) if self.bbox('image') else 2, 2, anchor='nw',
                            window=self.textlabel, tags='text')
         text_length = (self.bbox('text')[2] - self.bbox('text')[0]) + 4
         if opacity == 'left':
-            self.move('text', -(text_length + 4), 0)
+            self.move('text', -(self.buttonwidth - 4), 0)
             self.move('image', text_length + 4, 0)
         self.buttonwidth = (self.buttonwidth if self.bbox('image') else 0) + text_length + 4
         text_height = (self.bbox('text')[3] - self.bbox('text')[1]) + 4
@@ -308,8 +320,29 @@ class CanvasButton(tk.Canvas):
         self.textlabel.bind("<Button-1>", self.press_button)
         self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
-    def config(self, **kw):
-        tk.Canvas.config(self, **kw)
+    def config(self, image=None, text=None, textvariable=None, width=None, height=None,
+                 fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
+        self.opacity = opacity
+        if command:
+            self.command = command      # Will be executed on mouse button release.
+        if image in self.images_collection:
+            coordinates = None
+            if self.bbox('image'):
+                coordinates = (self.coords('image')[0], self.coords('image')[1])
+                self.delete('image')
+            self.button_image(self.images_collection[image])
+            if coordinates:
+                self.place_image(coordinates)
+        if text or textvariable:
+            coordinates = None
+            if self.bbox('text'):
+                coordinates = (self.coords('text')[0], self.coords('text')[1])
+                self.delete('text')
+            self.add_text(text if text else textvariable, fontsize, bg, opacity, width, height)
+            if coordinates:
+                self.place_text(coordinates)
+        tk.Canvas.config(self, relief=relief, bg=bg, bd=bd, width=self.buttonwidth + bd * 2,
+                         height=self.buttonheight + bd * 2, **options)
         if hasattr(self, "textlabel"):
             self.textlabel.config(state=self.cget('state'))
 
@@ -322,20 +355,15 @@ class CanvasButton(tk.Canvas):
         """Magnifier image."""
         self.create_oval(2, 2, 17, 17, fill='black', disabledfill='gray', disabledoutline='gray', tag='image')
         self.create_oval(5, 5, 14, 14, fill=self.cget('bg'), disabledoutline='gray', tag='image')
-        #self.create_arc(8, 8, 170, 170, fill='black', disabledfill='gray', disabledoutline='gray', start=90, extent=90, tag='image')
-        #self.create_arc(86, 86, 186, 186, outline=self.cget('bg'), fill=self.cget('bg'), start=90, extent=90, tag='image')
-        #self.create_arc(70, 110, 89, 124, start=180, extent=180, fill='black', disabledfill='gray', tag='image')
-        #self.create_arc(110, 70, 124, 89, start=270, extent=180, fill='black', disabledfill='gray', tag='image')
         self.create_polygon([13, 11], [33, 31], [31, 33], [11, 13], smooth=1, disabledfill='gray', tag='image')
 
     def image_start(self):
         """Startbutton image."""
-        self.create_polygon([6, 6], [29, 17.5], [6, 29], disabledfill='gray', tag='image')
+        self.create_polygon([6, 6], [29, 17.5], [6, 29], fill='black', disabledfill='gray', tag='image')
 
     def image_stop(self):
         """Stopbutton image."""
         self.create_rectangle(6, 6, 29, 29, fill='black', disabledfill='gray', tag='image')
-
 
 
 class TaskList(tk.Frame):
