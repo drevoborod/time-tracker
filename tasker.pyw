@@ -40,7 +40,7 @@ class TaskFrame(tk.Frame):
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
-                                        textvariable=self.startstopvar, width=0, image='start')
+                                        variable=self.startstopvar, image='resource/start.png')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
@@ -49,12 +49,13 @@ class TaskFrame(tk.Frame):
         self.add_timestamp_button = CanvasButton(self, text='Add\ntimestamp', state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, sticky='sn',  column=2, padx=5)
         self.timestamps_window_button = CanvasButton(self, text='View\ntimestamps...', state='disabled',
-                                                   command=self.timestamps_window)
+                                                     command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='wsn', padx=5)
-        self.properties = CanvasButton(self, text="Properties...", width=10, state='disabled',
-                                     command=self.properties_window)
+        self.properties = CanvasButton(self, text="Properties...", textwidth=10, state='disabled',
+                                       command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
-        self.clearbutton = CanvasButton(self, text='Clear', state='disabled', width=7, command=self.clear)  # Clear frame button.
+        # Clear frame button:
+        self.clearbutton = CanvasButton(self, text='Clear', state='disabled', textwidth=7, command=self.clear)
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.running_time = 0   # Current value of the counter.
         self.running = False
@@ -245,42 +246,104 @@ class TaskButton(tk.Button):
 
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
-    def __init__(self, parent=None, image=None, text=None, textvariable=None, width=8, height=None,
-                 fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
+    def __init__(self, parent=None, image=None, text=None, variable=None, width=None, height=None, textwidth=None,
+                 textheight=None, fontsize=None, opacity=None, relief='raised', bg=None, bd=2, state='normal',
+                 takefocus=True, command=None):
         super().__init__(master=parent)
         # Button dimensions:
-        self.buttonwidth = DEFAULT_BUTTON_HEIGHT
-        self.buttonheight = DEFAULT_BUTTON_HEIGHT
+        self.default_buttonwidth = 35
+        self.default_buttonheight = 35
+        self.height = 1
+        self.width = 1
         self.command = None
-        # Collection of built-in "pictures".
-        self.images_collection = {'magnifier': self.image_magnifier, 'start': self.image_start, 'stop': self.image_stop}
-        self.config(image=image, text=text, textvariable=textvariable, width=width, height=height,
-                 fontsize=fontsize, opacity=opacity, relief=relief, bg=bg, bd=bd, command=command, **options)
+        # configure canvas itself with applicable options:
+        standard_options = {}
+        for item in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
+            if eval(item) is not None:  # Such check because value of item can be 0.
+                standard_options[item] = eval(item)
+        tk.Canvas.config(self, **standard_options)
+        # configure widget with specific options:
+        self.config_button(image=image, text=text, variable=variable, textwidth=textwidth, state=state,
+                           textheight=textheight, fontsize=fontsize, opacity=opacity, command=command)
         self.bind("<Button-1>", self.press_button)
         self.bind("<ButtonRelease-1>", self.release_button)
-        self.bind("<Configure>", self.resize)
+        self.bind("<Configure>", self.place)
+
+    def place(self, event):
+        self.update()
+        self.config(width=70, height=40)
+        print(event.width, event.height)
+
+    def config_button(self, **kwargs):
+        """Specific configuration of this widget."""
+        if 'image' in kwargs and kwargs['image']:
+            picture = tk.PhotoImage(file=kwargs['image'])
+            self.create_image(0, 0, image=picture, anchor='nw')
+        if 'text' in kwargs and kwargs['text']:
+            text = kwargs['text']
+        elif 'variable' in kwargs and kwargs['variable']:
+            text = kwargs['variable']
+        else:
+            text = None
+            # make textlabel look like other canvas parts:
+            if hasattr(self, 'textlabel'):
+                for option in ('bg', 'state'):
+                    if option in kwargs and kwargs[option]:
+                        self.textlabel.config(**{option: kwargs[option]})
+        if text:
+            self.add_text(text, **{key: kwargs[key] for key in ('fontsize', 'textwidth', 'textheight', 'bg', 'opacity')
+                                   if key in kwargs})
+        if 'command' in kwargs and kwargs['command']:
+            self.command = kwargs['command']
+
+    def config(self, **kwargs):
+        default_options = {}
+        for option in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
+            if option in kwargs:
+                default_options[option] = kwargs[option]
+                kwargs.pop(option)
+        tk.Canvas.config(self, **default_options)
+        self.config_button(**kwargs)
+
+    def add_text(self, textorvariable, fontsize=9, bg=None, opacity="right", textwidth=None, textheight=None):
+        """Add text. Text can be tkinter.Variable() or string."""
+        if fontsize:
+            font = fonter.Font(size=fontsize)
+        else:
+            font = fonter.Font()
+        if hasattr(self, 'textlabel'):
+            self.delete(self.textlabel)
+        if isinstance(textorvariable, tk.Variable):
+            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg=bg, font=font, justify='center',
+                                      state=self.cget('state'), width=textwidth, height=textheight)
+        else:
+            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=bg, font=font, justify='center',
+                                      state=self.cget('state'), width=textwidth, height=textheight)
+        self.create_window((self.default_buttonwidth + 2) if self.bbox('image') else 2, 2, anchor='nw',
+                           window=self.textlabel, tags='text')
+        """
+        text_length = (self.bbox('text')[2] - self.bbox('text')[0]) + 4
+        if opacity == 'left':
+            self.move('text', -(self.buttonwidth - 4), 0)
+            self.move('image', text_length + 4, 0)
+        self.buttonwidth = (self.buttonwidth if self.bbox('image') else 0) + text_length + 4
+        text_height = (self.bbox('text')[3] - self.bbox('text')[1]) + 4
+        if text_height > self.buttonheight:
+            self.buttonheight = text_height
+        """
+        self.textlabel.bind("<Button-1>", self.press_button)
+        self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
     def resize(self, event):
-        """Place elements correctly after button resizing."""
-        if self.bbox('image'):
-            self.place_image()
-        if self.bbox('text'):
-            self.place_text()
-        self.move('all', (self.winfo_width() / 2) - ((self.bbox('all')[2] - self.bbox('all')[0]) + 4) / 2, 0)
-
-    def place_image(self, coordinates=None):
-        if coordinates:
-            print(coordinates)
-            print(self.coords('image'))
-            self.move('image', coordinates[0] - self.coords('image')[0], coordinates[1] - self.coords('image')[1])
-        else:
-            self.move('image', 0, (self.winfo_height() / 2) - ((self.bbox('image')[3] - self.bbox('image')[1]) + 4) / 2)
-
-    def place_text(self, coordinates=None):
-        if coordinates:
-            self.move('text', self.coords('text')[0] - coordinates[0], self.coords('text')[1] - coordinates[1])
-        else:
-            self.move('text', 0, (self.winfo_height() / 2) - ((self.bbox('text')[3] - self.bbox('text')[1]) + 4) / 2)
+        # determine the ratio of old width/height to new width/height
+        wscale = event.width / self.width
+        hscale = event.height / self.height
+        self.width = event.width
+        self.height = event.height
+        # resize the canvas
+        tk.Canvas.config(self, width=self.width, height=self.height)
+        # rescale all the objects tagged with the "all" tag
+        self.scale("all", 0, 0, wscale, hscale)
 
     def press_button(self, event):
         """AWill be executed on button press."""
@@ -298,72 +361,8 @@ class CanvasButton(tk.Canvas):
                     self.winfo_height()):
                 self.command()
 
-    def add_text(self, textorvariable, fontsize, bg=None, opacity="right", width=None, height=None):
-        """Add text. Text can be tkinter.Variable or string."""
-        font = fonter.Font(size=fontsize)
-        if isinstance(textorvariable, tk.Variable):
-            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg=bg, font=font, justify='center',
-                                      state=self.cget('state'), width=width, height=height)
-        else:
-            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=bg, font=font, justify='center',
-                                      state=self.cget('state'), width=width, height=height)
-        self.create_window((self.buttonwidth + 2) if self.bbox('image') else 2, 2, anchor='nw',
-                           window=self.textlabel, tags='text')
-        text_length = (self.bbox('text')[2] - self.bbox('text')[0]) + 4
-        if opacity == 'left':
-            self.move('text', -(self.buttonwidth - 4), 0)
-            self.move('image', text_length + 4, 0)
-        self.buttonwidth = (self.buttonwidth if self.bbox('image') else 0) + text_length + 4
-        text_height = (self.bbox('text')[3] - self.bbox('text')[1]) + 4
-        if text_height > self.buttonheight:
-            self.buttonheight = text_height
-        self.textlabel.bind("<Button-1>", self.press_button)
-        self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
-    def config(self, image=None, text=None, textvariable=None, width=None, height=None,
-                 fontsize=9, opacity='right', relief='raised', bg=None, bd=2, command=None, **options):
-        self.opacity = opacity
-        if command:
-            self.command = command      # Will be executed on mouse button release.
-        if image in self.images_collection:
-            coordinates = None
-            if self.bbox('image'):
-                coordinates = (self.coords('image')[0], self.coords('image')[1])
-                self.delete('image')
-            self.button_image(self.images_collection[image])
-            if coordinates:
-                self.place_image(coordinates)
-        if text or textvariable:
-            coordinates = None
-            if self.bbox('text'):
-                coordinates = (self.coords('text')[0], self.coords('text')[1])
-                self.delete('text')
-            self.add_text(text if text else textvariable, fontsize, bg, opacity, width, height)
-            if coordinates:
-                self.place_text(coordinates)
-        tk.Canvas.config(self, relief=relief, bg=bg, bd=bd, width=self.buttonwidth + bd * 2,
-                         height=self.buttonheight + bd * 2, **options)
-        if hasattr(self, "textlabel"):
-            self.textlabel.config(state=self.cget('state'))
 
-    def button_image(self, imagefunction):
-        """Calls a function to create corresponding image from collection."""
-        self.create_rectangle(2, 2, 33, 33, tag='image', width=0)   # To have fixed size returned by self.bbox()
-        imagefunction()
-
-    def image_magnifier(self):
-        """Magnifier image."""
-        self.create_oval(2, 2, 17, 17, fill='black', disabledfill='gray', disabledoutline='gray', tag='image')
-        self.create_oval(5, 5, 14, 14, fill=self.cget('bg'), disabledoutline='gray', tag='image')
-        self.create_polygon([13, 11], [33, 31], [31, 33], [11, 13], smooth=1, disabledfill='gray', tag='image')
-
-    def image_start(self):
-        """Startbutton image."""
-        self.create_polygon([6, 6], [29, 17.5], [6, 29], fill='black', disabledfill='gray', tag='image')
-
-    def image_stop(self):
-        """Stopbutton image."""
-        self.create_rectangle(6, 6, 29, 29, fill='black', disabledfill='gray', tag='image')
 
 
 class TaskList(tk.Frame):
@@ -454,7 +453,7 @@ class TaskSelectionWindow(tk.Toplevel):
         addentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.addentry.bind("<Button-3>", addentry_context_menu.context_menu_show)
         # "Add task" button:
-        self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=0)
+        self.addbutton = CanvasButton(self, text="Add task", command=self.add_new_task, takefocus=False)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         # Entry for typing search requests:
         self.searchentry = tk.Entry(self, width=25)
@@ -466,10 +465,10 @@ class TaskSelectionWindow(tk.Toplevel):
         self.ignore_case.set(1)
         tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
         # Search button:
-        TaskButton(self, takefocus=0, text='Search', command=self.locate_task).grid(row=1, column=3,
-                                                                                   sticky='w', padx=5, pady=5)
+        CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
+            grid(row=1, column=3, sticky='w', padx=5, pady=5)
         # Refresh button:
-        TaskButton(self, takefocus=0, text='Refresh', command=self.update_list).grid(row=1, column=4,
+        CanvasButton(self, takefocus=False, image='resource/refresh.png', command=self.update_list).grid(row=1, column=4,
                                                                                      sticky='e', padx=5, pady=5)
         # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
@@ -484,22 +483,22 @@ class TaskSelectionWindow(tk.Toplevel):
         self.description = Description(self, height=4)
         self.description.grid(row=3, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         # "Select all" button:
-        selbutton = TaskButton(self, text="Select all", command=self.select_all)
+        selbutton = CanvasButton(self, text="Select all", command=self.select_all)
         selbutton.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
-        clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)
+        clearbutton = CanvasButton(self, text="Clear all", command=self.clear_all)
         clearbutton.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
-        self.editbutton = TaskButton(self, text="Properties...", width=10, command=self.edit)
+        self.editbutton = CanvasButton(self, text="Properties...", textwidth=10, command=self.edit)
         self.editbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         # Remove task button:
-        self.delbutton = TaskButton(self, text="Remove...", width=10, command=self.delete)
+        self.delbutton = CanvasButton(self, text="Remove...", textwidth=10, command=self.delete)
         self.delbutton.grid(row=4, column=3, sticky='w', padx=5, pady=5)
         # Export button:
-        self.exportbutton = TaskButton(self, text="Export...", command=self.export)
+        self.exportbutton = CanvasButton(self, text="Export...", command=self.export)
         self.exportbutton.grid(row=4, column=4, padx=5, pady=5, sticky='e')
         # Filter button:
-        self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
+        self.filterbutton = CanvasButton(self, text="Filter...", command=self.filterwindow)
         self.filterbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
         # Filter button context menu:
         filter_context_menu = RightclickMenu(copy_item=False)
@@ -526,8 +525,8 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
-        TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
+        CanvasButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        CanvasButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", lambda event: self.get_task_id())
         self.listframe.taskslist.bind("<Double-1>", self.check_row)
         self.wait_window()
@@ -782,7 +781,7 @@ class TaskEditWindow(tk.Toplevel):
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
         # Place tags list:
         self.tags_update()
-        TaskButton(self, text='Edit tags', width=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        CanvasButton(self, text='Edit tags', textwidth=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
         # Frame containing time:
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1,
@@ -794,8 +793,8 @@ class TaskEditWindow(tk.Toplevel):
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
         #
         tk.Frame(self, height=40).grid(row=9)
-        TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
+        CanvasButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        CanvasButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
@@ -840,8 +839,8 @@ class TagsEditWindow(tk.Toplevel):
         self.grab_set()
         self.addentry()
         self.tags_update()
-        self.closebutton = TaskButton(self, text='Close', command=self.destroy)
-        self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
+        self.closebutton = CanvasButton(self, text='Close', command=self.destroy)
+        self.deletebutton = CanvasButton(self, text='Delete', command=self.delete)
         self.maxsize(width=500, height=500)
         self.window_elements_config()
         self.wait_window()
@@ -857,7 +856,7 @@ class TagsEditWindow(tk.Toplevel):
         """New element addition field"""
         self.addentry_label = tk.Label(self, text="Add tag:")
         self.addentry_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
+        CanvasButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
         self.addfield = tk.Entry(self, width=20)
         self.addfield.grid(row=0, column=1, sticky='ew')
         self.addfield.focus_set()
@@ -925,8 +924,8 @@ class TimestampsWindow(TagsEditWindow):
         """Configure some window parameters."""
         self.title("Timestamps: {}".format(self.db.find_by_clause('tasks', 'id', self.taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
-        TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        CanvasButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        CanvasButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         tk.Frame(self, height=40).grid(row=3)
         self.closebutton.grid(row=4, column=2, pady=5, padx=5, sticky='w')
         self.deletebutton.grid(row=4, column=0, pady=5, padx=5, sticky='e')
@@ -961,7 +960,7 @@ class HelpWindow(tk.Toplevel):
         main_frame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
-        TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
+        CanvasButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.bind("<Escape>", lambda e: self.destroy())
@@ -1078,8 +1077,8 @@ class FilterWindow(tk.Toplevel):
         self.tagslist = Tagslist(tags, self, width=200, height=300)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
-        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
-        TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
+        CanvasButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
+        CanvasButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
         tk.Frame(self, height=20).grid(row=3, column=0, columnspan=2, sticky='news')
         tk.Label(self, text="Filter operating mode:").grid(row=4, columnspan=2, pady=5)
         checkframe = tk.Frame(self)
@@ -1089,8 +1088,8 @@ class FilterWindow(tk.Toplevel):
         self.operating_mode.set(self.db.find_by_clause(table="options", field="name",
                                                        value="filter_operating_mode", searchfield="value")[0][0])
         tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
-        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
+        CanvasButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
+        CanvasButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
         self.grid_columnconfigure(0, weight=1)
@@ -1276,7 +1275,7 @@ class Options(tk.Toplevel):
         tk.Button(counterframe, width=3, text='-', command=self.decrease).grid(row=0, column=2)
         counterframe.grid(row=0, column=1)
         tk.Frame(self, height=20).grid(row=1)
-        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
+        CanvasButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
         self.wait_window()
 
@@ -1343,8 +1342,6 @@ def quit():
 
 # Maximum number of task frames:
 MAX_TASKS = 10
-# Default button height:
-DEFAULT_BUTTON_HEIGHT = 35
 # Check if tasks database actually exists:
 core.check_database()
 # Create options dictionary:
@@ -1369,9 +1366,10 @@ taskframes = MainFrame(run)         # Main window content.
 taskframes.grid(row=0, columnspan=5)
 run.bind("<Configure>", taskframes.reconf_canvas)
 tk.Frame(run, height=35).grid(row=1, columnspan=5)
-TaskButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Clear all", command=taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
+#run.update()
+CanvasButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+CanvasButton(run, text="Clear all", command=taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
+CanvasButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
 run.grid_rowconfigure(0, weight=1)
 # Make main window always appear in good position and with adequate size:
 run.update()
