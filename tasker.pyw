@@ -40,7 +40,7 @@ class TaskFrame(tk.Frame):
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', bg='red', fontsize=14, command=self.startstopbutton,
-                                        variable=self.startstopvar, image='resource/start.png')
+                                        variable=self.startstopvar, image='resource/start.png', opacity='left')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
@@ -244,11 +244,9 @@ class CanvasButton(tk.Canvas):
                  textheight=None, fontsize=9, opacity=None, relief='raised', bg=None, bd=2, state='normal',
                  takefocus=True, command=None):
         super().__init__(master=master)
-        # Button dimensions:
-        self.default_buttonwidth = 35
-        self.default_buttonheight = 35
         self.command = None
-        self.bdsize = bd
+        self.opacity = 'right'
+        bdsize = bd
         # configure canvas itself with applicable options:
         standard_options = {}
         for item in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
@@ -263,9 +261,9 @@ class CanvasButton(tk.Canvas):
         items_height = self.bbox('all')[3] - self.bbox('all')[1]
         # Set widget size:
         if not width:
-            self.config(width=items_width + items_width / 5 + self.bdsize * 2)
+            self.config(width=items_width + items_width / 5 + bdsize * 2)
         if not height:
-            self.config(height=items_height + items_height / 5 + self.bdsize * 2)
+            self.config(height=items_height + items_height / 5 + bdsize * 2)
         # Place all contents in the middle of the widget:
         self.move('all', (self.winfo_reqwidth() - items_width) / 2,
                   (self.winfo_reqheight() - items_height) / 2)
@@ -329,18 +327,20 @@ class CanvasButton(tk.Canvas):
         else:
             self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=bg, font=font, justify='center',
                                       state=self.cget('state'), width=textwidth, height=textheight)
-        self.create_window((self.default_buttonwidth + 2) if self.bbox('image') else 0, 0, anchor='nw',
+        if self.bbox('image'):
+            x_multiplier = self.bbox('image')[2] - self.bbox('image')[0]
+            x_divider = x_multiplier / 6
+            y_multiplier = ((self.bbox('image')[3] - self.bbox('image')[1]) - self.textlabel.winfo_reqheight()) / 2
+        else:
+            x_multiplier = x_divider = y_multiplier = 0
+        self.create_window(x_multiplier + x_divider, y_multiplier, anchor='nw',
                            window=self.textlabel, tags='text')
-        """
-        text_length = (self.bbox('text')[2] - self.bbox('text')[0]) + 4
-        if opacity == 'left':
-            self.move('text', -(self.buttonwidth - 4), 0)
-            self.move('image', text_length + 4, 0)
-        self.buttonwidth = (self.buttonwidth if self.bbox('image') else 0) + text_length + 4
-        text_height = (self.bbox('text')[3] - self.bbox('text')[1]) + 4
-        if text_height > self.buttonheight:
-            self.buttonheight = text_height
-        """
+        # Swap text and image if needed:
+        if opacity == 'left' or self.opacity == 'left':
+            self.move('text', -(x_divider + x_multiplier), 0)
+            if self.opacity == 'right':
+                self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
+            self.opacity = 'left'
         self.textlabel.bind("<Button-1>", self.press_button)
         self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
