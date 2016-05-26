@@ -284,8 +284,7 @@ class CanvasButton(tk.Canvas):
     def config_button(self, **kwargs):
         """Specific configuration of this widget."""
         if 'image' in kwargs and kwargs['image']:
-            picture = tk.PhotoImage(file=kwargs['image'])
-            self.create_image(0, 0, image=picture, anchor='nw', tags='image')
+            self.add_image(kwargs['image'], opacity='right' if 'opacity' not in kwargs else kwargs['opacity'])
         if 'text' in kwargs and kwargs['text']:
             text = kwargs['text']
         elif 'variable' in kwargs and kwargs['variable']:
@@ -312,6 +311,20 @@ class CanvasButton(tk.Canvas):
                     kwargs.pop(option)
         tk.Canvas.config(self, **default_options)
         self.config_button(**kwargs)
+
+    def add_image(self, image, opacity='right'):
+        """Add image."""
+        if self.bbox('image'):
+            self.delete('image')
+        picture = tk.PhotoImage(file=image)
+        self.create_image(0, 0, image=picture, anchor='nw', tags='image')
+        if hasattr(self, "textlabel") and opacity == 'left':
+            x_multiplier = self.bbox('image')[2] - self.bbox('image')[0]
+            x_divider = x_multiplier / 6
+            self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
+            self.opacity = 'left'
+            # ToDo: check all combinations of opacities including changed with "config".
+
 
     def add_text(self, textorvariable, fontsize=None, bg=None, opacity="right", textwidth=None, textheight=None):
         """Add text. Text can be tkinter.Variable() or string."""
@@ -341,6 +354,8 @@ class CanvasButton(tk.Canvas):
             if self.opacity == 'right':
                 self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
             self.opacity = 'left'
+        elif opacity == 'right':
+            self.opacity = 'right'
         self.textlabel.bind("<Button-1>", self.press_button)
         self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
