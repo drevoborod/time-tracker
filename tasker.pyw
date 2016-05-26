@@ -34,12 +34,12 @@ class TaskFrame(tk.Frame):
         self.tasklabel = TaskLabel(self, width=50, anchor='w')
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
-        self.openbutton = CanvasButton(self, text="Task...", command=self.name_dialogue)
+        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
         # Task description field:
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
-        self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
+        self.startbutton = CanvasButton(self, state='disabled', bg='red', fontsize=14, command=self.startstopbutton,
                                         variable=self.startstopvar, image='resource/start.png')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
@@ -51,11 +51,11 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button = CanvasButton(self, text='View\ntimestamps...', state='disabled',
                                                      command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='wsn', padx=5)
-        self.properties = CanvasButton(self, text="Properties...", textwidth=10, state='disabled',
+        self.properties = TaskButton(self, text="Properties...", textwidth=9, state='disabled',
                                        command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         # Clear frame button:
-        self.clearbutton = CanvasButton(self, text='Clear', state='disabled', textwidth=7, command=self.clear)
+        self.clearbutton = TaskButton(self, text='Clear', state='disabled', textwidth=7, command=self.clear)
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.running_time = 0   # Current value of the counter.
         self.running = False
@@ -238,18 +238,12 @@ class TaskLabel(tk.Label):
         self.bind("<Button-3>", context_menu.context_menu_show)
 
 
-class TaskButton(tk.Button):
-    """Just a button with some default parameters."""
-    def __init__(self, parent, width=8, **kwargs):
-        super().__init__(master=parent, width=width, **kwargs)
-
-
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
-    def __init__(self, parent=None, image=None, text=None, variable=None, width=None, height=None, textwidth=None,
+    def __init__(self, master=None, image=None, text=None, variable=None, width=None, height=None, textwidth=None,
                  textheight=None, fontsize=9, opacity=None, relief='raised', bg=None, bd=2, state='normal',
                  takefocus=True, command=None):
-        super().__init__(master=parent)
+        super().__init__(master=master)
         # Button dimensions:
         self.default_buttonwidth = 35
         self.default_buttonheight = 35
@@ -263,15 +257,15 @@ class CanvasButton(tk.Canvas):
         tk.Canvas.config(self, **standard_options)
         # Configure widget with specific options:
         self.config_button(image=image, text=text, variable=variable, textwidth=textwidth, state=state,
-                           textheight=textheight, fontsize=fontsize, opacity=opacity, command=command)
+                           textheight=textheight, fontsize=fontsize, opacity=opacity, bg=bg, command=command)
         # Get items dimensions:
         items_width = self.bbox('all')[2] - self.bbox('all')[0]
         items_height = self.bbox('all')[3] - self.bbox('all')[1]
         # Set widget size:
         if not width:
-            self.config(width=items_width + self.bdsize * 2)
+            self.config(width=items_width + items_width / 5 + self.bdsize * 2)
         if not height:
-            self.config(height=items_height + self.bdsize * 2)
+            self.config(height=items_height + items_height / 5 + self.bdsize * 2)
         # Place all contents in the middle of the widget:
         self.move('all', (self.winfo_reqwidth() - items_width) / 2,
                   (self.winfo_reqheight() - items_height) / 2)
@@ -282,6 +276,7 @@ class CanvasButton(tk.Canvas):
         self.width = self.winfo_reqwidth()
 
     def _place(self, event):
+        """Correctly placing contents on widget resize."""
         y_move = (event.height - self.height) / 2
         x_move = (event.width - self.width) / 2
         self.move('all', x_move, y_move)
@@ -310,12 +305,13 @@ class CanvasButton(tk.Canvas):
         if 'command' in kwargs and kwargs['command']:
             self.command = kwargs['command']
 
-    def config_(self, **kwargs):
+    def config(self, **kwargs):
         default_options = {}
         for option in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
             if option in kwargs:
                 default_options[option] = kwargs[option]
-                kwargs.pop(option)
+                if option not in ('bg', 'state'):
+                    kwargs.pop(option)
         tk.Canvas.config(self, **default_options)
         self.config_button(**kwargs)
 
@@ -333,7 +329,7 @@ class CanvasButton(tk.Canvas):
         else:
             self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=bg, font=font, justify='center',
                                       state=self.cget('state'), width=textwidth, height=textheight)
-        self.create_window((self.default_buttonwidth + 2) if self.bbox('image') else 2, 2, anchor='nw',
+        self.create_window((self.default_buttonwidth + 2) if self.bbox('image') else 0, 0, anchor='nw',
                            window=self.textlabel, tags='text')
         """
         text_length = (self.bbox('text')[2] - self.bbox('text')[0]) + 4
@@ -365,7 +361,10 @@ class CanvasButton(tk.Canvas):
                 self.command()
 
 
-
+class TaskButton(CanvasButton):
+    """Just a button with some default parameters."""
+    def __init__(self, parent, textwidth=8, **kwargs):
+        super().__init__(master=parent, textwidth=textwidth, **kwargs)
 
 
 class TaskList(tk.Frame):
@@ -456,7 +455,7 @@ class TaskSelectionWindow(tk.Toplevel):
         addentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.addentry.bind("<Button-3>", addentry_context_menu.context_menu_show)
         # "Add task" button:
-        self.addbutton = CanvasButton(self, text="Add task", command=self.add_new_task, takefocus=False)
+        self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=False)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         # Entry for typing search requests:
         self.searchentry = tk.Entry(self, width=25)
@@ -468,10 +467,10 @@ class TaskSelectionWindow(tk.Toplevel):
         self.ignore_case.set(1)
         tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
         # Search button:
-        CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
+        TaskButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
             grid(row=1, column=3, sticky='w', padx=5, pady=5)
         # Refresh button:
-        CanvasButton(self, takefocus=False, image='resource/refresh.png', command=self.update_list).grid(row=1, column=4,
+        TaskButton(self, takefocus=False, image='resource/refresh.png', command=self.update_list).grid(row=1, column=4,
                                                                                      sticky='e', padx=5, pady=5)
         # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
@@ -486,22 +485,22 @@ class TaskSelectionWindow(tk.Toplevel):
         self.description = Description(self, height=4)
         self.description.grid(row=3, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         # "Select all" button:
-        selbutton = CanvasButton(self, text="Select all", command=self.select_all)
+        selbutton = TaskButton(self, text="Select all", command=self.select_all)
         selbutton.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
-        clearbutton = CanvasButton(self, text="Clear all", command=self.clear_all)
+        clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)
         clearbutton.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
-        self.editbutton = CanvasButton(self, text="Properties...", textwidth=10, command=self.edit)
+        self.editbutton = TaskButton(self, text="Properties...", textwidth=10, command=self.edit)
         self.editbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         # Remove task button:
-        self.delbutton = CanvasButton(self, text="Remove...", textwidth=10, command=self.delete)
+        self.delbutton = TaskButton(self, text="Remove...", textwidth=10, command=self.delete)
         self.delbutton.grid(row=4, column=3, sticky='w', padx=5, pady=5)
         # Export button:
-        self.exportbutton = CanvasButton(self, text="Export...", command=self.export)
+        self.exportbutton = TaskButton(self, text="Export...", command=self.export)
         self.exportbutton.grid(row=4, column=4, padx=5, pady=5, sticky='e')
         # Filter button:
-        self.filterbutton = CanvasButton(self, text="Filter...", command=self.filterwindow)
+        self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
         self.filterbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
         # Filter button context menu:
         filter_context_menu = RightclickMenu(copy_item=False)
@@ -528,8 +527,8 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
-        CanvasButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        CanvasButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
+        TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", lambda event: self.get_task_id())
         self.listframe.taskslist.bind("<Double-1>", self.check_row)
         self.wait_window()
@@ -784,7 +783,7 @@ class TaskEditWindow(tk.Toplevel):
         tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
         # Place tags list:
         self.tags_update()
-        CanvasButton(self, text='Edit tags', textwidth=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        TaskButton(self, text='Edit tags', textwidth=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
         tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
         # Frame containing time:
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1,
@@ -796,8 +795,8 @@ class TaskEditWindow(tk.Toplevel):
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
         #
         tk.Frame(self, height=40).grid(row=9)
-        CanvasButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        CanvasButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
+        TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
@@ -842,8 +841,8 @@ class TagsEditWindow(tk.Toplevel):
         self.grab_set()
         self.addentry()
         self.tags_update()
-        self.closebutton = CanvasButton(self, text='Close', command=self.destroy)
-        self.deletebutton = CanvasButton(self, text='Delete', command=self.delete)
+        self.closebutton = TaskButton(self, text='Close', command=self.destroy)
+        self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
         self.maxsize(width=500, height=500)
         self.window_elements_config()
         self.wait_window()
@@ -859,7 +858,7 @@ class TagsEditWindow(tk.Toplevel):
         """New element addition field"""
         self.addentry_label = tk.Label(self, text="Add tag:")
         self.addentry_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
-        CanvasButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
+        TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
         self.addfield = tk.Entry(self, width=20)
         self.addfield.grid(row=0, column=1, sticky='ew')
         self.addfield.focus_set()
@@ -927,8 +926,8 @@ class TimestampsWindow(TagsEditWindow):
         """Configure some window parameters."""
         self.title("Timestamps: {}".format(self.db.find_by_clause('tasks', 'id', self.taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
-        CanvasButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        CanvasButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         tk.Frame(self, height=40).grid(row=3)
         self.closebutton.grid(row=4, column=2, pady=5, padx=5, sticky='w')
         self.deletebutton.grid(row=4, column=0, pady=5, padx=5, sticky='e')
@@ -963,7 +962,7 @@ class HelpWindow(tk.Toplevel):
         main_frame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
-        CanvasButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
+        TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.bind("<Escape>", lambda e: self.destroy())
@@ -1080,8 +1079,8 @@ class FilterWindow(tk.Toplevel):
         self.tagslist = Tagslist(tags, self, width=200, height=300)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
-        CanvasButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
-        CanvasButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
+        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
+        TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
         tk.Frame(self, height=20).grid(row=3, column=0, columnspan=2, sticky='news')
         tk.Label(self, text="Filter operating mode:").grid(row=4, columnspan=2, pady=5)
         checkframe = tk.Frame(self)
@@ -1091,8 +1090,8 @@ class FilterWindow(tk.Toplevel):
         self.operating_mode.set(self.db.find_by_clause(table="options", field="name",
                                                        value="filter_operating_mode", searchfield="value")[0][0])
         tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
-        CanvasButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
-        CanvasButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
+        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
         self.grid_columnconfigure(0, weight=1)
@@ -1278,7 +1277,7 @@ class Options(tk.Toplevel):
         tk.Button(counterframe, width=3, text='-', command=self.decrease).grid(row=0, column=2)
         counterframe.grid(row=0, column=1)
         tk.Frame(self, height=20).grid(row=1)
-        CanvasButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
+        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
         self.wait_window()
 
@@ -1369,10 +1368,9 @@ taskframes = MainFrame(run)         # Main window content.
 taskframes.grid(row=0, columnspan=5)
 run.bind("<Configure>", taskframes.reconf_canvas)
 tk.Frame(run, height=35).grid(row=1, columnspan=5)
-#run.update()
-CanvasButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-CanvasButton(run, text="Clear all", command=taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
-CanvasButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
+TaskButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+TaskButton(run, text="Clear all", command=taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
+TaskButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
 run.grid_rowconfigure(0, weight=1)
 # Make main window always appear in good position and with adequate size:
 run.update()
