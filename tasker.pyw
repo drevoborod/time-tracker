@@ -247,38 +247,52 @@ class TaskButton(tk.Button):
 class CanvasButton(tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
     def __init__(self, parent=None, image=None, text=None, variable=None, width=None, height=None, textwidth=None,
-                 textheight=None, fontsize=None, opacity=None, relief='raised', bg=None, bd=2, state='normal',
+                 textheight=None, fontsize=9, opacity=None, relief='raised', bg=None, bd=2, state='normal',
                  takefocus=True, command=None):
         super().__init__(master=parent)
         # Button dimensions:
         self.default_buttonwidth = 35
         self.default_buttonheight = 35
-        self.height = 1
-        self.width = 1
         self.command = None
+        self.bdsize = bd
         # configure canvas itself with applicable options:
         standard_options = {}
         for item in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
             if eval(item) is not None:  # Such check because value of item can be 0.
                 standard_options[item] = eval(item)
         tk.Canvas.config(self, **standard_options)
-        # configure widget with specific options:
+        # Configure widget with specific options:
         self.config_button(image=image, text=text, variable=variable, textwidth=textwidth, state=state,
                            textheight=textheight, fontsize=fontsize, opacity=opacity, command=command)
+        # Get items dimensions:
+        items_width = self.bbox('all')[2] - self.bbox('all')[0]
+        items_height = self.bbox('all')[3] - self.bbox('all')[1]
+        # Set widget size:
+        if not width:
+            self.config(width=items_width + self.bdsize * 2)
+        if not height:
+            self.config(height=items_height + self.bdsize * 2)
+        # Place all contents in the middle of the widget:
+        self.move('all', (self.winfo_reqwidth() - items_width) / 2,
+                  (self.winfo_reqheight() - items_height) / 2)
         self.bind("<Button-1>", self.press_button)
         self.bind("<ButtonRelease-1>", self.release_button)
-        self.bind("<Configure>", self.place)
+        self.bind("<Configure>", self._place)
+        self.height = self.winfo_reqheight()
+        self.width = self.winfo_reqwidth()
 
-    def place(self, event):
-        self.update()
-        self.config(width=70, height=40)
-        print(event.width, event.height)
+    def _place(self, event):
+        y_move = (event.height - self.height) / 2
+        x_move = (event.width - self.width) / 2
+        self.move('all', x_move, y_move)
+        self.height = event.height
+        self.width = event.width
 
     def config_button(self, **kwargs):
         """Specific configuration of this widget."""
         if 'image' in kwargs and kwargs['image']:
             picture = tk.PhotoImage(file=kwargs['image'])
-            self.create_image(0, 0, image=picture, anchor='nw')
+            self.create_image(0, 0, image=picture, anchor='nw', tags='image')
         if 'text' in kwargs and kwargs['text']:
             text = kwargs['text']
         elif 'variable' in kwargs and kwargs['variable']:
@@ -296,7 +310,7 @@ class CanvasButton(tk.Canvas):
         if 'command' in kwargs and kwargs['command']:
             self.command = kwargs['command']
 
-    def config(self, **kwargs):
+    def config_(self, **kwargs):
         default_options = {}
         for option in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
             if option in kwargs:
@@ -305,7 +319,7 @@ class CanvasButton(tk.Canvas):
         tk.Canvas.config(self, **default_options)
         self.config_button(**kwargs)
 
-    def add_text(self, textorvariable, fontsize=9, bg=None, opacity="right", textwidth=None, textheight=None):
+    def add_text(self, textorvariable, fontsize=None, bg=None, opacity="right", textwidth=None, textheight=None):
         """Add text. Text can be tkinter.Variable() or string."""
         if fontsize:
             font = fonter.Font(size=fontsize)
@@ -333,17 +347,6 @@ class CanvasButton(tk.Canvas):
         """
         self.textlabel.bind("<Button-1>", self.press_button)
         self.textlabel.bind("<ButtonRelease-1>", self.release_button)
-
-    def resize(self, event):
-        # determine the ratio of old width/height to new width/height
-        wscale = event.width / self.width
-        hscale = event.height / self.height
-        self.width = event.width
-        self.height = event.height
-        # resize the canvas
-        tk.Canvas.config(self, width=self.width, height=self.height)
-        # rescale all the objects tagged with the "all" tag
-        self.scale("all", 0, 0, wscale, hscale)
 
     def press_button(self, event):
         """AWill be executed on button press."""
@@ -440,7 +443,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.main_script = 'SELECT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
                            'sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id'
         self.title("Task selection")
-        self.minsize(width=450, height=300)
+        self.minsize(width=500, height=350)
         self.grab_set()
         tk.Label(self, text="New task:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
         # New task entry field:
@@ -505,8 +508,8 @@ class TaskSelectionWindow(tk.Toplevel):
         filter_context_menu.add_command(label='Clear filter', command=self.apply_filter)
         self.filterbutton.bind("<Button-3>", filter_context_menu.context_menu_show)
         tk.Frame(self, height=40).grid(row=5, columnspan=5, sticky='news')
-        self.grid_columnconfigure(2, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=1, minsize=50)
+        self.grid_rowconfigure(2, weight=1, minsize=50)
         self.update_list()      # Fill table contents.
         self.current_task = ''      # Current selected task.
         self.listframe.taskslist.bind("<Down>", self.descr_down)
