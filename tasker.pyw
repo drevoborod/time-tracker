@@ -454,6 +454,8 @@ class TaskSelectionWindow(tk.Toplevel):
         super().__init__(master=parent, **options)
         # Initialize database operating class:
         self.db = core.Db()
+        if parent:
+            self.lift(parent)
         # Variable which will contain selected task id:
         if taskvar:
             self.taskidvar = taskvar
@@ -771,6 +773,8 @@ class TaskEditWindow(tk.Toplevel):
     """Task properties window."""
     def __init__(self, taskid, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
+        if parent:
+            self.lift(parent)
         # Connected with external IntVar. Needed to avoid unnecessary operations in parent window:
         self.change = variable
         self.db = core.Db()
@@ -861,6 +865,8 @@ class TagsEditWindow(tk.Toplevel):
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         self.parent = parent
+        if parent:
+            self.lift(parent)
         self.db = core.Db()
         self.grab_set()
         self.addentry()
@@ -1082,6 +1088,8 @@ class FilterWindow(tk.Toplevel):
         super().__init__(master=parent, **options)
         self.grab_set()
         self.focus_set()
+        if parent:
+            self.lift(parent)
         self.db = core.Db()
         self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
@@ -1305,6 +1313,7 @@ class Options(tk.Toplevel):
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
+        self.on_top = tk.IntVar(self, value=int(global_options['always_on_top']))
         tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
         counterframe = tk.Frame(self)
         tk.Button(counterframe, width=3, text='+', command=self.increase).grid(row=0, column=0)
@@ -1312,12 +1321,29 @@ class Options(tk.Toplevel):
         tk.Button(counterframe, width=3, text='-', command=self.decrease).grid(row=0, column=2)
         counterframe.grid(row=0, column=1)
         tk.Frame(self, height=20).grid(row=1)
-        TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
+        tk.Label(self, text="Always on top: ").grid(row=2, column=0, sticky='w', padx=5)
+        tk.Checkbutton(self, variable=self.on_top, command=self.toggle_on_top).grid(row=2, column=1, sticky='w', padx=5)
+        tk.Frame(self, height=20).grid(row=3)
+        TaskButton(self, text='Close', command=self.destroy).grid(row=4, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
         self.bind("<Escape>", lambda e: self.destroy())
         place_window(self, parent)
         self.focus_set()
+        self.lift(parent)
         self.wait_window()
+
+    def toggle_on_top(self):
+        """Toggle 'always on top' option."""
+        state = self.on_top.get()
+        db = core.Db()
+        db.update(table='options', field='value', value=str(state),
+                  field_id='always_on_top', updfiled='name')
+        global_options['always_on_top'] = str(state)
+        if state == 1:
+            run.wm_attributes("-topmost", 1)
+            self.lift(run)
+        else:
+            run.wm_attributes("-topmost", 0)
 
     def increase(self):
         if self.counter.get() < MAX_TASKS:
@@ -1354,6 +1380,8 @@ class MainWindow(tk.Tk):
         else:
             window_height = self.winfo_screenheight() - 250
         self.geometry('%dx%d+100+50' % (self.winfo_width(), window_height))
+        if global_options['always_on_top'] == '1':
+            self.wm_attributes("-topmost", 1)
 
     def stopall(self):
         """Stop all running timers."""
@@ -1375,9 +1403,11 @@ def place_window(widget, parent):
     """Place widget on top of parent."""
     if parent:
         widget.geometry('+%d+%d' % (parent.winfo_rootx(), parent.winfo_rooty()))
+    # ToDo: Make these windows appear always in borders of the screen.
 
 
 def helpwindow(parent=None, text=None):
+    """Show simple help window with given text."""
     HelpWindow(parent, text)
 
 
