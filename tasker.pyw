@@ -967,14 +967,14 @@ class TimestampsWindow(TagsEditWindow):
 
 class HelpWindow(tk.Toplevel):
     """Help window."""
-    def __init__(self, parent=None, **options):
+    def __init__(self, parent=None, text='', **options):
         super().__init__(master=parent, **options)
         self.title("Help")
         main_frame = tk.Frame(self)
         self.helptext = tk.Text(main_frame, wrap='word')
         scroll = tk.Scrollbar(main_frame, command=self.helptext.yview)
         self.helptext.config(yscrollcommand=scroll.set)
-        self.helptext.insert(1.0, core.HELP_TEXT)
+        self.helptext.insert(1.0, text)
         self.helptext.config(state='disabled')
         scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
@@ -1255,8 +1255,8 @@ class MainMenu(tk.Menu):
         file.add_command(label="Exit", command=quit, underline=1)
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
-        helpmenu.add_command(label="Help...", command=helpwindow)
-        helpmenu.add_command(label="About...", command=aboutwindow)
+        helpmenu.add_command(label="Help...", command=lambda: helpwindow(text=core.HELP_TEXT))
+        helpmenu.add_command(label="About...", command=self.aboutwindow)
         self.add_cascade(label="Help", menu=helpmenu)
 
     def options_window(self):
@@ -1279,6 +1279,10 @@ class MainMenu(tk.Menu):
                       field_id='timers_count', updfiled='name')
             global_options['timers_count'] = count
             run.taskframes.fill()
+
+    def aboutwindow(self):
+        showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
+            global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
 
 
 class Options(tk.Toplevel):
@@ -1323,7 +1327,7 @@ class MainWindow(tk.Tk):
         self.taskframes.grid(row=0, columnspan=5)
         self.bind("<Configure>", self.taskframes.reconf_canvas)
         tk.Frame(self, height=35).grid(row=1, columnspan=5)
-        TaskButton(self, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+        TaskButton(self, text="Stop all", command=self.stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
         TaskButton(self, text="Clear all", command=self.taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5,
                                                                              padx=5)
         TaskButton(self, text="Quit", command=self.destroy).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
@@ -1335,6 +1339,10 @@ class MainWindow(tk.Tk):
         else:
             window_height = self.winfo_screenheight() - 250
         self.geometry('%dx%d+100+50' % (self.winfo_width(), window_height))
+
+    def stopall(self):
+        """Stop all running timers."""
+        global_options["stopall"] = True
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -1348,13 +1356,8 @@ def big_font(unit, size=20):
     unit.config(font=(fontname, size))
 
 
-def helpwindow():
-    HelpWindow(run)
-
-
-def aboutwindow():
-    showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
-        global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
+def helpwindow(parent=None, text=None):
+    HelpWindow(parent, text)
 
 
 def copy_to_clipboard():
@@ -1375,11 +1378,6 @@ def paste_from_clipboard():
         global_options["selected_widget"].insert(tk.INSERT, global_options["selected_widget"].clipboard_get())
     elif isinstance(global_options["selected_widget"], tk.Entry):
         global_options["selected_widget"].insert(0, global_options["selected_widget"].clipboard_get())
-
-
-def stopall():
-    """Stop all running timers."""
-    global_options["stopall"] = True
 
 
 def get_options():
