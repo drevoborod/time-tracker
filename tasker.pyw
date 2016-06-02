@@ -39,7 +39,7 @@ class TaskFrame(tk.Frame):
         # Task description field:
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
-        self.startbutton = CanvasButton(self, state='disabled', bg='red', fontsize=14, command=self.startstopbutton,
+        self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
                                         variable=self.startstopvar, image='resource/start.png', opacity='left')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
@@ -244,6 +244,7 @@ class CanvasButton(tk.Canvas):
                  textheight=None, fontsize=9, opacity=None, relief='raised', bg=None, bd=2, state='normal',
                  takefocus=True, command=None):
         super().__init__(master=master)
+        self.pressed = False
         self.command = None
         bdsize = bd
         self.bg = bg
@@ -365,16 +366,18 @@ class CanvasButton(tk.Canvas):
         if self.cget('state') == 'normal':
             self.config(relief='sunken')
             self.move('all', 1, 1)
+            self.pressed = True
 
     def release_button(self, event):
         """Will be executed on mouse button release."""
-        if self.cget('state') == 'normal':
+        if self.cget('state') == 'normal' and self.pressed:
             self.config(relief='raised')
             self.move('all', -1, -1)
             if callable(self.command) and event.x_root in range(self.winfo_rootx(), self.winfo_rootx() +
                     self.winfo_width()) and event.y_root in range(self.winfo_rooty(), self.winfo_rooty() +
                     self.winfo_height()):
                 self.command()
+        self.pressed = False
 
 
 class TaskButton(CanvasButton):
@@ -1275,7 +1278,7 @@ class MainMenu(tk.Menu):
             db.update(table='options', field='value', value=str(count),
                       field_id='timers_count', updfiled='name')
             global_options['timers_count'] = count
-            taskframes.fill()
+            run.taskframes.fill()
 
 
 class Options(tk.Toplevel):
@@ -1304,6 +1307,39 @@ class Options(tk.Toplevel):
     def decrease(self):
         if self.counter.get() > 1:
             self.counter.set(self.counter.get() - 1)
+
+
+class MainWindow(tk.Tk):
+    def __init__(self, **options):
+        super().__init__(**options)
+        # Default widget colour:
+        global_options["colour"] = self.cget('bg')
+        self.title("Tasker")
+        self.minsize(height=250, width=0)
+        self.resizable(width=0, height=1)
+        main_menu = MainMenu(self)  # Create main menu.
+        self.config(menu=main_menu)
+        self.taskframes = MainFrame(self)  # Main window content.
+        self.taskframes.grid(row=0, columnspan=5)
+        self.bind("<Configure>", self.taskframes.reconf_canvas)
+        tk.Frame(self, height=35).grid(row=1, columnspan=5)
+        TaskButton(self, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+        TaskButton(self, text="Clear all", command=self.taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5,
+                                                                             padx=5)
+        TaskButton(self, text="Quit", command=self.destroy).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
+        self.grid_rowconfigure(0, weight=1)
+        # Make main window always appear in good position and with adequate size:
+        self.update()
+        if self.winfo_height() < self.winfo_screenheight() - 250:
+            window_height = self.winfo_height()
+        else:
+            window_height = self.winfo_screenheight() - 250
+        self.geometry('%dx%d+100+50' % (self.winfo_width(), window_height))
+
+    def destroy(self):
+        answer = askyesno("Quit confirmation", "Do you really want to quit?")
+        if answer:
+            tk.Tk.destroy(self)
 
 
 def big_font(unit, size=20):
@@ -1352,12 +1388,6 @@ def get_options():
     return {x[0]: x[1] for x in db.find_all(table='options')}
 
 
-def quit():
-    answer = askyesno("Quit confirmation", "Do you really want to quit?")
-    if answer:
-        run.destroy()
-
-
 # Maximum number of task frames:
 MAX_TASKS = 10
 # Check if tasks database actually exists:
@@ -1372,34 +1402,6 @@ global_options["stopall"] = False
 global_options["selected_widget"] = None
 
 # Main window:
-run = tk.Tk()
-# Default widget colour:
-global_options["colour"] = run.cget('bg')
-run.title("Tasker")
-run.minsize(height=250, width=0)
-run.resizable(width=0, height=1)
-main_menu = MainMenu(run)           # Create main menu.
-run.config(menu=main_menu)
-taskframes = MainFrame(run)         # Main window content.
-taskframes.grid(row=0, columnspan=5)
-run.bind("<Configure>", taskframes.reconf_canvas)
-tk.Frame(run, height=35).grid(row=1, columnspan=5)
-TaskButton(run, text="Stop all", command=stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-TaskButton(run, text="Clear all", command=taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
-TaskButton(run, text="Quit", command=quit).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
-run.grid_rowconfigure(0, weight=1)
-# Make main window always appear in good position and with adequate size:
-run.update()
-if run.winfo_height() < run.winfo_screenheight() - 250:
-    window_height = run.winfo_height()
-else:
-    window_height = run.winfo_screenheight() - 250
-run.geometry('%dx%d+100+50' % (run.winfo_width(), window_height))
-
+run = MainWindow()
 run.mainloop()
 
-
-# ToDo: Fix: Даблклик на списке задач пробивает на кастомные кнопки основного окна.
-# изображения
-# переопределить bind
-# размещение элементов, добавленных после создания виджета
