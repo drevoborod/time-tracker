@@ -75,8 +75,12 @@ class TaskFrame(tk.Frame):
         """Changes "Start/Stop" button state. """
         if self.running:
             self.timer_stop()
+            self.startbutton.config(image='resource/start.png')
+            self.startstopvar.set("Start")
         else:
             self.timer_start()
+            self.startbutton.config(image='resource/stop.png')
+            self.startstopvar.set("Stop")
 
     def properties_window(self):
         """Task properties window."""
@@ -193,8 +197,6 @@ class TaskFrame(tk.Frame):
             self.start_today_time = time.time() - self.task[-1]
             self.timer_update()
             self.running = True
-            self.startstopvar.set("Stop")
-            self.startbutton.config(image='stop')
 
     def timer_stop(self):
         """Stop counter and save its value to database."""
@@ -208,8 +210,6 @@ class TaskFrame(tk.Frame):
             self.check_date()
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
-            self.startstopvar.set("Start")
-            self.startbutton.config(image='start')
             self.update_description()
 
     def update_description(self):
@@ -245,14 +245,17 @@ class CanvasButton(tk.Canvas):
                  takefocus=True, command=None):
         super().__init__(master=master)
         self.command = None
-        self.opacity = 'right'
         bdsize = bd
+        self.bg = bg
         # configure canvas itself with applicable options:
         standard_options = {}
         for item in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
             if eval(item) is not None:  # Such check because value of item can be 0.
                 standard_options[item] = eval(item)
-        tk.Canvas.config(self, **standard_options)
+        super().config(**standard_options)
+        self.bind("<Button-1>", self.press_button)
+        self.bind("<ButtonRelease-1>", self.release_button)
+        self.bind("<Configure>", self._place)       # Need to be before call of config_button()!
         # Configure widget with specific options:
         self.config_button(image=image, text=text, variable=variable, textwidth=textwidth, state=state,
                            textheight=textheight, fontsize=fontsize, opacity=opacity, bg=bg, command=command)
@@ -263,15 +266,17 @@ class CanvasButton(tk.Canvas):
         if not width:
             self.config(width=items_width + items_width / 5 + bdsize * 2)
         if not height:
-            self.config(height=items_height + items_height / 5 + bdsize * 2)
+            self.config(height=items_height + ((items_height / 5) if image else (items_height / 2)) + bdsize * 2)
         # Place all contents in the middle of the widget:
         self.move('all', (self.winfo_reqwidth() - items_width) / 2,
                   (self.winfo_reqheight() - items_height) / 2)
-        self.bind("<Button-1>", self.press_button)
-        self.bind("<ButtonRelease-1>", self.release_button)
-        self.bind("<Configure>", self._place)
         self.height = self.winfo_reqheight()
         self.width = self.winfo_reqwidth()
+
+    def bind(self, sequence=None, func=None, add=None):
+        super().bind(sequence, func, add)
+        for child in self.winfo_children():
+            child.bind(sequence, func, add)
 
     def _place(self, event):
         """Correctly placing contents on widget resize."""
@@ -309,22 +314,17 @@ class CanvasButton(tk.Canvas):
                 default_options[option] = kwargs[option]
                 if option not in ('bg', 'state'):
                     kwargs.pop(option)
-        tk.Canvas.config(self, **default_options)
+        super().config(**default_options)
         self.config_button(**kwargs)
 
     def add_image(self, image, opacity='right'):
         """Add image."""
+        coords = [0, 0]
         if self.bbox('image'):
+            coords = self.coords('image')   # New image will appear at the same place as previous.
             self.delete('image')
-        picture = tk.PhotoImage(file=image)
-        self.create_image(0, 0, image=picture, anchor='nw', tags='image')
-        if hasattr(self, "textlabel") and opacity == 'left':
-            x_multiplier = self.bbox('image')[2] - self.bbox('image')[0]
-            x_divider = x_multiplier / 6
-            self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
-            self.opacity = 'left'
-            # ToDo: check all combinations of opacities including changed with "config".
-
+        self.picture = tk.PhotoImage(file=image)    # 'self' need to override garbage collection action.
+        self.create_image(coords[0], coords[1], image=self.picture, anchor='nw', tag='image')
 
     def add_text(self, textorvariable, fontsize=None, bg=None, opacity="right", textwidth=None, textheight=None):
         """Add text. Text can be tkinter.Variable() or string."""
@@ -332,13 +332,18 @@ class CanvasButton(tk.Canvas):
             font = fonter.Font(size=fontsize)
         else:
             font = fonter.Font()
+        if bg:
+            self.bg = bg
+        recreate = False
         if hasattr(self, 'textlabel'):
+            coords = self.coords('text')    # New text will appear at the same place as previous.
+            recreate = True
             self.delete(self.textlabel)
         if isinstance(textorvariable, tk.Variable):
-            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg=bg, font=font, justify='center',
+            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg=self.bg, font=font, justify='center',
                                       state=self.cget('state'), width=textwidth, height=textheight)
         else:
-            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=bg, font=font, justify='center',
+            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=self.bg, font=font, justify='center',
                                       state=self.cget('state'), width=textwidth, height=textheight)
         if self.bbox('image'):
             x_multiplier = self.bbox('image')[2] - self.bbox('image')[0]
@@ -346,21 +351,17 @@ class CanvasButton(tk.Canvas):
             y_multiplier = ((self.bbox('image')[3] - self.bbox('image')[1]) - self.textlabel.winfo_reqheight()) / 2
         else:
             x_multiplier = x_divider = y_multiplier = 0
-        self.create_window(x_multiplier + x_divider, y_multiplier, anchor='nw',
-                           window=self.textlabel, tags='text')
+        self.create_window(coords[0] if recreate else x_multiplier + x_divider, coords[1] if recreate else y_multiplier,
+                           anchor='nw', window=self.textlabel, tags='text')
         # Swap text and image if needed:
-        if opacity == 'left' or self.opacity == 'left':
+        if opacity == 'left':
             self.move('text', -(x_divider + x_multiplier), 0)
-            if self.opacity == 'right':
-                self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
-            self.opacity = 'left'
-        elif opacity == 'right':
-            self.opacity = 'right'
+            self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
         self.textlabel.bind("<Button-1>", self.press_button)
         self.textlabel.bind("<ButtonRelease-1>", self.release_button)
 
     def press_button(self, event):
-        """AWill be executed on button press."""
+        """Will be executed on button press."""
         if self.cget('state') == 'normal':
             self.config(relief='sunken')
             self.move('all', 1, 1)
@@ -482,7 +483,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.ignore_case.set(1)
         tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
         # Search button:
-        TaskButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
+        CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
             grid(row=1, column=3, sticky='w', padx=5, pady=5)
         # Refresh button:
         TaskButton(self, takefocus=False, image='resource/refresh.png', command=self.update_list).grid(row=1, column=4,
@@ -1399,3 +1400,6 @@ run.mainloop()
 
 
 # ToDo: Fix: Даблклик на списке задач пробивает на кастомные кнопки основного окна.
+# изображения
+# переопределить bind
+# размещение элементов, добавленных после создания виджета
