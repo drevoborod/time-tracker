@@ -546,10 +546,12 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
+        self.bind("<Escape>", lambda e: self.destroy())
         TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", lambda event: self.get_task_id())
         self.listframe.taskslist.bind("<Double-1>", self.check_row)
+        place_window(self, run)
         self.wait_window()
 
     def check_row(self, event):
@@ -816,10 +818,12 @@ class TaskEditWindow(tk.Toplevel):
         tk.Frame(self, height=40).grid(row=9)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
+        self.bind("<Escape>", lambda e: self.destroy())
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
         self.description.text.focus_set()
+        place_window(self, parent)
         self.wait_window()
 
     def tags_edit(self):
@@ -856,6 +860,7 @@ class TagsEditWindow(tk.Toplevel):
     """Checkbuttons editing window.."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
+        self.parent = parent
         self.db = core.Db()
         self.grab_set()
         self.addentry()
@@ -864,10 +869,13 @@ class TagsEditWindow(tk.Toplevel):
         self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
         self.maxsize(width=500, height=500)
         self.window_elements_config()
+        self.focus_set()
+        self.bind("<Escape>", lambda e: self.destroy())
         self.wait_window()
 
     def window_elements_config(self):
         """Window additional parameters configuration."""
+        place_window(self, self.parent)
         self.title("Tags editor")
         self.minsize(width=300, height=300)
         self.closebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
@@ -943,6 +951,7 @@ class TimestampsWindow(TagsEditWindow):
 
     def window_elements_config(self):
         """Configure some window parameters."""
+        place_window(self, run)
         self.title("Timestamps: {}".format(self.db.find_by_clause('tasks', 'id', self.taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
@@ -1072,6 +1081,7 @@ class FilterWindow(tk.Toplevel):
     def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
         self.grab_set()
+        self.focus_set()
         self.db = core.Db()
         self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
@@ -1111,11 +1121,13 @@ class FilterWindow(tk.Toplevel):
         tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
+        self.bind("<Escape>", lambda e: self.destroy())
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=5)
         self.grid_rowconfigure(1, weight=1)
+        place_window(self, parent)
         self.wait_window()
 
     def clear_dates(self):
@@ -1250,7 +1262,7 @@ class MainMenu(tk.Menu):
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         file = tk.Menu(self, tearoff=0)
-        file.add_command(label="Task frames...", command=self.options_window, underline=0)
+        file.add_command(label="Options...", command=self.options_window, underline=0)
         file.add_separator()
         file.add_command(label="Exit", command=quit, underline=1)
         self.add_cascade(label="Main menu", menu=file, underline=0)
@@ -1302,6 +1314,9 @@ class Options(tk.Toplevel):
         tk.Frame(self, height=20).grid(row=1)
         TaskButton(self, text='Close', command=self.destroy).grid(row=2, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
+        self.bind("<Escape>", lambda e: self.destroy())
+        place_window(self, parent)
+        self.focus_set()
         self.wait_window()
 
     def increase(self):
@@ -1354,6 +1369,12 @@ def big_font(unit, size=20):
     """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
+
+
+def place_window(widget, parent):
+    """Place widget on top of parent."""
+    if parent:
+        widget.geometry('+%d+%d' % (parent.winfo_rootx(), parent.winfo_rooty()))
 
 
 def helpwindow(parent=None, text=None):
