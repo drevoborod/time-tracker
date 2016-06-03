@@ -873,9 +873,11 @@ class TaskEditWindow(tk.Toplevel):
         taskdata = self.description.get().rstrip()
         self.db.update_task(self.task[0], field='description', value=taskdata)
         # Renew tags list for the task:
+        existing_tags = [x[0] for x in self.db.find_by_clause('tasks_tags', 'task_id', self.task[0], 'tag_id')]
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
-                self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
+                if item[0] not in existing_tags:
+                    self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
                 self.db.exec_script('DELETE FROM tasks_tags WHERE task_id={0} AND tag_id={1}'.format(self.task[0], item[0]))
         # Reporting to parent window that task has been changed:
@@ -1173,6 +1175,7 @@ class FilterWindow(tk.Toplevel):
         """Create database script based on checkboxes values."""
         dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
+        print(tags)
         if not dates and not tags:
             script = None
             self.operating_mode.set("AND")
