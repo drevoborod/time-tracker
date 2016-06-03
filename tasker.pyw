@@ -44,7 +44,7 @@ class TaskFrame(tk.Frame):
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
-        big_font(self.timer_window)
+        big_font(self.timer_window, size=20)
         self.timer_window.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = CanvasButton(self, text='Add\ntimestamp', state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, sticky='sn',  column=2, padx=5)
@@ -551,25 +551,24 @@ class TaskSelectionWindow(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
         TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
-        self.listframe.taskslist.bind("<Return>", lambda event: self.get_task_id())
-        self.listframe.taskslist.bind("<Double-1>", self.check_row)
+        self.listframe.taskslist.bind("<Return>", self.get_task_id)
+        self.listframe.taskslist.bind("<Double-1>", self.get_task_id)
         place_window(self, run)
         on_top_wait(self)
         self.wait_window()
 
-
     def check_row(self, event):
         """Check if mouse click is over the row, not another taskslist element."""
-        pos = self.listframe.taskslist.identify_row(event.y)
-        if pos and pos != '#0':
-            self.get_task_id()
+        if (event.type == '4' and len(self.listframe.taskslist.identify_row(event.y)) > 0) or (event.type == '2'):
+            return True
 
-    def get_task_id(self):
-        # List of selected tasks item id's:
-        tasks = self.listframe.taskslist.selection()
-        if tasks:
-            self.taskidvar.set(self.tdict[tasks[0]][0])
-            self.destroy()
+    def get_task_id(self, event):
+        if self.check_row(event):
+            # List of selected tasks item id's:
+            tasks = self.listframe.taskslist.selection()
+            if tasks:
+                self.taskidvar.set(self.tdict[tasks[0]][0])
+                self.destroy()
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
