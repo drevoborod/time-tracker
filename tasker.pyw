@@ -40,7 +40,8 @@ class TaskFrame(tk.Frame):
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
-                                        variable=self.startstopvar, image='resource/start.png', opacity='left')
+                                        variable=self.startstopvar, image='resource/start.png' if tk.TkVersion >= 8.6
+                                        else 'resource/start.pgm', opacity='left')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
@@ -75,11 +76,11 @@ class TaskFrame(tk.Frame):
         """Changes "Start/Stop" button state. """
         if self.running:
             self.timer_stop()
-            self.startbutton.config(image='resource/start.png')
+            self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
             self.startstopvar.set("Start")
         else:
             self.timer_start()
-            self.startbutton.config(image='resource/stop.png')
+            self.startbutton.config(image='resource/stop.png' if tk.TkVersion >= 8.6 else 'resource/stop.pgm')
             self.startstopvar.set("Stop")
 
     def properties_window(self):
@@ -392,7 +393,7 @@ class TaskList(tk.Frame):
     """Scrollable tasks table."""
     def __init__(self, columns, parent=None, **options):
         super().__init__(master=parent, **options)
-        self.taskslist = ttk.Treeview(self, takefocus=0)     # A table.
+        self.taskslist = ttk.Treeview(self)     # A table.
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.taskslist.yview)
         self.taskslist.config(yscrollcommand=scroller.set)
@@ -413,7 +414,7 @@ class TaskList(tk.Frame):
         """Sorting by click on column header."""
         if col == "time":
             shortlist = self._sort(1, reverse)
-        elif col == "date":   # Sorting with int, not str:
+        elif col == "date":
             shortlist = self._sort(2, reverse)
         else:
             shortlist = self._sort(0, reverse)
@@ -426,7 +427,7 @@ class TaskList(tk.Frame):
         l = []
         for index, task in enumerate(self.taskslist.get_children()):
             l.append((self.tasks[index][position], task))
-        # Also sort tasks list by corresponding field:
+        # Sort tasks list by corresponding field to match current sorting:
         self.tasks.sort(key=lambda x: x[position], reverse=reverse)
         return l
 
@@ -493,11 +494,11 @@ class TaskSelectionWindow(tk.Toplevel):
         tk.Checkbutton(self, text="Ignore case", takefocus=False, variable=self.ignore_case).grid(row=1, column=0,
                                                                                                   padx=6, pady=5, sticky='w')
         # Search button:
-        CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
-            grid(row=1, column=3, sticky='w', padx=5, pady=5)
+        CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png' if tk.TkVersion >= 8.6 else
+                     'resource/magnifier.pgm', command=self.locate_task).grid(row=1, column=3, sticky='w', padx=5, pady=5)
         # Refresh button:
-        TaskButton(self, takefocus=False, image='resource/refresh.png', command=self.update_list).grid(row=1, column=4,
-                                                                                     sticky='e', padx=5, pady=5)
+        TaskButton(self, takefocus=False, image='resource/refresh.png' if tk.TkVersion >= 8.6 else 'resource/refresh.pgm',
+                   command=self.update_list).grid(row=1, column=4, sticky='e', padx=5, pady=5)
         # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         # Scrollable tasks table:
