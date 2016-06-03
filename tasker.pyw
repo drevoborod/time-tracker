@@ -454,8 +454,8 @@ class TaskSelectionWindow(tk.Toplevel):
         super().__init__(master=parent, **options)
         # Initialize database operating class:
         self.db = core.Db()
-        if parent:
-            self.lift(parent)
+        #if parent:
+        #    self.lift(parent)
         # Variable which will contain selected task id:
         if taskvar:
             self.taskidvar = taskvar
@@ -554,7 +554,9 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<Return>", lambda event: self.get_task_id())
         self.listframe.taskslist.bind("<Double-1>", self.check_row)
         place_window(self, run)
+        on_top_wait(self)
         self.wait_window()
+
 
     def check_row(self, event):
         """Check if mouse click is over the row, not another taskslist element."""
@@ -773,8 +775,6 @@ class TaskEditWindow(tk.Toplevel):
     """Task properties window."""
     def __init__(self, taskid, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
-        if parent:
-            self.lift(parent)
         # Connected with external IntVar. Needed to avoid unnecessary operations in parent window:
         self.change = variable
         self.db = core.Db()
@@ -828,6 +828,7 @@ class TaskEditWindow(tk.Toplevel):
         self.grid_rowconfigure(4, weight=1)
         self.description.text.focus_set()
         place_window(self, parent)
+        on_top_wait(self)
         self.wait_window()
 
     def tags_edit(self):
@@ -865,8 +866,7 @@ class TagsEditWindow(tk.Toplevel):
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         self.parent = parent
-        if parent:
-            self.lift(parent)
+        on_top_wait(self)
         self.db = core.Db()
         self.grab_set()
         self.addentry()
@@ -1088,8 +1088,6 @@ class FilterWindow(tk.Toplevel):
         super().__init__(master=parent, **options)
         self.grab_set()
         self.focus_set()
-        if parent:
-            self.lift(parent)
         self.db = core.Db()
         self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
@@ -1136,6 +1134,7 @@ class FilterWindow(tk.Toplevel):
         self.grid_columnconfigure(1, weight=5)
         self.grid_rowconfigure(1, weight=1)
         place_window(self, parent)
+        on_top_wait(self)
         self.wait_window()
 
     def clear_dates(self):
@@ -1272,7 +1271,7 @@ class MainMenu(tk.Menu):
         file = tk.Menu(self, tearoff=0)
         file.add_command(label="Options...", command=self.options_window, underline=0)
         file.add_separator()
-        file.add_command(label="Exit", command=quit, underline=1)
+        file.add_command(label="Exit", command=self.exit, underline=1)
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
         helpmenu.add_command(label="Help...", command=lambda: helpwindow(text=core.HELP_TEXT))
@@ -1281,10 +1280,11 @@ class MainMenu(tk.Menu):
 
     def options_window(self):
         """Open options window."""
-        var = tk.IntVar(self)
+        var = tk.IntVar(self)   # counter of frames value.
+        ontop = tk.IntVar()     # 'always on top' option value.
+        ontop.set(int(global_options['always_on_top']))
         var.set(global_options['timers_count'])
-        Options(run, var)
-        run.lift()
+        Options(run, var, ontop)
         try:
             count = var.get()
         except tk.TclError:
@@ -1299,21 +1299,30 @@ class MainMenu(tk.Menu):
                       field_id='timers_count', updfiled='name')
             global_options['timers_count'] = count
             run.taskframes.fill()
+        if ontop.get() == 1:
+            run.wm_attributes("-topmost", 1)
+        else:
+            run.wm_attributes("-topmost", 0)
+        run.lift()
+
 
     def aboutwindow(self):
         showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
             global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
 
+    def exit(self):
+        run.destroy()
+
 
 class Options(tk.Toplevel):
     """Options window which can be opened from main menu."""
-    def __init__(self, parent, counter, **options):
+    def __init__(self, parent, counter, ontopvar, **options):
         super().__init__(master=parent, width=300, height=200, **options)
         self.grab_set()
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
-        self.on_top = tk.IntVar(self, value=int(global_options['always_on_top']))
+        self.on_top = ontopvar
         tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
         counterframe = tk.Frame(self)
         tk.Button(counterframe, width=3, text='+', command=self.increase).grid(row=0, column=0)
@@ -1329,7 +1338,7 @@ class Options(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
         place_window(self, parent)
         self.focus_set()
-        self.lift(parent)
+        on_top_wait(self)
         self.wait_window()
 
     def toggle_on_top(self):
@@ -1339,11 +1348,6 @@ class Options(tk.Toplevel):
         db.update(table='options', field='value', value=str(state),
                   field_id='always_on_top', updfiled='name')
         global_options['always_on_top'] = str(state)
-        if state == 1:
-            run.wm_attributes("-topmost", 1)
-            self.lift(run)
-        else:
-            run.wm_attributes("-topmost", 0)
 
     def increase(self):
         if self.counter.get() < MAX_TASKS:
@@ -1397,6 +1401,13 @@ def big_font(unit, size=20):
     """Font size of a given unit increase."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
+
+
+def on_top_wait(widget):
+    """Allows window to be on the top of others when 'always on top' is enabled and provides 'wait_window'."""
+    ontop = global_options['always_on_top']
+    if ontop == '1':
+        widget.wm_attributes("-topmost", 1)
 
 
 def place_window(widget, parent):
