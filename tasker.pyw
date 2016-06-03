@@ -273,6 +273,8 @@ class CanvasButton(tk.Canvas):
                   (self.winfo_reqheight() - items_height) / 2)
         self.height = self.winfo_reqheight()
         self.width = self.winfo_reqwidth()
+        if callable(self.command):
+            self.bind("<space>", lambda e: self.command())
 
     def bind(self, sequence=None, func=None, add=None):
         super().bind(sequence, func, add)
@@ -390,7 +392,7 @@ class TaskList(tk.Frame):
     """Scrollable tasks table."""
     def __init__(self, columns, parent=None, **options):
         super().__init__(master=parent, **options)
-        self.taskslist = ttk.Treeview(self, takefocus=1)     # A table.
+        self.taskslist = ttk.Treeview(self, takefocus=0)     # A table.
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.taskslist.yview)
         self.taskslist.config(yscrollcommand=scroller.set)
@@ -409,20 +411,24 @@ class TaskList(tk.Frame):
 
     def sortlist(self, col, reverse):
         """Sorting by click on column header."""
-        # set(ID, column) returns name of every record in the column.
-        if col in ("time", "date"):   # Sorting with int, not str:
-            l = []
-            for index, task in enumerate(self.taskslist.get_children()):
-                l.append((self.tasks[index][1] if col == "time" else self.tasks[index][2], task))
-            # Also sort tasks list by second field:
-            self.tasks.sort(key=lambda x: x[1] if col == "time" else x[2], reverse=reverse)
+        if col == "time":
+            shortlist = self._sort(1, reverse)
+        elif col == "date":   # Sorting with int, not str:
+            shortlist = self._sort(2, reverse)
         else:
-            l = [(self.taskslist.set(k, col), k) for k in self.taskslist.get_children()]
-            self.tasks.sort(key=lambda x: x[0], reverse=reverse)
-        l.sort(reverse=reverse)
-        for index, value in enumerate(l):
+            shortlist = self._sort(0, reverse)
+        shortlist.sort(key=lambda x: x[0], reverse=reverse)
+        for index, value in enumerate(shortlist):
             self.taskslist.move(value[1], '', index)
         self.taskslist.heading(col, command=lambda: self.sortlist(col, not reverse))
+
+    def _sort(self, position, reverse):
+        l = []
+        for index, task in enumerate(self.taskslist.get_children()):
+            l.append((self.tasks[index][position], task))
+        # Also sort tasks list by corresponding field:
+        self.tasks.sort(key=lambda x: x[position], reverse=reverse)
+        return l
 
     def insert_tasks(self, tasks):
         """Insert rows in the table. Row contents are tuples given in values=."""
@@ -454,8 +460,6 @@ class TaskSelectionWindow(tk.Toplevel):
         super().__init__(master=parent, **options)
         # Initialize database operating class:
         self.db = core.Db()
-        #if parent:
-        #    self.lift(parent)
         # Variable which will contain selected task id:
         if taskvar:
             self.taskidvar = taskvar
@@ -486,7 +490,8 @@ class TaskSelectionWindow(tk.Toplevel):
         # Case sensitive checkbutton:
         self.ignore_case = tk.IntVar(self)
         self.ignore_case.set(1)
-        tk.Checkbutton(self, text="Ignore case", variable=self.ignore_case).grid(row=1, column=0, padx=6, pady=5, sticky='w')
+        tk.Checkbutton(self, text="Ignore case", takefocus=False, variable=self.ignore_case).grid(row=1, column=0,
+                                                                                                  padx=6, pady=5, sticky='w')
         # Search button:
         CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png', command=self.locate_task).\
             grid(row=1, column=3, sticky='w', padx=5, pady=5)
@@ -496,7 +501,7 @@ class TaskSelectionWindow(tk.Toplevel):
         # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         # Scrollable tasks table:
-        self.listframe = TaskList(columnnames, self)
+        self.listframe = TaskList(columnnames, self, takefocus=True)
         self.listframe.grid(row=2, column=0, columnspan=5, pady=10, sticky='news')
         tk.Label(self, text="Summary time:").grid(row=3, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
@@ -535,7 +540,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.listframe.taskslist.bind("<Down>", self.descr_down)
         self.listframe.taskslist.bind("<Up>", self.descr_up)
         self.listframe.taskslist.bind("<Button-1>", self.descr_click)
-        self.searchentry.bind("<Tab>", lambda e: self.focus_first_item())
+        self.listframe.bind("<FocusIn>", lambda e: self.focus_first_item(forced=False))
         # Need to avoid masquerading of default ttk.Treeview action on Shift+click and Control+click:
         self.modifier_pressed = False
         self.listframe.taskslist.bind("<KeyPress-Shift_L>", lambda e: self.shift_control_pressed())
@@ -576,11 +581,18 @@ class TaskSelectionWindow(tk.Toplevel):
     def shift_control_released(self):
         self.modifier_pressed = False
 
-    def focus_first_item(self):
-        """Selects first item in the table."""
+    def focus_first_item(self, forced=True):
+        """Selects first item in the table if no items selected."""
         item = self.listframe.taskslist.get_children()[0]
-        self.listframe.focus_(item)
-        self.update_descr(item)
+        if forced:
+            self.listframe.focus_(item)
+            self.update_descr(item)
+        else:
+            if not self.listframe.taskslist.selection():
+                self.listframe.focus_(item)
+                self.update_descr(item)
+            else:
+                self.listframe.taskslist.focus_set()
 
     def locate_task(self):
         """Search task by keywords."""
