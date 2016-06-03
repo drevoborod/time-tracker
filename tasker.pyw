@@ -76,12 +76,8 @@ class TaskFrame(tk.Frame):
         """Changes "Start/Stop" button state. """
         if self.running:
             self.timer_stop()
-            self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
-            self.startstopvar.set("Start")
         else:
             self.timer_start()
-            self.startbutton.config(image='resource/stop.png' if tk.TkVersion >= 8.6 else 'resource/stop.pgm')
-            self.startstopvar.set("Stop")
 
     def properties_window(self):
         """Task properties window."""
@@ -198,6 +194,8 @@ class TaskFrame(tk.Frame):
             self.start_today_time = time.time() - self.task[-1]
             self.timer_update()
             self.running = True
+            self.startbutton.config(image='resource/stop.png' if tk.TkVersion >= 8.6 else 'resource/stop.pgm')
+            self.startstopvar.set("Stop")
 
     def timer_stop(self):
         """Stop counter and save its value to database."""
@@ -212,6 +210,9 @@ class TaskFrame(tk.Frame):
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
             self.update_description()
+            self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
+            self.startstopvar.set("Start")
+
 
     def update_description(self):
         """Update text in "Description" field."""
@@ -555,7 +556,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
         self.bind("<Escape>", lambda e: self.destroy())
-        TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text="Open", command=self.get_task).grid(row=6, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", self.get_task_id)
         self.listframe.taskslist.bind("<Double-1>", self.get_task_id)
@@ -568,13 +569,18 @@ class TaskSelectionWindow(tk.Toplevel):
         if (event.type == '4' and len(self.listframe.taskslist.identify_row(event.y)) > 0) or (event.type == '2'):
             return True
 
+    def get_task(self):
+        """Get selected task id from database and close window."""
+        # List of selected tasks item id's:
+        tasks = self.listframe.taskslist.selection()
+        if tasks:
+            self.taskidvar.set(self.tdict[tasks[0]][0])
+            self.destroy()
+
     def get_task_id(self, event):
+        """For clicking on buttons and items."""
         if self.check_row(event):
-            # List of selected tasks item id's:
-            tasks = self.listframe.taskslist.selection()
-            if tasks:
-                self.taskidvar.set(self.tdict[tasks[0]][0])
-                self.destroy()
+            self.get_task()
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
@@ -1024,7 +1030,7 @@ class Description(tk.Frame):
     """Description frame - Text frame with scroll."""
     def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
         super().__init__(master=parent)
-        self.text = tk.Text(self, bg=global_options["colour"], state=state, wrap='word', **options)
+        self.text = tk.Text(self, bg=global_options["colour"], state=state, wrap='word', bd=2, **options)
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.text.yview)
         self.text.config(yscrollcommand=scroller.set)
@@ -1144,6 +1150,7 @@ class FilterWindow(tk.Toplevel):
         tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
+        self.bind("<Return>", lambda e: self.apply_filter())
         self.bind("<Escape>", lambda e: self.destroy())
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
