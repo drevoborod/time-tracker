@@ -590,12 +590,17 @@ class TaskSelectionWindow(tk.Toplevel):
             self.clear_all()
             if self.ignore_case.get():
                 task_items = [key for key in self.tdict if
-                              searchword.lower() in self.tdict[key][1].lower() or searchword in self.tdict[key][3].lower()]
+                              searchword.lower() in self.tdict[key][1].lower() or searchword.lower() in self.tdict[key][3].lower()]
             else:
                 task_items = [key for key in self.tdict if searchword in self.tdict[key][1] or searchword in self.tdict[key][3]]
             if task_items:
                 for item in task_items:
                     self.listframe.taskslist.selection_add(item)
+                item = self.listframe.taskslist.selection()[0]
+                self.listframe.taskslist.see(item)
+                self.listframe.taskslist.focus_set()
+                self.listframe.taskslist.focus(item)
+                self.update_descr(item)
             else:
                 showinfo("No results", "No tasks found.\nMaybe need to change filter settings?")
 
@@ -1397,8 +1402,8 @@ class MainWindow(tk.Tk):
             tk.Tk.destroy(self)
 
 
-def big_font(unit, size=20):
-    """Font size of a given unit increase."""
+def big_font(unit, size=9):
+    """Font size of a given unit change."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
 
