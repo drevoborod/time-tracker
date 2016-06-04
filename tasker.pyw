@@ -1432,8 +1432,15 @@ def on_top_wait(widget):
 def place_window(widget, parent):
     """Place widget on top of parent."""
     if parent:
-        widget.geometry('+%d+%d' % (parent.winfo_rootx(), parent.winfo_rooty()))
-    # ToDo: Make these windows appear always in borders of the screen.
+        stored_xpos = parent.winfo_rootx()
+        widget.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
+        widget.update()
+        # Check if window will appear inside screen borders and move it if not:
+        if widget.winfo_rootx() + widget.winfo_width() > widget.winfo_screenwidth():
+            stored_xpos = (widget.winfo_screenwidth() - widget.winfo_width() - 50)
+            widget.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
+        if widget.winfo_rooty() + widget.winfo_height() > widget.winfo_screenheight():
+            widget.geometry('+%d+%d' % (stored_xpos, (widget.winfo_screenheight() - widget.winfo_height() - 150)))
 
 
 def helpwindow(parent=None, text=None):
