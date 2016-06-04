@@ -590,7 +590,10 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def focus_first_item(self, forced=True):
         """Selects first item in the table if no items selected."""
-        item = self.listframe.taskslist.get_children()[0]
+        if self.listframe.taskslist.get_children():
+            item = self.listframe.taskslist.get_children()[0]
+        else:
+            return
         if forced:
             self.listframe.focus_(item)
             self.update_descr(item)
@@ -1175,28 +1178,17 @@ class FilterWindow(tk.Toplevel):
         """Create database script based on checkboxes values."""
         dates = list(reversed([x[0] for x in self.dateslist.states_list if x[1][0].get() == 1]))
         tags = list(reversed([x[0] for x in self.tagslist.states_list if x[1][0].get() == 1]))
-        print(tags)
         if not dates and not tags:
             script = None
             self.operating_mode.set("AND")
         else:
             if self.operating_mode.get() == "OR":
-                if dates and tags:
-                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                             'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
-                             'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id ' \
-                             'JOIN activity ON activity.task_id=tasks.id WHERE t.tag_id IN {0} OR ' \
-                             'activity.date IN {1}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                           tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-                elif not dates:
-                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                             'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
-                             'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
-                             't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
-                elif not tags:
-                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                             'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY task_id) ' \
-                             'AS act ON act.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                script = 'SELECT id, name, total_time, description, creation_date FROM tasks JOIN activity ON '\
+                         'activity.task_id=tasks.id JOIN tasks_tags ON tasks_tags.task_id=tasks.id '\
+                         'JOIN (SELECT task_id, sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ' \
+                         'ON act.task_id=tasks.id WHERE date IN {1} OR tag_id IN {0} ' \
+                         'GROUP BY act.task_id'.format("('%s')" % tags[0] if len(tags) == 1 else tuple(tags),
+                                                       "('%s')" % dates[0] if len(dates) == 1 else tuple(dates))
             else:
                 if dates and tags:
                     script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
@@ -1205,8 +1197,8 @@ class FilterWindow(tk.Toplevel):
                              'tt.tag_id IN {1} GROUP BY tt.task_id HAVING COUNT(DISTINCT tt.tag_id)={3}) AS x ON ' \
                              'x.task_id=tasks.id JOIN (SELECT act.task_id FROM activity AS act WHERE act.date IN {0} ' \
                              'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={2}) AS y ON ' \
-                             'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
-                                                         tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                             'y.task_id=tasks.id'.format("('%s')" % dates[0] if len(dates) == 1 else tuple(dates),
+                                                         "('%s')" % tags[0] if len(tags) == 1 else tuple(tags),
                                                          len(dates), len(tags))
                 elif not dates:
                     script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
