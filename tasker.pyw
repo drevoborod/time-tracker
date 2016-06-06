@@ -76,12 +76,8 @@ class TaskFrame(tk.Frame):
         """Changes "Start/Stop" button state. """
         if self.running:
             self.timer_stop()
-            self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
-            self.startstopvar.set("Start")
         else:
             self.timer_start()
-            self.startbutton.config(image='resource/stop.png' if tk.TkVersion >= 8.6 else 'resource/stop.pgm')
-            self.startstopvar.set("Stop")
 
     def properties_window(self):
         """Task properties window."""
@@ -198,6 +194,8 @@ class TaskFrame(tk.Frame):
             self.start_today_time = time.time() - self.task[-1]
             self.timer_update()
             self.running = True
+            self.startbutton.config(image='resource/stop.png' if tk.TkVersion >= 8.6 else 'resource/stop.pgm')
+            self.startstopvar.set("Stop")
 
     def timer_stop(self):
         """Stop counter and save its value to database."""
@@ -212,6 +210,8 @@ class TaskFrame(tk.Frame):
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
             self.update_description()
+            self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
+            self.startstopvar.set("Start")
 
     def update_description(self):
         """Update text in "Description" field."""
@@ -325,7 +325,7 @@ class CanvasButton(tk.Canvas):
         """Add image."""
         coords = [0, 0]
         if self.bbox('image'):
-            coords = self.coords('image')   # New image will appear at the same place as previous.
+            coords = self.coords('image')   # New image will appear in the same position as previous.
             self.delete('image')
         self.picture = tk.PhotoImage(file=image)    # 'self' need to override garbage collection action.
         self.create_image(coords[0], coords[1], image=self.picture, anchor='nw', tag='image')
@@ -340,7 +340,7 @@ class CanvasButton(tk.Canvas):
             self.bg = bg
         recreate = False
         if hasattr(self, 'textlabel'):
-            coords = self.coords('text')    # New text will appear at the same place as previous.
+            coords = self.coords('text')    # New text will appear in the same position as previous.
             recreate = True
             self.delete(self.textlabel)
         if isinstance(textorvariable, tk.Variable):
@@ -448,7 +448,7 @@ class TaskList(tk.Frame):
         self.insert_tasks(tasks)
 
     def focus_(self, item):
-        """Focuses on the row with given id."""
+        """Focuses on the row with provided id."""
         self.taskslist.see(item)
         self.taskslist.selection_set(item)
         self.taskslist.focus_set()
@@ -555,7 +555,7 @@ class TaskSelectionWindow(tk.Toplevel):
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
         self.bind("<Escape>", lambda e: self.destroy())
-        TaskButton(self, text="Open", command=self.get_task_id).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text="Open", command=self.get_task).grid(row=6, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", self.get_task_id)
         self.listframe.taskslist.bind("<Double-1>", self.get_task_id)
@@ -568,13 +568,18 @@ class TaskSelectionWindow(tk.Toplevel):
         if (event.type == '4' and len(self.listframe.taskslist.identify_row(event.y)) > 0) or (event.type == '2'):
             return True
 
+    def get_task(self):
+        """Get selected task id from database and close window."""
+        # List of selected tasks item id's:
+        tasks = self.listframe.taskslist.selection()
+        if tasks:
+            self.taskidvar.set(self.tdict[tasks[0]][0])
+            self.destroy()
+
     def get_task_id(self, event):
+        """For clicking on buttons and items."""
         if self.check_row(event):
-            # List of selected tasks item id's:
-            tasks = self.listframe.taskslist.selection()
-            if tasks:
-                self.taskidvar.set(self.tdict[tasks[0]][0])
-                self.destroy()
+            self.get_task()
 
     def shift_control_pressed(self):
         self.modifier_pressed = True
@@ -584,7 +589,10 @@ class TaskSelectionWindow(tk.Toplevel):
 
     def focus_first_item(self, forced=True):
         """Selects first item in the table if no items selected."""
-        item = self.listframe.taskslist.get_children()[0]
+        if self.listframe.taskslist.get_children():
+            item = self.listframe.taskslist.get_children()[0]
+        else:
+            return
         if forced:
             self.listframe.focus_(item)
             self.update_descr(item)
@@ -867,9 +875,11 @@ class TaskEditWindow(tk.Toplevel):
         taskdata = self.description.get().rstrip()
         self.db.update_task(self.task[0], field='description', value=taskdata)
         # Renew tags list for the task:
+        existing_tags = [x[0] for x in self.db.find_by_clause('tasks_tags', 'task_id', self.task[0], 'tag_id')]
         for item in self.tags.states_list:
             if item[1][0].get() == 1:
-                self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
+                if item[0] not in existing_tags:
+                    self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
                 self.db.exec_script('DELETE FROM tasks_tags WHERE task_id={0} AND tag_id={1}'.format(self.task[0], item[0]))
         # Reporting to parent window that task has been changed:
@@ -1024,7 +1034,7 @@ class Description(tk.Frame):
     """Description frame - Text frame with scroll."""
     def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
         super().__init__(master=parent)
-        self.text = tk.Text(self, bg=global_options["colour"], state=state, wrap='word', **options)
+        self.text = tk.Text(self, bg=global_options["colour"], state=state, wrap='word', bd=2, **options)
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.text.yview)
         self.text.config(yscrollcommand=scroller.set)
@@ -1091,7 +1101,6 @@ class Tagslist(ScrolledCanvas):
             # Inserting dynamic variable instead of the state:
             item[1][0] = tk.IntVar()
             # Connecting new checkbox with this dynamic variable:
-            # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
             cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 3 if orientation == "horizontal"
                                                           else item[1][1]), variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
@@ -1144,6 +1153,7 @@ class FilterWindow(tk.Toplevel):
         tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
         TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
+        self.bind("<Return>", lambda e: self.apply_filter())
         self.bind("<Escape>", lambda e: self.destroy())
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
@@ -1171,22 +1181,12 @@ class FilterWindow(tk.Toplevel):
             self.operating_mode.set("AND")
         else:
             if self.operating_mode.get() == "OR":
-                if dates and tags:
-                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                             'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {1} GROUP BY task_id) ' \
-                             'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id ' \
-                             'JOIN activity ON activity.task_id=tasks.id WHERE t.tag_id IN {0} OR ' \
-                             'activity.date IN {1}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                                                           tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
-                elif not dates:
-                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                             'sum(spent_time) AS total_time FROM activity GROUP BY task_id) ' \
-                             'AS act ON act.task_id=tasks.id JOIN tasks_tags AS t ON t.task_id=tasks.id WHERE ' \
-                             't.tag_id IN {0}'.format(tuple(tags) if len(tags) > 1 else "(%s)" % tags[0])
-                elif not tags:
-                    script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks JOIN (SELECT task_id, ' \
-                             'sum(spent_time) AS total_time FROM activity WHERE activity.date IN {0} GROUP BY task_id) ' \
-                             'AS act ON act.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0])
+                script = 'SELECT id, name, total_time, description, creation_date FROM tasks JOIN activity ON '\
+                         'activity.task_id=tasks.id JOIN tasks_tags ON tasks_tags.task_id=tasks.id '\
+                         'JOIN (SELECT task_id, sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ' \
+                         'ON act.task_id=tasks.id WHERE date IN {1} OR tag_id IN {0} ' \
+                         'GROUP BY act.task_id'.format("('%s')" % tags[0] if len(tags) == 1 else tuple(tags),
+                                                       "('%s')" % dates[0] if len(dates) == 1 else tuple(dates))
             else:
                 if dates and tags:
                     script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
@@ -1195,8 +1195,8 @@ class FilterWindow(tk.Toplevel):
                              'tt.tag_id IN {1} GROUP BY tt.task_id HAVING COUNT(DISTINCT tt.tag_id)={3}) AS x ON ' \
                              'x.task_id=tasks.id JOIN (SELECT act.task_id FROM activity AS act WHERE act.date IN {0} ' \
                              'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={2}) AS y ON ' \
-                             'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
-                                                         tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
+                             'y.task_id=tasks.id'.format("('%s')" % dates[0] if len(dates) == 1 else tuple(dates),
+                                                         "('%s')" % tags[0] if len(tags) == 1 else tuple(tags),
                                                          len(dates), len(tags))
                 elif not dates:
                     script = 'SELECT DISTINCT id, name, total_time, description, creation_date FROM tasks  JOIN (SELECT ' \
@@ -1322,7 +1322,6 @@ class MainMenu(tk.Menu):
             run.wm_attributes("-topmost", 0)
         run.lift()
 
-
     def aboutwindow(self):
         showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
             global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
@@ -1421,7 +1420,7 @@ def big_font(unit, size=9):
 
 
 def on_top_wait(widget):
-    """Allows window to be on the top of others when 'always on top' is enabled and provides 'wait_window'."""
+    """Allows window to be on the top of others when 'always on top' is enabled."""
     ontop = global_options['always_on_top']
     if ontop == '1':
         widget.wm_attributes("-topmost", 1)
@@ -1430,8 +1429,15 @@ def on_top_wait(widget):
 def place_window(widget, parent):
     """Place widget on top of parent."""
     if parent:
-        widget.geometry('+%d+%d' % (parent.winfo_rootx(), parent.winfo_rooty()))
-    # ToDo: Make these windows appear always in borders of the screen.
+        stored_xpos = parent.winfo_rootx()
+        widget.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
+        widget.update()
+        # Check if window will appear inside screen borders and move it if not:
+        if widget.winfo_rootx() + widget.winfo_width() > widget.winfo_screenwidth():
+            stored_xpos = (widget.winfo_screenwidth() - widget.winfo_width() - 50)
+            widget.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
+        if widget.winfo_rooty() + widget.winfo_height() > widget.winfo_screenheight():
+            widget.geometry('+%d+%d' % (stored_xpos, (widget.winfo_screenheight() - widget.winfo_height() - 150)))
 
 
 def helpwindow(parent=None, text=None):

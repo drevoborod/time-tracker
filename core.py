@@ -263,5 +263,7 @@ PATCH_SCRIPTS = {1:
                  6: ["UPDATE options SET value='1.1.2' WHERE name='version';"
                      ],
                  7: ["UPDATE options SET value='1.2_beta' WHERE name='version';"
+                     ],
+                 8: ["UPDATE options SET value='1.2' WHERE name='version';"
                      ]
                  }
