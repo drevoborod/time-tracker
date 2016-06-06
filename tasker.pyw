@@ -213,7 +213,6 @@ class TaskFrame(tk.Frame):
             self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
             self.startstopvar.set("Start")
 
-
     def update_description(self):
         """Update text in "Description" field."""
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
@@ -326,7 +325,7 @@ class CanvasButton(tk.Canvas):
         """Add image."""
         coords = [0, 0]
         if self.bbox('image'):
-            coords = self.coords('image')   # New image will appear at the same place as previous.
+            coords = self.coords('image')   # New image will appear in the same position as previous.
             self.delete('image')
         self.picture = tk.PhotoImage(file=image)    # 'self' need to override garbage collection action.
         self.create_image(coords[0], coords[1], image=self.picture, anchor='nw', tag='image')
@@ -341,7 +340,7 @@ class CanvasButton(tk.Canvas):
             self.bg = bg
         recreate = False
         if hasattr(self, 'textlabel'):
-            coords = self.coords('text')    # New text will appear at the same place as previous.
+            coords = self.coords('text')    # New text will appear in the same position as previous.
             recreate = True
             self.delete(self.textlabel)
         if isinstance(textorvariable, tk.Variable):
@@ -449,7 +448,7 @@ class TaskList(tk.Frame):
         self.insert_tasks(tasks)
 
     def focus_(self, item):
-        """Focuses on the row with given id."""
+        """Focuses on the row with provided id."""
         self.taskslist.see(item)
         self.taskslist.selection_set(item)
         self.taskslist.focus_set()
@@ -1102,7 +1101,6 @@ class Tagslist(ScrolledCanvas):
             # Inserting dynamic variable instead of the state:
             item[1][0] = tk.IntVar()
             # Connecting new checkbox with this dynamic variable:
-            # Добавляем к набору выключателей ещё один и связываем его с динамической переменной:
             cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 3 if orientation == "horizontal"
                                                           else item[1][1]), variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
@@ -1324,7 +1322,6 @@ class MainMenu(tk.Menu):
             run.wm_attributes("-topmost", 0)
         run.lift()
 
-
     def aboutwindow(self):
         showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
             global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
@@ -1423,7 +1420,7 @@ def big_font(unit, size=9):
 
 
 def on_top_wait(widget):
-    """Allows window to be on the top of others when 'always on top' is enabled and provides 'wait_window'."""
+    """Allows window to be on the top of others when 'always on top' is enabled."""
     ontop = global_options['always_on_top']
     if ontop == '1':
         widget.wm_attributes("-topmost", 1)
