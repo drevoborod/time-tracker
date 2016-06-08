@@ -13,6 +13,39 @@ from tkinter import ttk
 import core
 
 
+class Window(tk.Toplevel):
+    """Universal class for dialogue windows creation."""
+    def __init__(self, master=None, **options):
+        super().__init__(master=master, **options)
+        self.db = core.Db()
+        self.master = master
+
+    def prepare(self):
+        self.grab_set()
+        self.on_top_wait()
+        self.place_window(self.master)
+        self.wait_window()
+
+    def on_top_wait(self):
+        """Allows window to be on the top of others when 'always on top' is enabled."""
+        ontop = global_options['always_on_top']
+        if ontop == '1':
+            self.wm_attributes("-topmost", 1)
+
+    def place_window(self, parent):
+        """Place widget on top of parent."""
+        if parent:
+            stored_xpos = parent.winfo_rootx()
+            self.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
+            self.update()
+            # Check if window will appear inside screen borders and move it if not:
+            if self.winfo_rootx() + self.winfo_width() > self.winfo_screenwidth():
+                stored_xpos = (self.winfo_screenwidth() - self.winfo_width() - 50)
+                self.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
+            if self.winfo_rooty() + self.winfo_height() > self.winfo_screenheight():
+                self.geometry('+%d+%d' % (stored_xpos, (self.winfo_screenheight() - self.winfo_height() - 150)))
+
+
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
@@ -455,12 +488,10 @@ class TaskList(tk.Frame):
         self.taskslist.focus(item)
 
 
-class TaskSelectionWindow(tk.Toplevel):
+class TaskSelectionWindow(Window):
     """Task selection and creation window."""
     def __init__(self, parent=None, taskvar=None, **options):
         super().__init__(master=parent, **options)
-        # Initialize database operating class:
-        self.db = core.Db()
         # Variable which will contain selected task id:
         if taskvar:
             self.taskidvar = taskvar
@@ -469,7 +500,6 @@ class TaskSelectionWindow(tk.Toplevel):
                            'sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id'
         self.title("Task selection")
         self.minsize(width=500, height=350)
-        self.grab_set()
         tk.Label(self, text="New task:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
         # New task entry field:
         self.addentry = tk.Entry(self, width=50)
@@ -559,9 +589,7 @@ class TaskSelectionWindow(tk.Toplevel):
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", self.get_task_id)
         self.listframe.taskslist.bind("<Double-1>", self.get_task_id)
-        place_window(self, run)
-        on_top_wait(self)
-        self.wait_window()
+        self.prepare()
 
     def check_row(self, event):
         """Check if mouse click is over the row, not another taskslist element."""
@@ -796,20 +824,18 @@ class TaskSelectionWindow(tk.Toplevel):
         tk.Toplevel.destroy(self)
 
 
-class TaskEditWindow(tk.Toplevel):
+class TaskEditWindow(Window):
     """Task properties window."""
     def __init__(self, taskid, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
         # Connected with external IntVar. Needed to avoid unnecessary operations in parent window:
         self.change = variable
-        self.db = core.Db()
         # Task information from database:
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
         dates = sorted([core.date_format(x[0]) for x in self.db.find_by_clause("activity", "task_id", taskid, "date")])
         for index, date in enumerate(dates):
             dates[index] = core.date_format(date)
-        self.grab_set()
         self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         taskname_label = tk.Label(self, text="Task name:")
@@ -852,9 +878,7 @@ class TaskEditWindow(tk.Toplevel):
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
         self.description.text.focus_set()
-        place_window(self, parent)
-        on_top_wait(self)
-        self.wait_window()
+        self.prepare()
 
     def tags_edit(self):
         """Open tags editor window."""
@@ -888,27 +912,22 @@ class TaskEditWindow(tk.Toplevel):
         self.destroy()
 
 
-class TagsEditWindow(tk.Toplevel):
+class TagsEditWindow(Window):
     """Checkbuttons editing window.."""
     def __init__(self, parent=None, **options):
         super().__init__(master=parent, **options)
         self.parent = parent
-        on_top_wait(self)
-        self.db = core.Db()
-        self.grab_set()
         self.addentry()
         self.tags_update()
         self.closebutton = TaskButton(self, text='Close', command=self.destroy)
         self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
         self.maxsize(width=500, height=500)
         self.window_elements_config()
-        self.focus_set()
         self.bind("<Escape>", lambda e: self.destroy())
-        self.wait_window()
+        self.prepare()
 
     def window_elements_config(self):
         """Window additional parameters configuration."""
-        place_window(self, self.parent)
         self.title("Tags editor")
         self.minsize(width=300, height=300)
         self.closebutton.grid(row=2, column=2, pady=5, padx=5, sticky='e')
@@ -984,7 +1003,6 @@ class TimestampsWindow(TagsEditWindow):
 
     def window_elements_config(self):
         """Configure some window parameters."""
-        place_window(self, run)
         self.title("Timestamps: {}".format(self.db.find_by_clause('tasks', 'id', self.taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
@@ -1108,13 +1126,10 @@ class Tagslist(ScrolledCanvas):
             item[1][0].set(state)
 
 
-class FilterWindow(tk.Toplevel):
+class FilterWindow(Window):
     """Filters window."""
     def __init__(self, parent=None, variable=None, **options):
         super().__init__(master=parent, **options)
-        self.grab_set()
-        self.focus_set()
-        self.db = core.Db()
         self.title("Filter")
         self.changed = variable     # IntVar instance: used to set 1 if some changes were made. For optimization.
         self.operating_mode = tk.StringVar()    # Operating mode of the filter: "AND", "OR".
@@ -1160,9 +1175,7 @@ class FilterWindow(tk.Toplevel):
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=5)
         self.grid_rowconfigure(1, weight=1)
-        place_window(self, parent)
-        on_top_wait(self)
-        self.wait_window()
+        self.prepare()
 
     def clear_dates(self):
         for x in self.dateslist.states_list:
@@ -1330,11 +1343,10 @@ class MainMenu(tk.Menu):
         run.destroy()
 
 
-class Options(tk.Toplevel):
+class Options(Window):
     """Options window which can be opened from main menu."""
     def __init__(self, parent, counter, ontopvar, **options):
         super().__init__(master=parent, width=300, height=200, **options)
-        self.grab_set()
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
@@ -1352,10 +1364,7 @@ class Options(tk.Toplevel):
         TaskButton(self, text='Close', command=self.destroy).grid(row=4, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
         self.bind("<Escape>", lambda e: self.destroy())
-        place_window(self, parent)
-        self.focus_set()
-        on_top_wait(self)
-        self.wait_window()
+        self.prepare()
 
     def toggle_on_top(self):
         """Toggle 'always on top' option."""
@@ -1417,27 +1426,6 @@ def big_font(unit, size=9):
     """Font size of a given unit change."""
     fontname = fonter.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
-
-
-def on_top_wait(widget):
-    """Allows window to be on the top of others when 'always on top' is enabled."""
-    ontop = global_options['always_on_top']
-    if ontop == '1':
-        widget.wm_attributes("-topmost", 1)
-
-
-def place_window(widget, parent):
-    """Place widget on top of parent."""
-    if parent:
-        stored_xpos = parent.winfo_rootx()
-        widget.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
-        widget.update()
-        # Check if window will appear inside screen borders and move it if not:
-        if widget.winfo_rootx() + widget.winfo_width() > widget.winfo_screenwidth():
-            stored_xpos = (widget.winfo_screenwidth() - widget.winfo_width() - 50)
-            widget.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
-        if widget.winfo_rooty() + widget.winfo_height() > widget.winfo_screenheight():
-            widget.geometry('+%d+%d' % (stored_xpos, (widget.winfo_screenheight() - widget.winfo_height() - 150)))
 
 
 def helpwindow(parent=None, text=None):
