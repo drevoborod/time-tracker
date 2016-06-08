@@ -636,11 +636,21 @@ class TaskSelectionWindow(Window):
         searchword = self.searchentry.get()
         if searchword:
             self.clear_all()
+            task_items = []
             if self.ignore_case.get():
-                task_items = [key for key in self.tdict if
-                              searchword.lower() in self.tdict[key][1].lower() or searchword.lower() in self.tdict[key][3].lower()]
+                for key in self.tdict:
+                    if searchword.lower() in self.tdict[key][1].lower():
+                        task_items.append(key)
+                    elif self.tdict[key][3]:    # Need to be sure that there is non-empty description.
+                        if searchword.lower() in self.tdict[key][3].lower():
+                            task_items.append(key)
             else:
-                task_items = [key for key in self.tdict if searchword in self.tdict[key][1] or searchword in self.tdict[key][3]]
+                for key in self.tdict:
+                    if searchword in self.tdict[key][1]:
+                        task_items.append(key)
+                    elif self.tdict[key][3]:
+                        if searchword in self.tdict[key][3]:
+                            task_items.append(key)
             if task_items:
                 for item in task_items:
                     self.listframe.taskslist.selection_add(item)
