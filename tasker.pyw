@@ -75,8 +75,8 @@ class TaskFrame(tk.Frame):
         self.description = Description(self, width=60, height=3)
         self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
-                                        variable=self.startstopvar, image='resource/start.png' if tk.TkVersion >= 8.6
-                                        else 'resource/start.pgm', opacity='left')
+                                        variable=self.startstopvar, image='resource/start_disabled.png' if tk.TkVersion >= 8.6
+                                        else 'resource/start_disabled.pgm', opacity='left')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
@@ -172,6 +172,8 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(text=core.time_format(self.running_time))
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
+        self.startbutton.config(image='resource/start_normal.png'
+                                if tk.TkVersion >= 8.6 else 'resource/start_normal.pgm')
         self.properties.config(state='normal')
         self.clearbutton.config(state='normal')
         self.timer_window.config(state='normal')
@@ -245,7 +247,7 @@ class TaskFrame(tk.Frame):
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
             self.update_description()
-            self.startbutton.config(image='resource/start.png' if tk.TkVersion >= 8.6 else 'resource/start.pgm')
+            self.startbutton.config(image='resource/start_normal.png' if tk.TkVersion >= 8.6 else 'resource/start_normal.pgm')
             self.startstopvar.set("Start")
 
     def update_description(self):
