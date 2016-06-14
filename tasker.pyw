@@ -37,13 +37,15 @@ class Window(tk.Toplevel):
         if parent:
             stored_xpos = parent.winfo_rootx()
             self.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
-            self.update()
+            self.withdraw()     # temporary hide window.
+            self.update_idletasks()
             # Check if window will appear inside screen borders and move it if not:
             if self.winfo_rootx() + self.winfo_width() > self.winfo_screenwidth():
                 stored_xpos = (self.winfo_screenwidth() - self.winfo_width() - 50)
                 self.geometry('+%d+%d' % (stored_xpos, parent.winfo_rooty()))
             if self.winfo_rooty() + self.winfo_height() > self.winfo_screenheight():
                 self.geometry('+%d+%d' % (stored_xpos, (self.winfo_screenheight() - self.winfo_height() - 150)))
+            self.deiconify()    # restore hidden window.
 
 
 class TaskFrame(tk.Frame):
