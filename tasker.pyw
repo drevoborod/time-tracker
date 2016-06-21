@@ -847,9 +847,9 @@ class TaskEditWindow(Window):
         # Task information from database:
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
-        dates = sorted([core.date_format(x[0]) for x in self.db.find_by_clause("activity", "task_id", taskid, "date")])
-        for index, date in enumerate(dates):
-            dates[index] = core.date_format(date)
+        self.db.exec_script("SELECT date, spent_time FROM activity WHERE task_id=%s" % taskid)
+        dates1 = [(x[0], core.time_format(x[1])) for x in self.db.cur.fetchall()]
+        dates = [": ".join(x) for x in dates1]
         self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         taskname_label = tk.Label(self, text="Task name:")
@@ -881,7 +881,7 @@ class TaskEditWindow(Window):
         tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
         # Frame containing list of dates connected with current task:
         datlist = Description(self, height=3, width=30)
-        datlist.update_text(', '.join(dates))
+        datlist.update_text('\n'.join(dates))
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
         #
         tk.Frame(self, height=40).grid(row=9)
