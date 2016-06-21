@@ -848,7 +848,7 @@ class TaskEditWindow(Window):
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
         self.db.exec_script("SELECT date, spent_time FROM activity WHERE task_id=%s" % taskid)
-        dates = [x[0] + ": " + core.time_format(x[1]) for x in self.db.cur.fetchall()]
+        dates = [x[0] + " - " + core.time_format(x[1]) for x in self.db.cur.fetchall()]
         #
         self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
