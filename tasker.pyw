@@ -1429,8 +1429,16 @@ class MainWindow(tk.Tk):
         self.geometry('%dx%d+100+50' % (self.winfo_width(), window_height))
         if global_options['always_on_top'] == '1':
             self.wm_attributes("-topmost", 1)
-        self.bind("<c>", lambda e: self.taskframes.clear_all())
-        self.bind("<s>", lambda e: self.stopall())
+        self.bind("<Key>", self.hotkeys)
+
+    def hotkeys(self, event):
+        """Execute corresponding actions for hotkeys."""
+        if event.keycode == 83:
+            self.stopall()
+        elif event.keycode == 67:
+            self.taskframes.clear_all()
+        elif event.keycode in (27, 81):
+            self.destroy()
 
     def full_interface(self):
         """Create elements which are displayed in full interface mode."""
