@@ -62,6 +62,7 @@ class TaskFrame(tk.Frame):
         self.startstopvar.set("Start")
         self.task = None       # Fake name of running task (which actually is not selected yet).
         self.task_id = None
+        self.description = None
         if global_options["compact_interface"] == "0":
             self.normal_interface()
         # Task name field:
@@ -109,6 +110,7 @@ class TaskFrame(tk.Frame):
         """Destroy some interface elements when switching to 'compact' mode."""
         for widget in self.l1, self.description:
             widget.destroy()
+        self.description = None
 
     def timestamps_window(self):
         """Timestamps window opening."""
@@ -131,7 +133,7 @@ class TaskFrame(tk.Frame):
         """Task properties window."""
         edited = tk.IntVar()
         TaskEditWindow(self.task[0], self, variable=edited)
-        if edited.get() == 1 and hasattr(self, "description"):
+        if edited.get() == 1:
             self.update_description()
         self.raise_main_window()
 
@@ -192,7 +194,7 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(state='normal')
         self.add_timestamp_button.config(state='normal')
         self.timestamps_window_button.config(state='normal')
-        if hasattr(self, "description"):
+        if self.description:
             self.description.update_text(self.task[3])
 
     def check_date(self):
@@ -260,15 +262,15 @@ class TaskFrame(tk.Frame):
             self.check_date()
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
-            if hasattr(self, "description"):
-                self.update_description()
+            self.update_description()
             self.startbutton.config(image='resource/start_normal.png' if tk.TkVersion >= 8.6 else 'resource/start_normal.pgm')
             self.startstopvar.set("Start")
 
     def update_description(self):
         """Update text in "Description" field."""
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
-        self.description.update_text(self.task[3])
+        if self.description:
+            self.description.update_text(self.task[3])
 
     def raise_main_window(self):
         """Function to set main window on top of others."""
@@ -1477,7 +1479,6 @@ class MainWindow(tk.Tk):
         self.add_quit_button = TaskButton(self, text="Quit", command=self.destroy)
         self.add_quit_button.grid(row=2, column=4, sticky='sne', pady=5, padx=5)
         if not firstrun:
-            print(1111)
             self.taskframes.change_interface('normal')
 
     def small_interface(self):
