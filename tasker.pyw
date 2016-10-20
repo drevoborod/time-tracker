@@ -62,18 +62,14 @@ class TaskFrame(tk.Frame):
         self.startstopvar.set("Start")
         self.task = None       # Fake name of running task (which actually is not selected yet).
         self.task_id = None
-        l1 = tk.Label(self, text='Task name:')
-        big_font(l1, size=12)
-        l1.grid(row=0, column=1, columnspan=3)
+        if global_options["compact_interface"] == "0":
+            self.normal_interface()
         # Task name field:
         self.tasklabel = TaskLabel(self, width=50, anchor='w')
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
-        # Task description field:
-        self.description = Description(self, width=60, height=3)
-        self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
                                         variable=self.startstopvar, image='resource/start_disabled.png' if tk.TkVersion >= 8.6
                                         else 'resource/start_disabled.pgm', opacity='left')
@@ -97,6 +93,23 @@ class TaskFrame(tk.Frame):
         self.running = False
         self.timestamp = 0
 
+    def normal_interface(self):
+        """Creates elements which are visible only in full interface mode."""
+        # 'Task name' text:
+        self.l1 = tk.Label(self, text='Task name:')
+        big_font(self.l1, size=12)
+        self.l1.grid(row=0, column=1, columnspan=3)
+        # Task description field:
+        self.description = Description(self, width=60, height=3)
+        self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
+        if self.task:
+            self.description.update_text(self.task[3])
+
+    def small_interface(self):
+        """Destroy some interface elements when switching to 'compact' mode."""
+        for widget in self.l1, self.description:
+            widget.destroy()
+
     def timestamps_window(self):
         """Timestamps window opening."""
         TimestampsWindow(self.task_id, self.running_time, self)
@@ -118,7 +131,7 @@ class TaskFrame(tk.Frame):
         """Task properties window."""
         edited = tk.IntVar()
         TaskEditWindow(self.task[0], self, variable=edited)
-        if edited.get() == 1:
+        if edited.get() == 1 and hasattr(self, "description"):
             self.update_description()
         self.raise_main_window()
 
@@ -179,7 +192,8 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(state='normal')
         self.add_timestamp_button.config(state='normal')
         self.timestamps_window_button.config(state='normal')
-        self.description.update_text(self.task[3])
+        if hasattr(self, "description"):
+            self.description.update_text(self.task[3])
 
     def check_date(self):
         """Used to check if date has been changed since last timer value save."""
@@ -246,7 +260,8 @@ class TaskFrame(tk.Frame):
             self.check_date()
             self.task[2] = self.running_time
             self.task[-1] = self.running_today_time
-            self.update_description()
+            if hasattr(self, "description"):
+                self.update_description()
             self.startbutton.config(image='resource/start_normal.png' if tk.TkVersion >= 8.6 else 'resource/start_normal.pgm')
             self.startstopvar.set("Start")
 
@@ -1307,6 +1322,17 @@ class MainFrame(ScrolledCanvas):
             self.clear()
         self.content_frame.config(bg='#cfcfcf')
 
+    def change_interface(self, interface):
+        """Change interface type. Accepts keywords 'normal' and 'small'."""
+        for widget in self.content_frame.winfo_children():
+            try:
+                if interface == 'normal':
+                    widget.normal_interface()
+                elif interface == 'small':
+                    widget.small_interface()
+            except Exception:
+                pass
+
 
 class MainMenu(tk.Menu):
     """Main window menu."""
@@ -1410,7 +1436,7 @@ class MainWindow(tk.Tk):
         # Default widget colour:
         global_options["colour"] = self.cget('bg')
         self.title("Tasker")
-        self.minsize(height=250, width=0)
+        self.minsize(height=75, width=0)
         self.resizable(width=0, height=1)
         main_menu = MainMenu(self)  # Create main menu.
         self.config(menu=main_menu)
@@ -1418,7 +1444,7 @@ class MainWindow(tk.Tk):
         self.taskframes.grid(row=0, columnspan=5)
         self.bind("<Configure>", self.taskframes.reconf_canvas)
         if global_options["compact_interface"] == "0":
-            self.full_interface()
+            self.full_interface(True)
         self.grid_rowconfigure(0, weight=1)
         # Make main window always appear in good position and with adequate size:
         self.update()
@@ -1440,7 +1466,7 @@ class MainWindow(tk.Tk):
         elif event.keycode in (27, 81):
             self.destroy()
 
-    def full_interface(self):
+    def full_interface(self, firstrun=False):
         """Create elements which are displayed in full interface mode."""
         self.add_frame = tk.Frame(self, height=35)
         self.add_frame.grid(row=1, columnspan=5)
@@ -1450,11 +1476,15 @@ class MainWindow(tk.Tk):
         self.add_clear_button.grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
         self.add_quit_button = TaskButton(self, text="Quit", command=self.destroy)
         self.add_quit_button.grid(row=2, column=4, sticky='sne', pady=5, padx=5)
+        if not firstrun:
+            print(1111)
+            self.taskframes.change_interface('normal')
 
     def small_interface(self):
         """Destroy all additional interface elements."""
         for widget in self.add_frame, self.add_stop_button, self.add_clear_button, self.add_quit_button:
             widget.destroy()
+        self.taskframes.change_interface('small')
 
     def stopall(self):
         """Stop all running timers."""
