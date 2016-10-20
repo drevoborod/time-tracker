@@ -269,5 +269,7 @@ PATCH_SCRIPTS = {1:
                  9: ["UPDATE options SET value='1.2.1.' WHERE name='version';"
                      ],
                  10: ["UPDATE options SET value='1.2.2.' WHERE name='version';"
-                      ]
+                      ],
+                 11: ["INSERT INTO options VALUES ('compact_interface', '0');",
+                      "UPDATE options SET value='1.2.3.' WHERE name='version';"]
                  }
