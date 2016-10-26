@@ -4,8 +4,8 @@ import time
 import datetime
 import copy
 
-import tkinter.font as fonter
 import tkinter as tk
+import tkinter.font as fonter
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
@@ -47,6 +47,10 @@ class Window(tk.Toplevel):
                 self.geometry('+%d+%d' % (stored_xpos, (self.winfo_screenheight() - self.winfo_height() - 150)))
             self.deiconify()    # restore hidden window.
 
+    def destroy(self):
+        self.db.con.close()
+        super().destroy()
+
 
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
@@ -62,18 +66,15 @@ class TaskFrame(tk.Frame):
         self.startstopvar.set("Start")
         self.task = None       # Fake name of running task (which actually is not selected yet).
         self.task_id = None
-        l1 = tk.Label(self, text='Task name:')
-        big_font(l1, size=12)
-        l1.grid(row=0, column=1, columnspan=3)
+        self.description = None
+        if global_options["compact_interface"] == "0":
+            self.normal_interface()
         # Task name field:
         self.tasklabel = TaskLabel(self, width=50, anchor='w')
         big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
         self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
-        # Task description field:
-        self.description = Description(self, width=60, height=3)
-        self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
         self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
                                         variable=self.startstopvar, image='resource/start_disabled.png' if tk.TkVersion >= 8.6
                                         else 'resource/start_disabled.pgm', opacity='left')
@@ -96,6 +97,24 @@ class TaskFrame(tk.Frame):
         self.running_time = 0   # Current value of the counter.
         self.running = False
         self.timestamp = 0
+
+    def normal_interface(self):
+        """Creates elements which are visible only in full interface mode."""
+        # 'Task name' text:
+        self.l1 = tk.Label(self, text='Task name:')
+        big_font(self.l1, size=12)
+        self.l1.grid(row=0, column=1, columnspan=3)
+        # Task description field:
+        self.description = Description(self, width=60, height=3)
+        self.description.grid(row=2, column=0, columnspan=6, padx=5, pady=6, sticky='we')
+        if self.task:
+            self.description.update_text(self.task[3])
+
+    def small_interface(self):
+        """Destroy some interface elements when switching to 'compact' mode."""
+        for widget in self.l1, self.description:
+            widget.destroy()
+        self.description = None
 
     def timestamps_window(self):
         """Timestamps window opening."""
@@ -141,19 +160,22 @@ class TaskFrame(tk.Frame):
         """Getting selected task's name."""
         # Checking if task is already open in another frame:
         if task_id not in global_options["tasks"]:
-            self.task_id = task_id
             # Checking if there is open task in this frame:
             if self.task:
                 # If it is, we remove it from running tasks set:
                 global_options["tasks"].remove(self.task[0])
                 # Stopping current timer and saving its state:
                 self.timer_stop()
-            # Preparing new task:
-            self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
+            self.get_restored_task_name(task_id)
         else:
             # If selected task is already open in another frame:
             if self.task_id != task_id:
                 showinfo("Task exists", "Task is already opened.")
+
+    def get_restored_task_name(self, taskid):
+        self.task_id = taskid
+        # Preparing new task:
+        self.prepare_task(self.db.select_task(self.task_id))  # Task parameters from database
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
@@ -179,7 +201,8 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(state='normal')
         self.add_timestamp_button.config(state='normal')
         self.timestamps_window_button.config(state='normal')
-        self.description.update_text(self.task[3])
+        if self.description:
+            self.description.update_text(self.task[3])
 
     def check_date(self):
         """Used to check if date has been changed since last timer value save."""
@@ -253,7 +276,8 @@ class TaskFrame(tk.Frame):
     def update_description(self):
         """Update text in "Description" field."""
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
-        self.description.update_text(self.task[3])
+        if self.description:
+            self.description.update_text(self.task[3])
 
     def raise_main_window(self):
         """Function to set main window on top of others."""
@@ -265,6 +289,7 @@ class TaskFrame(tk.Frame):
         self.timer_stop()
         if self.task:
             global_options["tasks"].remove(self.task[0])
+        self.db.con.close()
         tk.Frame.destroy(self)
 
 
@@ -835,7 +860,7 @@ class TaskSelectionWindow(Window):
     def destroy(self):
         run.focus_set()
         run.lift()
-        tk.Toplevel.destroy(self)
+        super().destroy()
 
 
 class TaskEditWindow(Window):
@@ -1297,8 +1322,11 @@ class MainFrame(ScrolledCanvas):
         if self.frames_count < int(global_options['timers_count']):
             row_count = range(int(global_options['timers_count']) - self.frames_count)
             for row_number in row_count:
-                TaskFrame(parent=self.content_frame).grid(row=self.rows_counter, pady=5,
-                                                          padx=5, ipady=3, sticky='ew')
+                task = TaskFrame(parent=self.content_frame)
+                task.grid(row=self.rows_counter, pady=5, padx=5, ipady=3, sticky='ew')
+                if global_options["preserved_tasks_list"]:
+                    task_id = global_options["preserved_tasks_list"].pop(0)
+                    task.get_restored_task_name(task_id)
                 self.rows_counter += 1
             self.frames_count += len(row_count)
             self.content_frame.update()
@@ -1306,6 +1334,17 @@ class MainFrame(ScrolledCanvas):
         elif len(global_options["tasks"]) < self.frames_count > int(global_options['timers_count']):
             self.clear()
         self.content_frame.config(bg='#cfcfcf')
+
+    def change_interface(self, interface):
+        """Change interface type. Accepts keywords 'normal' and 'small'."""
+        for widget in self.content_frame.winfo_children():
+            try:
+                if interface == 'normal':
+                    widget.normal_interface()
+                elif interface == 'small':
+                    widget.small_interface()
+            except Exception:
+                pass
 
 
 class MainMenu(tk.Menu):
@@ -1324,11 +1363,17 @@ class MainMenu(tk.Menu):
 
     def options_window(self):
         """Open options window."""
-        var = tk.IntVar(self)   # counter of frames value.
-        ontop = tk.IntVar()     # 'always on top' option value.
-        ontop.set(int(global_options['always_on_top']))
-        var.set(global_options['timers_count'])
-        Options(run, var, ontop)
+        # number of main window frames:
+        var = tk.IntVar(value=int(global_options['timers_count']))
+        # 'always on top' option:
+        ontop = tk.IntVar(value=int(global_options['always_on_top']))
+        # 'compact interface' option
+        compact = int(global_options['compact_interface'])
+        compact_iface = tk.IntVar(value=compact)
+        # 'save tasks on exit' option:
+        save = tk.IntVar(value=int(global_options['preserve_tasks']))
+        params = {}
+        Options(run, var, ontop, compact_iface, save)
         try:
             count = var.get()
         except tk.TclError:
@@ -1338,19 +1383,37 @@ class MainMenu(tk.Menu):
                 count = 1
             elif count > MAX_TASKS:
                 count = MAX_TASKS
-            db = core.Db()
-            db.update(table='options', field='value', value=str(count),
-                      field_id='timers_count', updfiled='name')
-            global_options['timers_count'] = count
-            run.taskframes.fill()
-        if ontop.get() == 1:
-            run.wm_attributes("-topmost", 1)
-        else:
-            run.wm_attributes("-topmost", 0)
+            params['timers_count'] = count
+        # apply value of 'always on top' option:
+        params['always_on_top'] = ontop.get()
+        run.wm_attributes("-topmost", ontop.get())
+        # apply value of 'compact interface' option:
+        params['compact_interface'] = compact_iface.get()
+        if compact != compact_iface.get():
+            if compact_iface.get() == 0:
+                run.full_interface()
+            elif compact_iface.get() == 1:
+                run.small_interface()
+        # apply value of 'save tasks on exit' option:
+        params['preserve_tasks'] = save.get()
+        # save all parameters to DB:
+        self.change_parameter(params)
+        # redraw taskframes if needed:
+        run.taskframes.fill()
         run.lift()
 
+    def change_parameter(self, paramdict):
+        """Change option in the database."""
+        db = core.Db()
+        for parameter_name in paramdict:
+            par = str(paramdict[parameter_name])
+            db.update(table='options', field='value', value=par,
+                      field_id=parameter_name, updfiled='name')
+            global_options[parameter_name] = par
+        db.con.close()
+
     def aboutwindow(self):
-        showinfo("About Tasker", "Tasker {0}\nCopyright (c) Alexey Kallistov, {1}".format(
+        showinfo("About Tasker", "Tasker {0}.\nCopyright (c) Alexey Kallistov, {1}".format(
             global_options['version'], datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
 
     def exit(self):
@@ -1359,12 +1422,11 @@ class MainMenu(tk.Menu):
 
 class Options(Window):
     """Options window which can be opened from main menu."""
-    def __init__(self, parent, counter, ontopvar, **options):
+    def __init__(self, parent, counter, on_top, compact, preserve, **options):
         super().__init__(master=parent, width=300, height=200, **options)
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
-        self.on_top = ontopvar
         tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
         counterframe = tk.Frame(self)
         tk.Button(counterframe, width=3, text='+', command=self.increase).grid(row=0, column=0)
@@ -1373,20 +1435,16 @@ class Options(Window):
         counterframe.grid(row=0, column=1)
         tk.Frame(self, height=20).grid(row=1)
         tk.Label(self, text="Always on top: ").grid(row=2, column=0, sticky='w', padx=5)
-        tk.Checkbutton(self, variable=self.on_top, command=self.toggle_on_top).grid(row=2, column=1, sticky='w', padx=5)
-        tk.Frame(self, height=20).grid(row=3)
-        TaskButton(self, text='Close', command=self.destroy).grid(row=4, column=1, sticky='e', padx=5, pady=5)
+        tk.Checkbutton(self, variable=on_top).grid(row=2, column=1, sticky='w', padx=5)
+        tk.Label(self, text="Compact interface: ").grid(row=3, column=0, sticky='w', padx=5)
+        tk.Checkbutton(self, variable=compact).grid(row=3, column=1, sticky='w', padx=5)
+        tk.Label(self, text="Save tasks on exit: ").grid(row=4, column=0, sticky='w', padx=5)
+        tk.Checkbutton(self, variable=preserve).grid(row=4, column=1, sticky='w', padx=5)
+        tk.Frame(self, height=20).grid(row=5)
+        TaskButton(self, text='Close', command=self.destroy).grid(row=6, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
         self.bind("<Escape>", lambda e: self.destroy())
         self.prepare()
-
-    def toggle_on_top(self):
-        """Toggle 'always on top' option."""
-        state = self.on_top.get()
-        db = core.Db()
-        db.update(table='options', field='value', value=str(state),
-                  field_id='always_on_top', updfiled='name')
-        global_options['always_on_top'] = str(state)
 
     def increase(self):
         if self.counter.get() < MAX_TASKS:
@@ -1403,18 +1461,15 @@ class MainWindow(tk.Tk):
         # Default widget colour:
         global_options["colour"] = self.cget('bg')
         self.title("Tasker")
-        self.minsize(height=250, width=0)
+        self.minsize(height=75, width=0)
         self.resizable(width=0, height=1)
         main_menu = MainMenu(self)  # Create main menu.
         self.config(menu=main_menu)
         self.taskframes = MainFrame(self)  # Main window content.
         self.taskframes.grid(row=0, columnspan=5)
         self.bind("<Configure>", self.taskframes.reconf_canvas)
-        tk.Frame(self, height=35).grid(row=1, columnspan=5)
-        TaskButton(self, text="Stop all", command=self.stopall).grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-        TaskButton(self, text="Clear all", command=self.taskframes.clear_all).grid(row=2, column=0, sticky='wsn', pady=5,
-                                                                             padx=5)
-        TaskButton(self, text="Quit", command=self.destroy).grid(row=2, column=4, sticky='sne', pady=5, padx=5)
+        if global_options["compact_interface"] == "0":
+            self.full_interface(True)
         self.grid_rowconfigure(0, weight=1)
         # Make main window always appear in good position and with adequate size:
         self.update()
@@ -1425,6 +1480,35 @@ class MainWindow(tk.Tk):
         self.geometry('%dx%d+100+50' % (self.winfo_width(), window_height))
         if global_options['always_on_top'] == '1':
             self.wm_attributes("-topmost", 1)
+        self.bind("<Key>", self.hotkeys)
+
+    def hotkeys(self, event):
+        """Execute corresponding actions for hotkeys."""
+        if event.keycode == 83:
+            self.stopall()
+        elif event.keycode == 67:
+            self.taskframes.clear_all()
+        elif event.keycode in (27, 81):
+            self.destroy()
+
+    def full_interface(self, firstrun=False):
+        """Create elements which are displayed in full interface mode."""
+        self.add_frame = tk.Frame(self, height=35)
+        self.add_frame.grid(row=1, columnspan=5)
+        self.add_stop_button = TaskButton(self, text="Stop all", command=self.stopall)
+        self.add_stop_button.grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+        self.add_clear_button = TaskButton(self, text="Clear all", command=self.taskframes.clear_all)
+        self.add_clear_button.grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
+        self.add_quit_button = TaskButton(self, text="Quit", command=self.destroy)
+        self.add_quit_button.grid(row=2, column=4, sticky='sne', pady=5, padx=5)
+        if not firstrun:
+            self.taskframes.change_interface('normal')
+
+    def small_interface(self):
+        """Destroy all additional interface elements."""
+        for widget in self.add_frame, self.add_stop_button, self.add_clear_button, self.add_quit_button:
+            widget.destroy()
+        self.taskframes.change_interface('small')
 
     def stopall(self):
         """Stop all running timers."""
@@ -1433,7 +1517,18 @@ class MainWindow(tk.Tk):
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
         if answer:
-            tk.Tk.destroy(self)
+            db = core.Db()
+            if global_options["preserve_tasks"] == "1":
+                tasks = ','.join([str(x) for x in global_options["tasks"]])
+                if int(global_options['timers_count']) < len(global_options["tasks"]):
+                    db.update(table='options', field='value', value=len(global_options["tasks"]),
+                              field_id='timers_count', updfiled='name')
+            else:
+                tasks = ''
+            db.update(table='options', field='value', value=tasks,
+                      field_id='tasks', updfiled='name')
+            db.con.close()
+            super().destroy()
 
 
 def big_font(unit, size=9):
@@ -1480,7 +1575,12 @@ core.check_database()
 # Create options dictionary:
 global_options = get_options()
 # Global tasks ids set. Used for preserve duplicates:
-global_options["tasks"] = set()
+if global_options["tasks"]:
+    global_options["tasks"] = set([int(x) for x in global_options["tasks"].split(",")])
+else:
+    global_options["tasks"] = set()
+# List of preserved tasks which are not open:
+global_options["preserved_tasks_list"] = list(global_options["tasks"])
 # If True, all running timers will be stopped:
 global_options["stopall"] = False
 # Widget which is currently connected to context menu:
