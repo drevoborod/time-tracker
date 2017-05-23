@@ -865,9 +865,8 @@ class TaskEditWindow(Window):
         # Task information from database:
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
-        self.db.exec_script("SELECT date, spent_time FROM activity WHERE task_id=%s" % taskid)
-        dates = [x[0] + " - " + core.time_format(x[1]) for x in self.db.cur.fetchall()]
-        #
+        dates = [x[0] + " - " + core.time_format(x[1]) for x in self.db.find_by_clause('activity', 'task_id', '%s' %
+                                                                                       taskid, 'date, spent_time')]
         self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         taskname_label = tk.Label(self, text="Task name:")
@@ -937,7 +936,7 @@ class TaskEditWindow(Window):
                 if item[0] not in existing_tags:
                     self.db.insert('tasks_tags', ('task_id', 'tag_id'), (self.task[0], item[0]))
             else:
-                self.db.exec_script('DELETE FROM tasks_tags WHERE task_id={0} AND tag_id={1}'.format(self.task[0], item[0]))
+                self.db.delete(table="tasks_tags", task_id=self.task[0], tag_id=item[0])
         # Reporting to parent window that task has been changed:
         if self.change:
             self.change.set(1)
@@ -1014,8 +1013,8 @@ class TagsEditWindow(Window):
         self.db.insert('tags', ('id', 'name'), (None, tagname))
 
     def del_record(self, dellist):
-        self.db.delete(tuple(dellist), field='id', table='tags')
-        self.db.delete(tuple(dellist), field='tag_id', table='tasks_tags')
+        self.db.delete(id=dellist, table='tags')
+        self.db.delete(tag_id=dellist, table='tasks_tags')
 
 
 class TimestampsWindow(TagsEditWindow):
@@ -1054,7 +1053,8 @@ class TimestampsWindow(TagsEditWindow):
     def del_record(self, dellist):
         """Deletes selected timestamps."""
         for x in dellist:
-            self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
+            self.db.delete(table="timestamps", timestamp=x, task_id=self.taskid)
+            #self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):

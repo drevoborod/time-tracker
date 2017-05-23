@@ -104,20 +104,33 @@ class Db:
         else:
             self.update(task_id, field=field, value=value)
 
-    def delete(self, ids, field="id", table="tasks"):
-        """Removes several records. ids should be a tuple."""
-        if len(ids) == 1:
-            i = "('%s')" % ids[0]
-        else:
-            i = ids
-        self.exec_script("DELETE FROM {1} WHERE {2} in {0}".format(i, table, field))
+    def delete(self, table="tasks", **field_values):
+        """Removes several records using multiple "field in (values)" clauses.
+        field_values has to be a dictionary which values can be tuples:
+        field1=(value1, value), field2=value1, field3=(value1, value2, value3)"""
+        clauses = []
+        for key in field_values:
+            value = field_values[key]
+            if type(value) in (list, tuple):
+                value = tuple(value)
+                if len(value) == 1:
+                    value = "('%s')" % value[0]
+                clauses.append("{0} in {1}".format(key, value))
+            #elif type(value) in (int, float):
+            #    clauses.append("{0}={1}".format(key, value))
+            else:
+                clauses.append("{0}='{1}'".format(key, value))
+        clauses = " AND ".join(clauses)
+        if len(clauses) > 0:
+            clauses = " WHERE " + clauses
+        self.exec_script("DELETE FROM {0}{1}".format(table, clauses))
 
-    def delete_tasks(self, ids):
-        """Removes task and all corresponding records."""
-        self.delete(ids)
-        self.delete(ids, field="task_id", table="activity")
-        self.delete(ids, field="task_id", table="timestamps")
-        self.delete(ids, field="task_id", table="tasks_tags")
+    def delete_tasks(self, values):
+        """Removes task and all corresponding records. Values has to be tuple."""
+        self.delete(id=values)
+        self.delete(task_id=values, table="activity")
+        self.delete(task_id=values, table="timestamps")
+        self.delete(task_id=values, table="tasks_tags")
 
     def tags_dict(self, taskid):
         """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
