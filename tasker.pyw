@@ -693,13 +693,7 @@ class TaskSelectionWindow(Window):
 
     def export(self):
         """Export all tasks from the table into the file."""
-        text = '\n'.join(("Task name,Time spent,Creation date",
-                          '\n'.join(','.join([row[1], core.time_format(row[2]),
-                                              row[4]]) for row in self.tdict.values()),
-                          "Summary time,%s" % self.fulltime))
-        filename = asksaveasfilename(parent=self, defaultextension=".csv", filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
-        if filename:
-            core.export(filename, text)
+        ExportWindow(self, self.tdict)
 
     def add_new_task(self):
         """Adds new task into the database."""
@@ -711,19 +705,18 @@ class TaskSelectionWindow(Window):
                 self.db.insert_task(task_name)
             except core.DbErrors:
                 self.db.reconnect()
-                for row in self.listframe.taskslist.get_children():
-                    if self.listframe.taskslist.item(row)['values'][0] == task_name:
-                        self.listframe.focus_(row)
-                        self.update_descr(row)
+                for item in self.tdict:
+                    if self.tdict[item][1] == task_name:
+                        self.listframe.focus_(item)
+                        self.update_descr(item)
                         break
                 else:
                     showinfo("Task exists", "Task already exists. Change filter configuration to see it.")
             else:
                 self.update_list()
-                items = {x: self.listframe.taskslist.item(x) for x in self.listframe.taskslist.get_children()}
                 # If created task appears in the table, highlighting it:
-                for item in items:
-                    if items[item]['values'][0] == task_name:
+                for item in self.tdict:
+                    if self.tdict[item][1] == task_name:
                         self.listframe.focus_(item)
                         break
                 else:
@@ -1429,9 +1422,9 @@ class Options(Window):
         self.counter = counter
         tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
         counterframe = tk.Frame(self)
-        tk.Button(counterframe, width=3, text='+', command=self.increase).grid(row=0, column=0)
+        TaskButton(counterframe, text='<', command=self.decrease, textwidth=1, height=19).grid(row=0, column=0)
         tk.Entry(counterframe, width=3, textvariable=counter, justify='center').grid(row=0, column=1, sticky='e')
-        tk.Button(counterframe, width=3, text='-', command=self.decrease).grid(row=0, column=2)
+        TaskButton(counterframe, text='>', command=self.increase, textwidth=1, height=19).grid(row=0, column=2)
         counterframe.grid(row=0, column=1)
         tk.Frame(self, height=20).grid(row=1)
         tk.Label(self, text="Always on top: ").grid(row=2, column=0, sticky='w', padx=5)
@@ -1453,6 +1446,34 @@ class Options(Window):
     def decrease(self):
         if self.counter.get() > 1:
             self.counter.set(self.counter.get() - 1)
+
+
+class ExportWindow(Window):
+    def __init__(self, parent, data, **options):
+        super().__init__(master=parent, **options)
+        self.title("Export parameters")
+        self.data = data
+        self.operating_mode = tk.IntVar(self)
+        tk.Label(self, text="Export mode").grid(row=0, column=1, columnspan=2)
+        tk.Radiobutton(self, text="Task-based", variable=self.operating_mode, value=0).grid(row=1, column=0)
+        tk.Radiobutton(self, text="Date-based", variable=self.operating_mode, value=1).grid(row=1, column=1)
+        tk.Frame(self, height=15).grid(row=2, column=0)
+        TaskButton(self, text="Export", command=self.write).grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, padx=5, pady=5, sticky='e')
+        self.prepare()
+
+    def write(self):
+        """
+        text = '\n'.join(("Task name,Time spent,Creation date",
+                          '\n'.join(','.join([row[1], core.time_format(row[2]),
+                                              row[4]]) for row in self.data.values()),
+                          "Summary time,%s" % self.fulltime))
+        filename = asksaveasfilename(parent=self, defaultextension=".csv",
+                                     filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
+        if filename:
+            core.export(filename, text)
+        """
+        print(self.data)
 
 
 class MainWindow(tk.Tk):
