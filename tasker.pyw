@@ -49,8 +49,10 @@ class Window(tk.Toplevel):
 
     def destroy(self):
         self.db.con.close()
+        if self.master:
+            self.master.focus_set()
+            self.master.lift()
         super().destroy()
-
 
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
@@ -118,8 +120,7 @@ class TaskFrame(tk.Frame):
 
     def timestamps_window(self):
         """Timestamps window opening."""
-        TimestampsWindow(self.task_id, self.running_time, self)
-        self.raise_main_window()
+        TimestampsWindow(self.task_id, self.running_time, run)
 
     def add_timestamp(self):
         """Adding timestamp to database."""
@@ -136,10 +137,9 @@ class TaskFrame(tk.Frame):
     def properties_window(self):
         """Task properties window."""
         edited = tk.IntVar()
-        TaskEditWindow(self.task[0], self, variable=edited)
+        TaskEditWindow(self.task[0], parent=run, variable=edited)
         if edited.get() == 1:
             self.update_description()
-        self.raise_main_window()
 
     def clear(self):
         """Recreation of frame contents."""
@@ -152,7 +152,7 @@ class TaskFrame(tk.Frame):
     def name_dialogue(self):
         """Task selection window."""
         var = tk.IntVar()
-        TaskSelectionWindow(self, taskvar=var)
+        TaskSelectionWindow(run, taskvar=var)
         if var.get():
             self.get_task_name(var.get())
 
@@ -278,11 +278,6 @@ class TaskFrame(tk.Frame):
         self.task[3] = self.db.find_by_clause("tasks", "id", self.task[0], "description")[0][0]
         if self.description:
             self.description.update_text(self.task[3])
-
-    def raise_main_window(self):
-        """Function to set main window on top of others."""
-        self.focus_set()
-        run.lift()
 
     def destroy(self):
         """Closes frame and writes counter value into database."""
@@ -849,11 +844,6 @@ class TaskSelectionWindow(Window):
     def raise_window(self):
         self.grab_set()
         self.lift()
-
-    def destroy(self):
-        run.focus_set()
-        run.lift()
-        super().destroy()
 
 
 class TaskEditWindow(Window):
@@ -1449,20 +1439,29 @@ class Options(Window):
 
 
 class ExportWindow(Window):
+    """Export dialogue window."""
     def __init__(self, parent, data, **options):
         super().__init__(master=parent, **options)
         self.title("Export parameters")
-        self.data = data
+        self.task_ids = [x[0] for x in data.values()]
         self.operating_mode = tk.IntVar(self)
         tk.Label(self, text="Export mode").grid(row=0, column=1, columnspan=2)
         tk.Radiobutton(self, text="Task-based", variable=self.operating_mode, value=0).grid(row=1, column=0)
         tk.Radiobutton(self, text="Date-based", variable=self.operating_mode, value=1).grid(row=1, column=1)
         tk.Frame(self, height=15).grid(row=2, column=0)
-        TaskButton(self, text="Export", command=self.write).grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text="Export", command=self.get_data).grid(row=3, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, padx=5, pady=5, sticky='e')
         self.prepare()
 
-    def write(self):
+    def get_data(self):
+        if self.operating_mode == 0:
+            export_data = self.db.tasks_to_export(self.task_ids)
+        else:
+            export_data = self.db.dates_to_export(self.task_ids)
+        self.write(export_data)
+
+
+    def write(self, data):
         """
         text = '\n'.join(("Task name,Time spent,Creation date",
                           '\n'.join(','.join([row[1], core.time_format(row[2]),
@@ -1473,7 +1472,7 @@ class ExportWindow(Window):
         if filename:
             core.export(filename, text)
         """
-        print(self.data)
+        pass
 
 
 class MainWindow(tk.Tk):

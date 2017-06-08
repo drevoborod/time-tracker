@@ -132,6 +132,14 @@ class Db:
         self.delete(task_id=values, table="timestamps")
         self.delete(task_id=values, table="tasks_tags")
 
+    def tasks_to_export(self, ids):
+        """Prepare tasks list for export."""
+        pass
+
+    def dates_to_export(self, ids):
+        """Prepare date-based tasks list for export."""
+        pass
+
     def tags_dict(self, taskid):
         """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
         Tag has value 1 if a record for given task id exists in tags table.
