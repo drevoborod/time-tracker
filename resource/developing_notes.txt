@@ -13,3 +13,7 @@
 - Описания задач
 - Время, потраченное на каждую задачу
 - Суммарное затраченное время на все задачи за эту дату
+
+Date,Tasks,Description,Time,Summarized working time
+13.01.17,Task4,Another task,13:14:00,13:25:00
+,Task5,Also a task,00:11:00,
