@@ -1499,11 +1499,11 @@ class MainWindow(tk.Tk):
 
     def hotkeys(self, event):
         """Execute corresponding actions for hotkeys."""
-        if event.keycode == 83:
+        if event.keycode == 39:
             self.stopall()
-        elif event.keycode == 67:
+        elif event.keycode == 54:
             self.taskframes.clear_all()
-        elif event.keycode in (27, 81):
+        elif event.keycode in (24, 9):
             self.destroy()
 
     def full_interface(self, firstrun=False):
