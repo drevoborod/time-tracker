@@ -29,13 +29,13 @@ class Db:
         self.con.close()
         self.connect()
 
-    def exec_script(self, script):
+    def exec_script(self, script, *values):
         """Custom script execution and commit. Returns lastrowid. Raises DbErrors on database exceptions."""
         try:
-            if not isinstance(script, tuple):
+            if not values:
                 self.cur.execute(script)
             else:
-                self.cur.execute(script[0], script[1])
+                self.cur.execute(script, values)
         except sqlite3.DatabaseError as err:
             raise DbErrors(err)
         else:
@@ -73,9 +73,9 @@ class Db:
         return task
 
     def insert(self, table, fields, values):
-        """Insert into fields given values. Fields and values should be tuples with length 2 or 3."""
-        return self.exec_script(('INSERT INTO {0} {1} VALUES {2}'.format(table, fields, '(?, ?)' if len(values) == 2
-                                                                         else '(?, ?, ?)'), values))
+        """Insert into fields given values. Fields and values should be tuples of same length."""
+        placeholder = "(" + ",".join(["?"] * len(values)) + ")"
+        return self.exec_script('INSERT INTO {0} {1} VALUES {2}'.format(table, fields, placeholder), *values)
 
     def insert_task(self, name):
         """Insert task into database."""
@@ -92,7 +92,7 @@ class Db:
 
     def update(self, field_id, field, value, table="tasks", updfiled="id"):
         """Updates given field in given table with given id using given value :) """
-        self.exec_script(("UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
+        self.exec_script("UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled), value)
 
     def update_task(self, task_id, field="spent_time", value=0):
         """Updates some fields for given task id."""
@@ -116,8 +116,6 @@ class Db:
                 if len(value) == 1:
                     value = "('%s')" % value[0]
                 clauses.append("{0} in {1}".format(key, value))
-            #elif type(value) in (int, float):
-            #    clauses.append("{0}={1}".format(key, value))
             else:
                 clauses.append("{0}='{1}'".format(key, value))
         clauses = " AND ".join(clauses)
@@ -200,11 +198,11 @@ def date_format(date):
     """Returns formatted date. Accepts datetime or string or int/float.
     Returns string or seconds since epoch."""
     if isinstance(date, datetime.datetime):
-        return datetime.datetime.strftime(date, '%d.%m.%Y')
+        return datetime.datetime.strftime(date, '%Y-%m-%d')
     elif isinstance(date, str):
-        return time.mktime(time.strptime(date, '%d.%m.%Y'))
+        return time.mktime(time.strptime(date, '%Y-%m-%d'))
     elif isinstance(date, (int, float)):
-        return datetime.datetime.strftime(datetime.datetime.fromtimestamp(date), '%d.%m.%Y')
+        return datetime.datetime.strftime(datetime.datetime.fromtimestamp(date), '%Y-%m-%d')
     else:
         raise DbErrors("Wrong time format.")
 
@@ -225,6 +223,7 @@ def patch_database():
     cur = con.cursor()
     cur.execute("SELECT value FROM options WHERE name='patch_ver';")
     res = cur.fetchone()
+    key = '0'
     if not res:
         for key in sorted(PATCH_SCRIPTS):
             for script in PATCH_SCRIPTS[key]:
@@ -266,36 +265,15 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_tags', '');
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
+                INSERT INTO options VALUES ('patch_ver', '0');
+                INSERT INTO options VALUES ('timers_count', '3');
+                INSERT INTO options VALUES ('minimize_to_tray', '0');
+                INSERT INTO options VALUES ('always_on_top', '0');
+                INSERT INTO options VALUES ('preserve_tasks', '0');
+                INSERT INTO options VALUES ('tasks', '');
+                INSERT INTO options VALUES ('compact_interface', '0');
+                INSERT INTO options VALUES ('version', '1.4_beta');
+                INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
-PATCH_SCRIPTS = {1:
-                    ["INSERT INTO options VALUES ('patch_ver', '1');",
-                     "INSERT INTO options VALUES ('timers_count', '3');",
-                     "INSERT INTO options VALUES ('minimize_to_tray', '0');",
-                     "INSERT INTO options VALUES ('always_on_top', '0');"
-                     ],
-                 2: ["INSERT INTO options VALUES ('version', '1.1');"
-                     ],
-                 3: ["UPDATE options SET value='beta_1.1' WHERE name='version';"
-                     ],
-                 4: ["UPDATE options SET value='1.1' WHERE name='version';"
-                     ],
-                 5: ["UPDATE options SET value='1.1.1' WHERE name='version';"
-                     ],
-                 6: ["UPDATE options SET value='1.1.2' WHERE name='version';"
-                     ],
-                 7: ["UPDATE options SET value='1.2_beta' WHERE name='version';"
-                     ],
-                 8: ["UPDATE options SET value='1.2' WHERE name='version';"
-                     ],
-                 9: ["UPDATE options SET value='1.2.1.' WHERE name='version';"
-                     ],
-                 10: ["UPDATE options SET value='1.2.2.' WHERE name='version';"
-                      ],
-                 11: ["INSERT INTO options VALUES ('compact_interface', '0');",
-                      "UPDATE options SET value='1.2.3.' WHERE name='version';"
-                      ],
-                 12: ["UPDATE options SET value='1.3' WHERE name='version';",
-                      "INSERT INTO options VALUES ('preserve_tasks', '0');",
-                      "INSERT INTO options VALUES ('tasks', '');"
-                      ]
-                 }
+#PATCH_SCRIPTS = {1: ["UPDATE options SET value='1.5' WHERE name='version';" ]}
+PATCH_SCRIPTS = {}
