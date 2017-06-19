@@ -1042,7 +1042,6 @@ class TimestampsWindow(TagsEditWindow):
         """Deletes selected timestamps."""
         for x in dellist:
             self.db.delete(table="timestamps", timestamp=x, task_id=self.taskid)
-            #self.db.exec_script('delete from timestamps where timestamp={0} and task_id={1}'.format(x, self.taskid))
 
 
 class HelpWindow(tk.Toplevel):
