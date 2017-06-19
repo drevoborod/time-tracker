@@ -500,8 +500,6 @@ class TaskList(tk.Frame):
         self.tasks = copy.deepcopy(tasks)
         for t in tasks:
             t[1] = core.time_format(t[1])
-        for t in self.tasks:
-            t[2] = core.date_format(t[2])
         self.insert_tasks(tasks)
 
     def focus_(self, item):
@@ -1161,10 +1159,7 @@ class FilterWindow(Window):
         if stored_tags[0]:      # stored_tags[0] is string.
             stored_tags = [int(x) for x in stored_tags]
         # Dates list:
-        self.db.exec_script('SELECT DISTINCT date FROM activity')
-        dates = sorted([core.date_format(x[0]) for x in self.db.cur.fetchall()], reverse=True)
-        for index, date in enumerate(dates):
-            dates[index] = core.date_format(date)
+        dates = self.db.simple_dateslist()
         # Tags list:
         tags = self.db.simple_tagslist()
         # Checking checkboxes according to their values loaded from database:

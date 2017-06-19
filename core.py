@@ -157,6 +157,11 @@ class Db:
         res.reverse()       # Should be reversed to preserve order like in database.
         return res
 
+    def simple_dateslist(self):
+        """Returns simple list of all dates of activity without duplicates."""
+        self.exec_script('SELECT DISTINCT date FROM activity ORDER BY date DESC')
+        return [x[0] for x in self.cur.fetchall()]
+
     def timestamps(self, taskid, current_time):
         """Returns timestamps list in same format as simple_tagslist()."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid, 'timestamp')
@@ -195,16 +200,8 @@ def time_format(sec):
 
 
 def date_format(date):
-    """Returns formatted date. Accepts datetime or string or int/float.
-    Returns string or seconds since epoch."""
-    if isinstance(date, datetime.datetime):
-        return datetime.datetime.strftime(date, '%Y-%m-%d')
-    elif isinstance(date, str):
-        return time.mktime(time.strptime(date, '%Y-%m-%d'))
-    elif isinstance(date, (int, float)):
-        return datetime.datetime.strftime(datetime.datetime.fromtimestamp(date), '%Y-%m-%d')
-    else:
-        raise DbErrors("Wrong time format.")
+    """Returns formatted date (str). Accepts datetime."""
+    return datetime.datetime.strftime(date, '%Y-%m-%d')
 
 
 def get_help():
