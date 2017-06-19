@@ -1498,11 +1498,11 @@ class MainWindow(tk.Tk):
 
     def hotkeys(self, event):
         """Execute corresponding actions for hotkeys."""
-        if event.keycode == 39:
+        if event.keysym in ('Cyrillic_yeru', 'Cyrillic_YERU', 's', 'S'):
             self.stopall()
-        elif event.keycode == 54:
+        elif event.keysym in ('Cyrillic_es', 'Cyrillic_ES', 'c', 'C'):
             self.taskframes.clear_all()
-        elif event.keycode in (24, 9):
+        elif event.keysym in ('Cyrillic_shorti', 'Cyrillic_SHORTI', 'q', 'Q', 'Escape'):
             self.destroy()
 
     def full_interface(self, firstrun=False):
