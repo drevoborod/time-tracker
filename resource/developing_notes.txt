@@ -18,7 +18,7 @@
 1)
 select name, description, activity.date, activity.spent_time from tasks join activity on tasks.id=activity.task_id where tasks.id in (1,2)  order by tasks.name, activity.date;
 select name, fulltime from tasks join (select task_id, sum(spent_time) as fulltime from activity where task_id in (1,2, 3) group by task_id) as act on tasks.id=act.task_id;
-{'task1': ['description', {'date1': 'time1', 'date2': 'time2'}, 'full time'], 'task2': ...}
+{'task1': ['description', [('date1': 'time1'), ('date2': 'time2')], 'full time'], 'task2': ...}
 
 Task,Dates,Description,Time,Summarized working time
 Task4,13.01.17,Another task,13:14:00,13:25:00
@@ -28,7 +28,7 @@ Task5,13.01.17,Also a task,00:11:00,00:11:00
 2)
 select date, tasks.name, tasks.description, spent_time from activity join tasks on activity.task_id=tasks.id where task_id in (1,2) order by date, tasks.name
 select date, sum(spent_time) from activity where task_id in (1,2) group by date order by date
-{'date1': [{'task1': ['description', 'time1'], 'task2': ['description', 'time1']}, 'full time'], 'date2': ...}
+{'date1': [[['task1', 'description', 'time1'], ['task2', 'description', 'time1']], 'full time'], 'date2': ...}
 
 Date,Tasks,Description,Time,Summarized working time
 13.01.17,Task4,Another task,13:14:00,13:25:00

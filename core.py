@@ -140,11 +140,9 @@ class Db:
         result = odict()
         for item in res:
             if item[0] in result:
-                result[item[0]][1][item[2]] = time_format(item[3])
+                result[item[0]][1].append((item[2], time_format(item[3])))
             else:
-                tempdict = odict()
-                tempdict[item[2]] = time_format(item[3])
-                result[item[0]] = [item[1], tempdict]
+                result[item[0]] = [item[1], [(item[2], time_format(item[3]))]]
         self.exec_script("select name, fulltime from tasks join (select task_id, sum(spent_time) as fulltime "
                          "from activity where task_id in {0} group by task_id) as act on tasks.id=act.task_id".
                          format(tuple(ids)))
@@ -162,11 +160,9 @@ class Db:
         result = odict()
         for item in res:
             if item[0] in result:
-                result[item[0]][0][item[1]] = [item[2], time_format(item[3])]
+                result[item[0]][0].append([item[1], item[2], time_format(item[3])])
             else:
-                tempdict = odict()
-                tempdict[item[1]] = [item[2], time_format(item[3])]
-                result[item[0]] = [tempdict]
+                result[item[0]] = [[[item[1], item[2], item[3]]]]
         self.exec_script("select date, sum(spent_time) from activity where task_id in (1,2) group by date "
                          "order by date".format(tuple(ids)))
         res = self.cur.fetchall()

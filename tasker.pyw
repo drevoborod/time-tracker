@@ -1448,11 +1448,18 @@ class ExportWindow(Window):
         self.prepare()
 
     def get_data(self):
+        """Take from the database information to be exported and prepare it."""
         if self.operating_mode.get() == 0:
             export_data = self.db.tasks_to_export(self.task_ids)
+            prepared_data = ['Task,Dates,Description,Time,Summarized working time']
+            for key in export_data:
+                temp_list = [key, export_data[key][0], export_data[key][0]]
+
+
         else:
             export_data = self.db.dates_to_export(self.task_ids)
-        self.export(export_data)
+            prepared_data = ''
+        self.export(prepared_data)
 
 
     def export(self, data):
@@ -1464,7 +1471,7 @@ class ExportWindow(Window):
         filename = asksaveasfilename(parent=self, defaultextension=".csv",
                                      filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
         if filename:
-            core.export(filename, text)
+            core.write_to_disk(filename, text)
         """
         pass
 
