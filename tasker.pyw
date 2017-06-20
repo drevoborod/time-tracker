@@ -1448,7 +1448,7 @@ class ExportWindow(Window):
         self.prepare()
 
     def get_data(self):
-        if self.operating_mode == 0:
+        if self.operating_mode.get() == 0:
             export_data = self.db.tasks_to_export(self.task_ids)
         else:
             export_data = self.db.dates_to_export(self.task_ids)

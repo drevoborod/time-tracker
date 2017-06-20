@@ -5,6 +5,7 @@ import time
 import datetime
 
 import sqlite3
+from collections import OrderedDict as odict
 
 
 class DbErrors(Exception):
@@ -132,7 +133,25 @@ class Db:
 
     def tasks_to_export(self, ids):
         """Prepare tasks list for export."""
-        pass
+        self.exec_script("select name, description, activity.date, activity.spent_time from tasks join activity "
+                         "on tasks.id=activity.task_id where tasks.id in {0} order by tasks.name, activity.date".
+                         format(tuple(ids)))
+        res = self.cur.fetchall()
+        result = odict()
+        for item in res:
+            if item[0] in result:
+                result[item[0]][1][item[2]] = time_format(item[3])
+            else:
+                tempdict = odict()
+                tempdict[item[2]] = time_format(item[3])
+                result[item[0]] = [item[1], tempdict]
+        self.exec_script("select name, fulltime from tasks join (select task_id, sum(spent_time) as fulltime "
+                         "from activity where task_id in {0} group by task_id) as act on tasks.id=act.task_id".
+                         format(tuple(ids)))
+        res = self.cur.fetchall()
+        for item in res:
+            result[item[0]].append(time_format(item[1]))
+        return result
 
     def dates_to_export(self, ids):
         """Prepare date-based tasks list for export."""

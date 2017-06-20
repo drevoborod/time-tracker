@@ -21,3 +21,4 @@ Date,Tasks,Description,Time,Summarized working time
 1)
 select name, description, activity.date, activity.spent_time from tasks join activity on tasks.id=activity.task_id where tasks.id in (1,2)  order by tasks.name, activity.date;
 select name, fulltime from tasks join (select task_id, sum(spent_time) as fulltime from activity where task_id in (1,2, 3) group by task_id) as act on tasks.id=act.task_id;
+{'task1': ['description', {'date1': 'time1', 'date2': 'time2'}, 'full time'], 'task2': ...}
