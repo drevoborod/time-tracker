@@ -17,3 +17,5 @@
 Date,Tasks,Description,Time,Summarized working time
 13.01.17,Task4,Another task,13:14:00,13:25:00
 ,Task5,Also a task,00:11:00,
+
+select name, description, activity.date, activity.spent_time from tasks join activity on tasks.id=activity.task_id where tasks.id in (1,2)  order by tasks.name, activity.date;
