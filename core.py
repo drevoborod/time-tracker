@@ -155,7 +155,24 @@ class Db:
 
     def dates_to_export(self, ids):
         """Prepare date-based tasks list for export."""
-        pass
+        self.exec_script("select date, tasks.name, tasks.description, spent_time from activity join tasks "
+                         "on activity.task_id=tasks.id where task_id in (1,2) order by date, tasks.name".
+                         format(tuple(ids)))
+        res = self.cur.fetchall()
+        result = odict()
+        for item in res:
+            if item[0] in result:
+                result[item[0]][0][item[1]] = [item[2], time_format(item[3])]
+            else:
+                tempdict = odict()
+                tempdict[item[1]] = [item[2], time_format(item[3])]
+                result[item[0]] = [tempdict]
+        self.exec_script("select date, sum(spent_time) from activity where task_id in (1,2) group by date "
+                         "order by date".format(tuple(ids)))
+        res = self.cur.fetchall()
+        for item in res:
+            result[item[0]].append(time_format(item[1]))
+        return result
 
     def tags_dict(self, taskid):
         """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
@@ -199,7 +216,7 @@ def check_database():
     patch_database()
 
 
-def export(filename, text):
+def write_to_disk(filename, text):
     """Creates file and fills it with given text."""
     expfile = open(filename, 'w')
     expfile.write(text)

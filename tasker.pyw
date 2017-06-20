@@ -1452,10 +1452,10 @@ class ExportWindow(Window):
             export_data = self.db.tasks_to_export(self.task_ids)
         else:
             export_data = self.db.dates_to_export(self.task_ids)
-        self.write(export_data)
+        self.export(export_data)
 
 
-    def write(self, data):
+    def export(self, data):
         """
         text = '\n'.join(("Task name,Time spent,Creation date",
                           '\n'.join(','.join([row[1], core.time_format(row[2]),
