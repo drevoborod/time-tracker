@@ -43,9 +43,12 @@ class Db:
             self.con.commit()
             return self.cur.lastrowid
 
-    def find_by_clause(self, table, field, value, searchfield):
+    def find_by_clause(self, table, field, value, searchfield, order=None):
         """Returns "searchfield" for field=value."""
-        self.exec_script('SELECT {3} FROM {0} WHERE {1}="{2}"'.format(table, field, value, searchfield))
+        order_by = ''
+        if order:
+            order_by = ' ORDER BY {0}'.format(order)
+        self.exec_script('SELECT {3} FROM {0} WHERE {1}="{2}"{4}'.format(table, field, value, searchfield, order_by))
         return self.cur.fetchall()
 
     def find_all(self, table, sortfield=None):

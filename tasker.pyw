@@ -9,6 +9,7 @@ import tkinter.font as fonter
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
+from tkinter import TclError
 
 import core
 
@@ -854,7 +855,7 @@ class TaskEditWindow(Window):
         self.task = self.db.select_task(taskid)
         # List of dates connected with this task:
         dates = [x[0] + " - " + core.time_format(x[1]) for x in self.db.find_by_clause('activity', 'task_id', '%s' %
-                                                                                       taskid, 'date, spent_time')]
+                                                                                       taskid, 'date, spent_time', 'date')]
         self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
         taskname_label = tk.Label(self, text="Task name:")
@@ -1320,7 +1321,7 @@ class MainFrame(ScrolledCanvas):
                     widget.normal_interface()
                 elif interface == 'small':
                     widget.small_interface()
-            except Exception:
+            except TclError:
                 pass
 
 
@@ -1332,11 +1333,14 @@ class MainMenu(tk.Menu):
         file.add_command(label="Options...", command=self.options_window, underline=0)
         file.add_separator()
         file.add_command(label="Exit", command=self.exit, underline=1)
+        big_font(file, 10)
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
         helpmenu.add_command(label="Help...", command=lambda: helpwindow(text=core.HELP_TEXT))
         helpmenu.add_command(label="About...", command=self.aboutwindow)
+        big_font(helpmenu, 10)
         self.add_cascade(label="Help", menu=helpmenu)
+        big_font(self, 10)
 
     def options_window(self):
         """Open options window."""
@@ -1439,12 +1443,16 @@ class ExportWindow(Window):
         self.title("Export parameters")
         self.task_ids = [x[0] for x in data.values()]
         self.operating_mode = tk.IntVar(self)
-        tk.Label(self, text="Export mode").grid(row=0, column=1, columnspan=2)
+        tk.Label(self, text="Export mode").grid(row=0, column=0, columnspan=2, sticky='ns')
         tk.Radiobutton(self, text="Task-based", variable=self.operating_mode, value=0).grid(row=1, column=0)
         tk.Radiobutton(self, text="Date-based", variable=self.operating_mode, value=1).grid(row=1, column=1)
         tk.Frame(self, height=15).grid(row=2, column=0)
-        TaskButton(self, text="Export", command=self.get_data).grid(row=3, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, padx=5, pady=5, sticky='e')
+        TaskButton(self, text="Export", command=self.get_data).grid(row=3, column=0, padx=5, pady=5, sticky='ws')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, padx=5, pady=5, sticky='es')
+        self.minsize(height=150, width=200)
+        self.maxsize(width=450, height=300)
+        self.grid_columnconfigure('all', weight=1)
+        self.grid_rowconfigure('all', weight=1)
         self.prepare()
 
     def get_data(self):
