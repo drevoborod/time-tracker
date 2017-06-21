@@ -142,7 +142,7 @@ class Db:
             if item[0] in result:
                 result[item[0]][1].append((item[2], time_format(item[3])))
             else:
-                result[item[0]] = [item[1], [(item[2], time_format(item[3]))]]
+                result[item[0]] = [item[1] if item[1] else '', [(item[2], time_format(item[3]))]]
         self.exec_script("select name, fulltime from tasks join (select task_id, sum(spent_time) as fulltime "
                          "from activity where task_id in {0} group by task_id) as act on tasks.id=act.task_id".
                          format(tuple(ids)))
@@ -154,16 +154,16 @@ class Db:
     def dates_to_export(self, ids):
         """Prepare date-based tasks list for export."""
         self.exec_script("select date, tasks.name, tasks.description, spent_time from activity join tasks "
-                         "on activity.task_id=tasks.id where task_id in (1,2) order by date, tasks.name".
+                         "on activity.task_id=tasks.id where task_id in {0} order by date, tasks.name".
                          format(tuple(ids)))
         res = self.cur.fetchall()
         result = odict()
         for item in res:
             if item[0] in result:
-                result[item[0]][0].append([item[1], item[2], time_format(item[3])])
+                result[item[0]][0].append([item[1], item[2] if item[2] else '', time_format(item[3])])
             else:
-                result[item[0]] = [[[item[1], item[2], item[3]]]]
-        self.exec_script("select date, sum(spent_time) from activity where task_id in (1,2) group by date "
+                result[item[0]] = [[[item[1], item[2] if item[2] else '', time_format(item[3])]]]
+        self.exec_script("select date, sum(spent_time) from activity where task_id in {0} group by date "
                          "order by date".format(tuple(ids)))
         res = self.cur.fetchall()
         for item in res:

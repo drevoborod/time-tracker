@@ -1448,32 +1448,39 @@ class ExportWindow(Window):
         self.prepare()
 
     def get_data(self):
-        """Take from the database information to be exported and prepare it."""
+        """Take from the database information to be exported and prepare it. All items should be strings."""
         if self.operating_mode.get() == 0:
             export_data = self.db.tasks_to_export(self.task_ids)
-            prepared_data = ['Task,Dates,Description,Time,Summarized working time']
+            prepared_data = ['Task,Description,Dates,Time,Summarized working time']
+            # Don't try to understand this 'for' loop below if you want to save your mind!
             for key in export_data:
-                temp_list = [key, export_data[key][0], export_data[key][0]]
-
-
+                temp_list = [key, export_data[key][0], export_data[key][1][0][0], export_data[key][1][0][1],
+                             export_data[key][2]]
+                prepared_data.append(','.join(temp_list))
+                if len(export_data[key][1]) > 1:
+                    for i in range(1, len(export_data[key][1])):
+                        prepared_data.append(','.join(['', '', export_data[key][1][i][0], export_data[key][1][i][1], '']))
+                        i += 1
         else:
             export_data = self.db.dates_to_export(self.task_ids)
-            prepared_data = ''
-        self.export(prepared_data)
-
+            prepared_data = ['Date,Tasks,Descriptions,Time,Summarized working time']
+            for key in export_data:
+                temp_list = [key, export_data[key][0][0][0], export_data[key][0][0][1], export_data[key][0][0][2],
+                             export_data[key][1]]
+                prepared_data.append(','.join(temp_list))
+                if len(export_data[key][0]) > 1:
+                    for i in range(1, len(export_data[key][0])):
+                        prepared_data.append(','.join(['', export_data[key][0][i][0], export_data[key][0][i][1],
+                                                       export_data[key][0][i][2], '']))
+                        i += 1
+        self.export('\n'.join(prepared_data))
 
     def export(self, data):
-        """
-        text = '\n'.join(("Task name,Time spent,Creation date",
-                          '\n'.join(','.join([row[1], core.time_format(row[2]),
-                                              row[4]]) for row in self.data.values()),
-                          "Summary time,%s" % self.fulltime))
         filename = asksaveasfilename(parent=self, defaultextension=".csv",
                                      filetypes=[("All files", "*.*"), ("Comma-separated texts", "*.csv")])
         if filename:
-            core.write_to_disk(filename, text)
-        """
-        pass
+            core.write_to_disk(filename, data)
+        self.destroy()
 
 
 class MainWindow(tk.Tk):
