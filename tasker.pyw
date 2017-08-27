@@ -12,6 +12,7 @@ from tkinter import ttk
 from tkinter import TclError
 
 import core
+import sel_cal
 
 
 class Window(tk.Toplevel):
@@ -20,6 +21,7 @@ class Window(tk.Toplevel):
         super().__init__(master=master, **options)
         self.db = core.Db()
         self.master = master
+        self.bind("<Escape>", lambda e: self.destroy())
 
     def prepare(self):
         self.grab_set()
@@ -607,7 +609,6 @@ class TaskSelectionWindow(Window):
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
-        self.bind("<Escape>", lambda e: self.destroy())
         TaskButton(self, text="Open", command=self.get_task).grid(row=6, column=0, padx=5, pady=5, sticky='w')
         TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", self.get_task_id)
@@ -893,7 +894,6 @@ class TaskEditWindow(Window):
         tk.Frame(self, height=40).grid(row=9)
         TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
         TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
-        self.bind("<Escape>", lambda e: self.destroy())
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
@@ -943,7 +943,6 @@ class TagsEditWindow(Window):
         self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
         self.maxsize(width=500, height=500)
         self.window_elements_config()
-        self.bind("<Escape>", lambda e: self.destroy())
         self.prepare()
 
     def window_elements_config(self):
@@ -1157,7 +1156,7 @@ class FilterWindow(Window):
         stored_dates = self.db.find_by_clause('options', 'name', 'filter_dates', 'value')[0][0].split(',')
         stored_tags = self.db.find_by_clause('options', 'name', 'filter_tags', 'value')[0][0].split(',')
         if stored_tags[0]:      # stored_tags[0] is string.
-            stored_tags = [int(x) for x in stored_tags]
+            stored_tags = list(map(int, stored_tags))
         # Dates list:
         dates = self.db.simple_dateslist()
         # Tags list:
@@ -1172,21 +1171,26 @@ class FilterWindow(Window):
         self.tagslist = Tagslist(tags, self, width=200, height=300)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
-        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
+        TaskButton(self, text="Select dates...", textwidth=15, command=self.select_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
         TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
-        tk.Frame(self, height=20).grid(row=3, column=0, columnspan=2, sticky='news')
-        tk.Label(self, text="Filter operating mode:").grid(row=4, columnspan=2, pady=5)
+
+        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=3, column=0, pady=7, padx=5, sticky='n')
+
+
+
+
+        tk.Frame(self, height=20).grid(row=5, column=0, columnspan=2, sticky='news')
+        tk.Label(self, text="Filter operating mode:").grid(row=5, columnspan=2, pady=5)
         checkframe = tk.Frame(self)
-        checkframe.grid(row=5, columnspan=2, pady=5)
+        checkframe.grid(row=7, columnspan=2, pady=5)
         tk.Radiobutton(checkframe, text="AND", variable=self.operating_mode, value="AND").grid(row=0, column=0, sticky='e')
         tk.Radiobutton(checkframe, text="OR", variable=self.operating_mode, value="OR").grid(row=0, column=1, sticky='w')
         self.operating_mode.set(self.db.find_by_clause(table="options", field="name",
                                                        value="filter_operating_mode", searchfield="value")[0][0])
-        tk.Frame(self, height=20).grid(row=6, column=0, columnspan=2, sticky='news')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=7, column=1, pady=5, padx=5, sticky='e')
-        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=7, column=0, pady=5, padx=5, sticky='w')
+        tk.Frame(self, height=20).grid(row=8, column=0, columnspan=2, sticky='news')
+        TaskButton(self, text="Cancel", command=self.destroy).grid(row=9, column=1, pady=5, padx=5, sticky='e')
+        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=9, column=0, pady=5, padx=5, sticky='w')
         self.bind("<Return>", lambda e: self.apply_filter())
-        self.bind("<Escape>", lambda e: self.destroy())
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
         self.grid_columnconfigure(0, weight=1)
@@ -1201,6 +1205,19 @@ class FilterWindow(Window):
     def clear_tags(self):
         for x in self.tagslist.states_list:
             x[1][0].set(0)
+
+    def select_dates(self):
+        """Pops up window where user can select dates interval."""
+        start_date = tk.StringVar(self)
+        end_date = tk.StringVar(self)
+        correct = tk.DoubleVar(self)
+        CalendarWindow(self, correct, startvar=start_date, endvar=end_date,
+                       startdate=self.dateslist.states_list[-1][0],
+                       enddate=self.dateslist.states_list[0][0])
+        if correct.get():
+            for date in self.dateslist.states_list:
+                if core.str_to_date(start_date.get()) <= core.str_to_date(date[0]) <= core.str_to_date(end_date.get()):
+                    date[1][0].set(1)
 
     def apply_filter(self):
         """Create database script based on checkboxes values."""
@@ -1242,15 +1259,60 @@ class FilterWindow(Window):
                              'GROUP BY act.task_id HAVING COUNT(DISTINCT act.date)={1}) AS y ON ' \
                              'y.task_id=tasks.id'.format(tuple(dates) if len(dates) > 1 else "('%s')" % dates[0],
                                                          len(dates))
-        global_options["filter_dict"] = {}
-        global_options["filter_dict"]['operating_mode'] = self.operating_mode.get()
-        global_options["filter_dict"]['script'] = script
-        global_options["filter_dict"]['tags'] = tags
-        global_options["filter_dict"]['dates'] = dates
+        global_options["filter_dict"] = {
+            'operating_mode': self.operating_mode.get(),
+            'script': script,
+            'tags': tags,
+            'dates': dates
+        }
         # Reporting to parent window that filter values have been changed:
         if self.changed:
             self.changed.set(1)
         self.destroy()
+
+
+class CalendarWindow(Window):
+    def __init__(self, parent=None, correct_data=None, startvar=None, endvar=None, startdate=None, enddate=None, **options):
+        super().__init__(master=parent, **options)
+        self.title("Select dates")
+        self.correct_data = correct_data
+        self.start = startvar
+        self.end = endvar
+        self.start_date_entry = sel_cal.Datepicker(self, datevar=self.start,
+                                                   current_month=core.str_to_date(startdate).month,
+                                                   current_year=core.str_to_date(startdate).year)
+        self.end_date_entry = sel_cal.Datepicker(self, datevar=self.end,
+                                                   current_month=core.str_to_date(enddate).month,
+                                                   current_year=core.str_to_date(enddate).year)
+        tk.Label(self, text="Enter first date:").grid(row=0, column=0, pady=3, padx=5, sticky='w')
+        self.start_date_entry.grid(row=1, column=0, padx=5, pady=3, sticky='w')
+        tk.Label(self, text="Enter last date:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        self.end_date_entry.grid(row=3, column=0, padx=5, pady=3, sticky='w')
+        tk.Frame(self, height=15, width=10).grid(row=4, column=0, columnspan=2)
+        TaskButton(self, text='OK', command=self.close).grid(row=5, column=0, padx=5, pady=5, sticky='w')
+        TaskButton(self, text='Cancel', command=self.destroy).grid(row=5, column=1, padx=5, pady=5, sticky='e')
+        self.bind("<Return>", lambda e: self.close())
+        self.minsize(height=350, width=450)
+        self.maxsize(width=600, height=500)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(4, weight=1)
+        self.prepare()
+
+    def close(self):
+        try:
+            core.str_to_date(self.start.get())
+            core.str_to_date(self.end.get())
+        except ValueError:
+            self.correct_data.set(False)
+        else:
+            self.correct_data.set(True)
+        finally:
+            super().destroy()
+
+    def destroy(self):
+        self.correct_data.set(False)
+        super().destroy()
 
 
 class RightclickMenu(tk.Menu):
@@ -1424,7 +1486,6 @@ class Options(Window):
         tk.Frame(self, height=20).grid(row=5)
         TaskButton(self, text='Close', command=self.destroy).grid(row=6, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
-        self.bind("<Escape>", lambda e: self.destroy())
         self.prepare()
 
     def increase(self):

@@ -234,9 +234,14 @@ def time_format(sec):
             return "{} days".format(day)
 
 
-def date_format(date):
+def date_format(date, template='%Y-%m-%d'):
     """Returns formatted date (str). Accepts datetime."""
-    return datetime.datetime.strftime(date, '%Y-%m-%d')
+    return datetime.datetime.strftime(date, template)
+
+
+def str_to_date(string, template='%Y-%m-%d'):
+    """Returns datetime from string."""
+    return datetime.datetime.strptime(string, template)
 
 
 def get_help():
