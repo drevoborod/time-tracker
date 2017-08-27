@@ -5,12 +5,12 @@ import datetime
 import copy
 
 import tkinter as tk
-import tkinter.font as fonter
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
 from tkinter import TclError
 
+import elements
 import core
 import sel_cal
 
@@ -57,6 +57,50 @@ class Window(tk.Toplevel):
             self.master.lift()
         super().destroy()
 
+
+class TaskLabel(elements.SimpleLabel):
+    """Simple sunken text label."""
+    def __init__(self, parent, anchor='center', **kwargs):
+        super().__init__(master=parent, relief='sunken', anchor=anchor, **kwargs)
+        context_menu = RightclickMenu()
+        self.bind("<Button-3>", context_menu.context_menu_show)
+
+
+class Description(tk.Frame):
+    """Description frame - Text frame with scroll."""
+    def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
+        super().__init__(master=parent)
+        self.text = elements.SimpleText(self, bg=global_options["colour"], state=state, wrap='word', bd=2, **options)
+        scroller = tk.Scrollbar(self)
+        scroller.config(command=self.text.yview)
+        self.text.config(yscrollcommand=scroller.set)
+        scroller.grid(row=0, column=1, sticky='ns')
+        self.text.grid(row=0, column=0, sticky='news')
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure('all', weight=1)
+        # Context menu for copying contents:
+        self.context_menu = RightclickMenu(copy_item=copy_menu, paste_item=paste_menu)
+        self.text.bind("<Button-3>", self.context_menu.context_menu_show)
+
+    def config(self, cnf=None, **kw):
+        """Text configuration method."""
+        self.text.config(cnf=cnf, **kw)
+
+    def insert(self, text):
+        self.text.insert('end', text)
+
+    def get(self):
+        return self.text.get(1.0, 'end')
+
+    def update_text(self, text):
+        """Refill text field."""
+        self.config(state='normal')
+        self.text.delete(1.0, 'end')
+        if text is not None:
+            self.text.insert(1.0, text)
+        self.config(state='disabled')
+
+
 class TaskFrame(tk.Frame):
     """Task frame on application's main screen."""
     def __init__(self, parent=None):
@@ -76,28 +120,28 @@ class TaskFrame(tk.Frame):
             self.normal_interface()
         # Task name field:
         self.tasklabel = TaskLabel(self, width=50, anchor='w')
-        big_font(self.tasklabel, size=14)
+        elements.big_font(self.tasklabel, size=14)
         self.tasklabel.grid(row=1, column=0, columnspan=5, padx=5, pady=5, sticky='w')
-        self.openbutton = TaskButton(self, text="Task...", command=self.name_dialogue)
+        self.openbutton = elements.TaskButton(self, text="Task...", command=self.name_dialogue)
         self.openbutton.grid(row=1, column=5, padx=5, pady=5, sticky='e')
-        self.startbutton = CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
+        self.startbutton = elements.CanvasButton(self, state='disabled', fontsize=14, command=self.startstopbutton,
                                         variable=self.startstopvar, image='resource/start_disabled.png' if tk.TkVersion >= 8.6
                                         else 'resource/start_disabled.pgm', opacity='left')
         self.startbutton.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_window = TaskLabel(self, width=10, state='disabled')
-        big_font(self.timer_window, size=20)
+        elements.big_font(self.timer_window, size=20)
         self.timer_window.grid(row=3, column=1, pady=5)
-        self.add_timestamp_button = CanvasButton(self, text='Add\ntimestamp', state='disabled', command=self.add_timestamp)
+        self.add_timestamp_button = elements.CanvasButton(self, text='Add\ntimestamp', state='disabled', command=self.add_timestamp)
         self.add_timestamp_button.grid(row=3, sticky='sn',  column=2, padx=5)
-        self.timestamps_window_button = CanvasButton(self, text='View\ntimestamps...', state='disabled',
+        self.timestamps_window_button = elements.CanvasButton(self, text='View\ntimestamps...', state='disabled',
                                                      command=self.timestamps_window)
         self.timestamps_window_button.grid(row=3, column=3, sticky='wsn', padx=5)
-        self.properties = TaskButton(self, text="Properties...", textwidth=9, state='disabled',
+        self.properties = elements.TaskButton(self, text="Properties...", textwidth=9, state='disabled',
                                        command=self.properties_window)
         self.properties.grid(row=3, column=4, sticky='e', padx=5)
         # Clear frame button:
-        self.clearbutton = TaskButton(self, text='Clear', state='disabled', textwidth=7, command=self.clear)
+        self.clearbutton = elements.TaskButton(self, text='Clear', state='disabled', textwidth=7, command=self.clear)
         self.clearbutton.grid(row=3, column=5, sticky='e', padx=5)
         self.running_time = 0   # Current value of the counter.
         self.running = False
@@ -107,7 +151,7 @@ class TaskFrame(tk.Frame):
         """Creates elements which are visible only in full interface mode."""
         # 'Task name' text:
         self.l1 = tk.Label(self, text='Task name:')
-        big_font(self.l1, size=12)
+        elements.big_font(self.l1, size=12)
         self.l1.grid(row=0, column=1, columnspan=3)
         # Task description field:
         self.description = Description(self, width=60, height=3)
@@ -291,169 +335,14 @@ class TaskFrame(tk.Frame):
         tk.Frame.destroy(self)
 
 
-class TaskLabel(tk.Label):
-    """Simple sunken text label."""
-    def __init__(self, parent, anchor='center', **kwargs):
-        super().__init__(master=parent, relief='sunken', anchor=anchor, **kwargs)
-        context_menu = RightclickMenu()
-        self.bind("<Button-3>", context_menu.context_menu_show)
-
-
-class CanvasButton(tk.Canvas):
-    """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
-    def __init__(self, master=None, image=None, text=None, variable=None, width=None, height=None, textwidth=None,
-                 textheight=None, fontsize=9, opacity=None, relief='raised', bg=None, bd=2, state='normal',
-                 takefocus=True, command=None):
-        super().__init__(master=master)
-        self.pressed = False
-        self.command = None
-        bdsize = bd
-        self.bg = bg
-        # configure canvas itself with applicable options:
-        standard_options = {}
-        for item in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
-            if eval(item) is not None:  # Such check because value of item can be 0.
-                standard_options[item] = eval(item)
-        super().config(**standard_options)
-        self.bind("<Button-1>", self.press_button)
-        self.bind("<ButtonRelease-1>", self.release_button)
-        self.bind("<Configure>", self._place)       # Need to be before call of config_button()!
-        # Configure widget with specific options:
-        self.config_button(image=image, text=text, variable=variable, textwidth=textwidth, state=state,
-                           textheight=textheight, fontsize=fontsize, opacity=opacity, bg=bg, command=command)
-        # Get items dimensions:
-        items_width = self.bbox('all')[2] - self.bbox('all')[0]
-        items_height = self.bbox('all')[3] - self.bbox('all')[1]
-        # Set widget size:
-        if not width:
-            self.config(width=items_width + items_width / 5 + bdsize * 2)
-        if not height:
-            self.config(height=items_height + ((items_height / 5) if image else (items_height / 2)) + bdsize * 2)
-        # Place all contents in the middle of the widget:
-        self.move('all', (self.winfo_reqwidth() - items_width) / 2,
-                  (self.winfo_reqheight() - items_height) / 2)
-        self.height = self.winfo_reqheight()
-        self.width = self.winfo_reqwidth()
-        if callable(self.command):
-            self.bind("<space>", lambda e: self.command())
-
-    def bind(self, sequence=None, func=None, add=None):
-        super().bind(sequence, func, add)
-        for child in self.winfo_children():
-            child.bind(sequence, func, add)
-
-    def _place(self, event):
-        """Correctly placing contents on widget resize."""
-        y_move = (event.height - self.height) / 2
-        x_move = (event.width - self.width) / 2
-        self.move('all', x_move, y_move)
-        self.height = event.height
-        self.width = event.width
-
-    def config_button(self, **kwargs):
-        """Specific configuration of this widget."""
-        if 'image' in kwargs and kwargs['image']:
-            self.add_image(kwargs['image'], opacity='right' if 'opacity' not in kwargs else kwargs['opacity'])
-        if 'text' in kwargs and kwargs['text']:
-            text = kwargs['text']
-        elif 'variable' in kwargs and kwargs['variable']:
-            text = kwargs['variable']
-        else:
-            text = None
-            # make textlabel look like other canvas parts:
-            if hasattr(self, 'textlabel'):
-                for option in ('bg', 'state'):
-                    if option in kwargs and kwargs[option]:
-                        self.textlabel.config(**{option: kwargs[option]})
-        if text:
-            self.add_text(text, **{key: kwargs[key] for key in ('fontsize', 'textwidth', 'textheight', 'bg', 'opacity')
-                                   if key in kwargs})
-        if 'command' in kwargs and kwargs['command']:
-            self.command = kwargs['command']
-
-    def config(self, **kwargs):
-        default_options = {}
-        for option in ('width', 'height', 'relief', 'bg', 'bd', 'state', 'takefocus'):
-            if option in kwargs:
-                default_options[option] = kwargs[option]
-                if option not in ('bg', 'state'):
-                    kwargs.pop(option)
-        super().config(**default_options)
-        self.config_button(**kwargs)
-
-    def add_image(self, image, opacity='right'):
-        """Add image."""
-        coords = [0, 0]
-        if self.bbox('image'):
-            coords = self.coords('image')   # New image will appear in the same position as previous.
-            self.delete('image')
-        self.picture = tk.PhotoImage(file=image)    # 'self' need to override garbage collection action.
-        self.create_image(coords[0], coords[1], image=self.picture, anchor='nw', tag='image')
-
-    def add_text(self, textorvariable, fontsize=None, bg=None, opacity="right", textwidth=None, textheight=None):
-        """Add text. Text can be tkinter.Variable() or string."""
-        if fontsize:
-            font = fonter.Font(size=fontsize)
-        else:
-            font = fonter.Font()
-        if bg:
-            self.bg = bg
-        recreate = False
-        if hasattr(self, 'textlabel'):
-            coords = self.coords('text')    # New text will appear in the same position as previous.
-            recreate = True
-            self.delete(self.textlabel)
-        if isinstance(textorvariable, tk.Variable):
-            self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0, bg=self.bg, font=font, justify='center',
-                                      state=self.cget('state'), width=textwidth, height=textheight)
-        else:
-            self.textlabel = tk.Label(self, text=textorvariable, bd=0, bg=self.bg, font=font, justify='center',
-                                      state=self.cget('state'), width=textwidth, height=textheight)
-        if self.bbox('image'):
-            x_multiplier = self.bbox('image')[2] - self.bbox('image')[0]
-            x_divider = x_multiplier / 6
-            y_multiplier = ((self.bbox('image')[3] - self.bbox('image')[1]) - self.textlabel.winfo_reqheight()) / 2
-        else:
-            x_multiplier = x_divider = y_multiplier = 0
-        self.create_window(coords[0] if recreate else x_multiplier + x_divider, coords[1] if recreate else y_multiplier,
-                           anchor='nw', window=self.textlabel, tags='text')
-        # Swap text and image if needed:
-        if opacity == 'left':
-            self.move('text', -(x_divider + x_multiplier), 0)
-            self.move('image', self.textlabel.winfo_reqwidth() + x_divider, 0)
-        self.textlabel.bind("<Button-1>", self.press_button)
-        self.textlabel.bind("<ButtonRelease-1>", self.release_button)
-
-    def press_button(self, event):
-        """Will be executed on button press."""
-        if self.cget('state') == 'normal':
-            self.config(relief='sunken')
-            self.move('all', 1, 1)
-            self.pressed = True
-
-    def release_button(self, event):
-        """Will be executed on mouse button release."""
-        if self.cget('state') == 'normal' and self.pressed:
-            self.config(relief='raised')
-            self.move('all', -1, -1)
-            if callable(self.command) and event.x_root in range(self.winfo_rootx(), self.winfo_rootx() +
-                    self.winfo_width()) and event.y_root in range(self.winfo_rooty(), self.winfo_rooty() +
-                    self.winfo_height()):
-                self.command()
-        self.pressed = False
-
-
-class TaskButton(CanvasButton):
-    """Just a button with some default parameters."""
-    def __init__(self, parent, textwidth=8, **kwargs):
-        super().__init__(master=parent, textwidth=textwidth, **kwargs)
-
-
 class TaskList(tk.Frame):
     """Scrollable tasks table."""
     def __init__(self, columns, parent=None, **options):
         super().__init__(master=parent, **options)
         self.taskslist = ttk.Treeview(self)     # A table.
+        style = ttk.Style()
+        style.configure(".", font=('Helvetica', 9))
+        style.configure("Treeview.Heading", font=('Helvetica', 9))
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.taskslist.yview)
         self.taskslist.config(yscrollcommand=scroller.set)
@@ -525,9 +414,9 @@ class TaskSelectionWindow(Window):
                            'sum(spent_time) AS total_time FROM activity GROUP BY task_id) AS act ON act.task_id=tasks.id'
         self.title("Task selection")
         self.minsize(width=500, height=350)
-        tk.Label(self, text="New task:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
+        elements.SimpleLabel(self, text="New task:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
         # New task entry field:
-        self.addentry = tk.Entry(self, width=50)
+        self.addentry = elements.SimpleEntry(self, width=50)
         self.addentry.grid(row=0, column=1, columnspan=3, sticky='we')
         # Enter adds new task:
         self.addentry.bind('<Return>', lambda event: self.add_new_task())
@@ -536,30 +425,30 @@ class TaskSelectionWindow(Window):
         addentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.addentry.bind("<Button-3>", addentry_context_menu.context_menu_show)
         # "Add task" button:
-        self.addbutton = TaskButton(self, text="Add task", command=self.add_new_task, takefocus=False)
+        self.addbutton = elements.TaskButton(self, text="Add task", command=self.add_new_task, takefocus=False)
         self.addbutton.grid(row=0, column=4, sticky='e', padx=6, pady=5)
         # Entry for typing search requests:
-        self.searchentry = tk.Entry(self, width=25)
+        self.searchentry = elements.SimpleEntry(self, width=25)
         self.searchentry.grid(row=1, column=1, columnspan=2, sticky='we', padx=5, pady=5)
         searchentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.searchentry.bind("<Button-3>", searchentry_context_menu.context_menu_show)
         # Case sensitive checkbutton:
         self.ignore_case = tk.IntVar(self)
         self.ignore_case.set(1)
-        tk.Checkbutton(self, text="Ignore case", takefocus=False, variable=self.ignore_case).grid(row=1, column=0,
-                                                                                                  padx=6, pady=5, sticky='w')
+        elements.SimpleCheckbutton(self, text="Ignore case", takefocus=False, variable=self.ignore_case).grid(row=1, column=0,
+                                                                                                     padx=6, pady=5, sticky='w')
         # Search button:
-        CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png' if tk.TkVersion >= 8.6 else
+        elements.CanvasButton(self, takefocus=False, text='Search', image='resource/magnifier.png' if tk.TkVersion >= 8.6 else
                      'resource/magnifier.pgm', command=self.locate_task).grid(row=1, column=3, sticky='w', padx=5, pady=5)
         # Refresh button:
-        TaskButton(self, takefocus=False, image='resource/refresh.png' if tk.TkVersion >= 8.6 else 'resource/refresh.pgm',
+        elements.TaskButton(self, takefocus=False, image='resource/refresh.png' if tk.TkVersion >= 8.6 else 'resource/refresh.pgm',
                    command=self.update_list).grid(row=1, column=4, sticky='e', padx=5, pady=5)
         # Naming of columns in tasks list:
         columnnames = [('taskname', 'Task name'), ('time', 'Spent time'), ('date', 'Creation date')]
         # Scrollable tasks table:
         self.listframe = TaskList(columnnames, self, takefocus=True)
         self.listframe.grid(row=2, column=0, columnspan=5, pady=10, sticky='news')
-        tk.Label(self, text="Summary time:").grid(row=3, column=0, pady=5, padx=5, sticky='w')
+        elements.SimpleLabel(self, text="Summary time:").grid(row=3, column=0, pady=5, padx=5, sticky='w')
         # Summarized time of all tasks in the table:
         self.fulltime_frame = TaskLabel(self, width=13, anchor='center')
         self.fulltime_frame.grid(row=3, column=1, padx=6, pady=5, sticky='e')
@@ -567,22 +456,22 @@ class TaskSelectionWindow(Window):
         self.description = Description(self, height=4)
         self.description.grid(row=3, column=2, rowspan=2, pady=5, padx=5, sticky='news')
         # "Select all" button:
-        selbutton = TaskButton(self, text="Select all", command=self.select_all)
+        selbutton = elements.TaskButton(self, text="Select all", command=self.select_all)
         selbutton.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
-        clearbutton = TaskButton(self, text="Clear all", command=self.clear_all)
+        clearbutton = elements.TaskButton(self, text="Clear all", command=self.clear_all)
         clearbutton.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
-        self.editbutton = TaskButton(self, text="Properties...", textwidth=10, command=self.edit)
+        self.editbutton = elements.TaskButton(self, text="Properties...", textwidth=10, command=self.edit)
         self.editbutton.grid(row=3, column=3, sticky='w', padx=5, pady=5)
         # Remove task button:
-        self.delbutton = TaskButton(self, text="Remove...", textwidth=10, command=self.delete)
+        self.delbutton = elements.TaskButton(self, text="Remove...", textwidth=10, command=self.delete)
         self.delbutton.grid(row=4, column=3, sticky='w', padx=5, pady=5)
         # Export button:
-        self.exportbutton = TaskButton(self, text="Export...", command=self.export)
+        self.exportbutton = elements.TaskButton(self, text="Export...", command=self.export)
         self.exportbutton.grid(row=4, column=4, padx=5, pady=5, sticky='e')
         # Filter button:
-        self.filterbutton = TaskButton(self, text="Filter...", command=self.filterwindow)
+        self.filterbutton = elements.TaskButton(self, text="Filter...", command=self.filterwindow)
         self.filterbutton.grid(row=3, column=4, padx=5, pady=5, sticky='e')
         # Filter button context menu:
         filter_context_menu = RightclickMenu(copy_item=False)
@@ -609,8 +498,8 @@ class TaskSelectionWindow(Window):
         self.listframe.taskslist.bind("<KeyRelease-Control_R>", lambda e: self.shift_control_released())
         self.searchentry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_list())
-        TaskButton(self, text="Open", command=self.get_task).grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
+        elements.TaskButton(self, text="Open", command=self.get_task).grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        elements.TaskButton(self, text="Cancel", command=self.destroy).grid(row=6, column=4, padx=5, pady=5, sticky='e')
         self.listframe.taskslist.bind("<Return>", self.get_task_id)
         self.listframe.taskslist.bind("<Double-1>", self.get_task_id)
         self.prepare()
@@ -859,17 +748,12 @@ class TaskEditWindow(Window):
                                                                                        taskid, 'date, spent_time', 'date')]
         self.title("Task properties: {}".format(self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
-        taskname_label = tk.Label(self, text="Task name:")
-        big_font(taskname_label, 10)
-        taskname_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
+        elements.SimpleLabel(self, text="Task name:", fontsize=10).grid(row=0, column=0, pady=5, padx=5, sticky='w')
         # Frame containing task name:
-        taskname = TaskLabel(self, width=60, height=1, bg=global_options["colour"], text=self.task[1], anchor='w')
-        big_font(taskname, 9)
-        taskname.grid(row=1, columnspan=5, sticky='ew', padx=6)
+        TaskLabel(self, width=60, height=1, bg=global_options["colour"], text=self.task[1],
+                  anchor='w').grid(row=1, columnspan=5, sticky='ew', padx=6)
         tk.Frame(self, height=30).grid(row=2)
-        description = tk.Label(self, text="Description:")
-        big_font(description, 10)
-        description.grid(row=3, column=0, pady=5, padx=5, sticky='w')
+        elements.SimpleLabel(self, text="Description:", fontsize=10).grid(row=3, column=0, pady=5, padx=5, sticky='w')
         # Task description frame. Editable:
         self.description = Description(self, paste_menu=True, width=60, height=6)
         self.description.config(state='normal', bg='white')
@@ -877,23 +761,23 @@ class TaskEditWindow(Window):
             self.description.insert(self.task[3])
         self.description.grid(row=4, columnspan=5, sticky='ewns', padx=5)
         #
-        tk.Label(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
+        elements.SimpleLabel(self, text='Tags:').grid(row=5, column=0, pady=5, padx=5, sticky='nw')
         # Place tags list:
         self.tags_update()
-        TaskButton(self, text='Edit tags', textwidth=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
-        tk.Label(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        elements.TaskButton(self, text='Edit tags', textwidth=10, command=self.tags_edit).grid(row=5, column=4, padx=5, pady=5, sticky='e')
+        elements.SimpleLabel(self, text='Time spent:').grid(row=6, column=0, padx=5, pady=5, sticky='w')
         # Frame containing time:
         TaskLabel(self, width=11, text='{}'.format(core.time_format(self.task[2]))).grid(row=6, column=1,
                                                                                          pady=5, padx=5, sticky='w')
-        tk.Label(self, text='Dates:').grid(row=6, column=2, sticky='w')
+        elements.SimpleLabel(self, text='Dates:').grid(row=6, column=2, sticky='w')
         # Frame containing list of dates connected with current task:
         datlist = Description(self, height=3, width=30)
         datlist.update_text('\n'.join(dates))
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
         #
         tk.Frame(self, height=40).grid(row=9)
-        TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
-        TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
+        elements.TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        elements.TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
         self.grid_rowconfigure(4, weight=1)
@@ -939,8 +823,8 @@ class TagsEditWindow(Window):
         self.parent = parent
         self.addentry()
         self.tags_update()
-        self.closebutton = TaskButton(self, text='Close', command=self.destroy)
-        self.deletebutton = TaskButton(self, text='Delete', command=self.delete)
+        self.closebutton = elements.TaskButton(self, text='Close', command=self.destroy)
+        self.deletebutton = elements.TaskButton(self, text='Delete', command=self.delete)
         self.maxsize(width=500, height=500)
         self.window_elements_config()
         self.prepare()
@@ -954,10 +838,10 @@ class TagsEditWindow(Window):
 
     def addentry(self):
         """New element addition field"""
-        self.addentry_label = tk.Label(self, text="Add tag:")
+        self.addentry_label = elements.SimpleLabel(self, text="Add tag:")
         self.addentry_label.grid(row=0, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
-        self.addfield = tk.Entry(self, width=20)
+        elements.TaskButton(self, text='Add', command=self.add).grid(row=0, column=2, pady=5, padx=5, sticky='e')
+        self.addfield = elements.SimpleEntry(self, width=20)
         self.addfield.grid(row=0, column=1, sticky='ew')
         self.addfield.focus_set()
         self.addfield.bind('<Return>', lambda event: self.add())
@@ -1024,8 +908,8 @@ class TimestampsWindow(TagsEditWindow):
         """Configure some window parameters."""
         self.title("Timestamps: {}".format(self.db.find_by_clause('tasks', 'id', self.taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
-        TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
-        TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
+        elements.TaskButton(self, text="Select all", command=self.select_all).grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        elements.TaskButton(self, text="Clear all", command=self.clear_all).grid(row=2, column=2, pady=5, padx=5, sticky='e')
         tk.Frame(self, height=40).grid(row=3)
         self.closebutton.grid(row=4, column=2, pady=5, padx=5, sticky='w')
         self.deletebutton.grid(row=4, column=0, pady=5, padx=5, sticky='e')
@@ -1044,90 +928,27 @@ class TimestampsWindow(TagsEditWindow):
             self.db.delete(table="timestamps", timestamp=x, task_id=self.taskid)
 
 
-class HelpWindow(tk.Toplevel):
+class HelpWindow(Window):
     """Help window."""
     def __init__(self, parent=None, text='', **options):
         super().__init__(master=parent, **options)
         self.title("Help")
         main_frame = tk.Frame(self)
-        self.helptext = tk.Text(main_frame, wrap='word')
-        scroll = tk.Scrollbar(main_frame, command=self.helptext.yview)
-        self.helptext.config(yscrollcommand=scroll.set)
-        self.helptext.insert(1.0, text)
+        self.helptext = Description(main_frame, wrap='word')
+        self.helptext.insert(text)
         self.helptext.config(state='disabled')
-        scroll.grid(row=0, column=1, sticky='ns')
         self.helptext.grid(row=0, column=0, sticky='news')
         main_frame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
-        TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
+        elements.TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.bind("<Escape>", lambda e: self.destroy())
-        self.focus_set()
+        self.prepare()
 
 
-class Description(tk.Frame):
-    """Description frame - Text frame with scroll."""
-    def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
-        super().__init__(master=parent)
-        self.text = tk.Text(self, bg=global_options["colour"], state=state, wrap='word', bd=2, **options)
-        scroller = tk.Scrollbar(self)
-        scroller.config(command=self.text.yview)
-        self.text.config(yscrollcommand=scroller.set)
-        scroller.grid(row=0, column=1, sticky='ns')
-        self.text.grid(row=0, column=0, sticky='news')
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure('all', weight=1)
-        # Context menu for copying contents:
-        self.context_menu = RightclickMenu(copy_item=copy_menu, paste_item=paste_menu)
-        self.text.bind("<Button-3>", self.context_menu.context_menu_show)
-
-    def config(self, cnf=None, **kw):
-        """Text configuration method."""
-        self.text.config(cnf=cnf, **kw)
-
-    def insert(self, text):
-        self.text.insert('end', text)
-
-    def get(self):
-        return self.text.get(1.0, 'end')
-
-    def update_text(self, text):
-        """Refill text field."""
-        self.config(state='normal')
-        self.text.delete(1.0, 'end')
-        if text is not None:
-            self.text.insert(1.0, text)
-        self.config(state='disabled')
-
-
-class ScrolledCanvas(tk.Frame):
-    """Scrollable Canvas. Scroll may be horizontal or vertical."""
-    def __init__(self, parent=None, orientation="vertical", bd=2, **options):
-        super().__init__(master=parent, relief='groove', bd=bd)
-        scroller = tk.Scrollbar(self, orient=orientation)
-        self.canvbox = tk.Canvas(self, **options)
-        scroller.config(command=(self.canvbox.xview if orientation == "horizontal" else self.canvbox.yview))
-        if orientation == "horizontal":
-            self.canvbox.config(xscrollcommand=scroller.set)
-        else:
-            self.canvbox.config(yscrollcommand=scroller.set)
-        scroller.pack(fill='x' if orientation == 'horizontal' else 'y', expand=1,
-                      side='bottom' if orientation == 'horizontal' else 'right',
-                      anchor='s' if orientation == 'horizontal' else 'e')
-        self.content_frame = tk.Frame(self.canvbox)
-        self.canvbox.create_window((0, 0), window=self.content_frame, anchor='nw')
-        self.canvbox.bind("<Configure>", self.reconf_canvas)
-        self.canvbox.pack(fill="x" if orientation == "horizontal" else "both", expand=1)
-
-    def reconf_canvas(self, event):
-        """Resizing of canvas scrollable region."""
-        self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
-        self.canvbox.config(height=self.content_frame.winfo_height())
-
-
-class Tagslist(ScrolledCanvas):
+class Tagslist(elements.ScrolledCanvas):
     """Tags list. Accepts tagslist: [[tag_id, [state, 'tagname']]], can be 0 or 1."""
     def __init__(self, tagslist, parent=None, orientation="vertical", **options):
         super().__init__(parent=parent, orientation=orientation, **options)
@@ -1138,7 +959,7 @@ class Tagslist(ScrolledCanvas):
             # Inserting dynamic variable instead of the state:
             item[1][0] = tk.IntVar()
             # Connecting new checkbox with this dynamic variable:
-            cb = tk.Checkbutton(self.content_frame, text=(item[1][1] + ' ' * 3 if orientation == "horizontal"
+            cb = elements.SimpleCheckbutton(self.content_frame, text=(item[1][1] + ' ' * 3 if orientation == "horizontal"
                                                           else item[1][1]), variable=item[1][0])
             cb.pack(side=('left' if orientation == "horizontal" else 'bottom'), anchor='w')
             # Setting dynamic variable value to previously saved state:
@@ -1165,31 +986,26 @@ class FilterWindow(Window):
         for tag in tags:
             if tag[0] in stored_tags:
                 tag[1][0] = 1
-        tk.Label(self, text="Dates").grid(row=0, column=0, sticky='n')
-        tk.Label(self, text="Tags").grid(row=0, column=1, sticky='n')
+        elements.SimpleLabel(self, text="Dates").grid(row=0, column=0, sticky='n')
+        elements.SimpleLabel(self, text="Tags").grid(row=0, column=1, sticky='n')
         self.dateslist = Tagslist([[x, [1 if x in stored_dates else 0, x]] for x in dates], self, width=200, height=300)
         self.tagslist = Tagslist(tags, self, width=200, height=300)
         self.dateslist.grid(row=1, column=0, pady=5, padx=5, sticky='news')
         self.tagslist.grid(row=1, column=1, pady=5, padx=5, sticky='news')
-        TaskButton(self, text="Select dates...", textwidth=15, command=self.select_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
-        TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
-
-        TaskButton(self, text="Clear", command=self.clear_dates).grid(row=3, column=0, pady=7, padx=5, sticky='n')
-
-
-
-
+        elements.TaskButton(self, text="Select dates...", textwidth=15, command=self.select_dates).grid(row=2, column=0, pady=7, padx=5, sticky='n')
+        elements.TaskButton(self, text="Clear", command=self.clear_tags).grid(row=2, column=1, pady=7, padx=5, sticky='n')
+        elements.TaskButton(self, text="Clear", command=self.clear_dates).grid(row=3, column=0, pady=7, padx=5, sticky='n')
         tk.Frame(self, height=20).grid(row=5, column=0, columnspan=2, sticky='news')
-        tk.Label(self, text="Filter operating mode:").grid(row=5, columnspan=2, pady=5)
+        elements.SimpleLabel(self, text="Filter operating mode:").grid(row=5, columnspan=2, pady=5)
         checkframe = tk.Frame(self)
         checkframe.grid(row=7, columnspan=2, pady=5)
-        tk.Radiobutton(checkframe, text="AND", variable=self.operating_mode, value="AND").grid(row=0, column=0, sticky='e')
-        tk.Radiobutton(checkframe, text="OR", variable=self.operating_mode, value="OR").grid(row=0, column=1, sticky='w')
+        elements.SimpleRadiobutton(checkframe, text="AND", variable=self.operating_mode, value="AND").grid(row=0, column=0, sticky='e')
+        elements.SimpleRadiobutton(checkframe, text="OR", variable=self.operating_mode, value="OR").grid(row=0, column=1, sticky='w')
         self.operating_mode.set(self.db.find_by_clause(table="options", field="name",
                                                        value="filter_operating_mode", searchfield="value")[0][0])
         tk.Frame(self, height=20).grid(row=8, column=0, columnspan=2, sticky='news')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=9, column=1, pady=5, padx=5, sticky='e')
-        TaskButton(self, text='Ok', command=self.apply_filter).grid(row=9, column=0, pady=5, padx=5, sticky='w')
+        elements.TaskButton(self, text="Cancel", command=self.destroy).grid(row=9, column=1, pady=5, padx=5, sticky='e')
+        elements.TaskButton(self, text='Ok', command=self.apply_filter).grid(row=9, column=0, pady=5, padx=5, sticky='w')
         self.bind("<Return>", lambda e: self.apply_filter())
         self.minsize(height=350, width=350)
         self.maxsize(width=750, height=600)
@@ -1284,13 +1100,13 @@ class CalendarWindow(Window):
         self.end_date_entry = sel_cal.Datepicker(self, datevar=self.end,
                                                    current_month=core.str_to_date(enddate).month,
                                                    current_year=core.str_to_date(enddate).year)
-        tk.Label(self, text="Enter first date:").grid(row=0, column=0, pady=3, padx=5, sticky='w')
+        elements.SimpleLabel(self, text="Enter first date:").grid(row=0, column=0, pady=3, padx=5, sticky='w')
         self.start_date_entry.grid(row=1, column=0, padx=5, pady=3, sticky='w')
-        tk.Label(self, text="Enter last date:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
+        elements.SimpleLabel(self, text="Enter last date:").grid(row=2, column=0, pady=5, padx=5, sticky='w')
         self.end_date_entry.grid(row=3, column=0, padx=5, pady=3, sticky='w')
         tk.Frame(self, height=15, width=10).grid(row=4, column=0, columnspan=2)
-        TaskButton(self, text='OK', command=self.close).grid(row=5, column=0, padx=5, pady=5, sticky='w')
-        TaskButton(self, text='Cancel', command=self.destroy).grid(row=5, column=1, padx=5, pady=5, sticky='e')
+        elements.TaskButton(self, text='OK', command=self.close).grid(row=5, column=0, padx=5, pady=5, sticky='w')
+        elements.TaskButton(self, text='Cancel', command=self.destroy).grid(row=5, column=1, padx=5, pady=5, sticky='e')
         self.bind("<Return>", lambda e: self.close())
         self.minsize(height=350, width=450)
         self.maxsize(width=600, height=500)
@@ -1330,7 +1146,7 @@ class RightclickMenu(tk.Menu):
         global_options["selected_widget"] = event.widget
 
 
-class MainFrame(ScrolledCanvas):
+class MainFrame(elements.ScrolledCanvas):
     """Container for all task frames."""
     def __init__(self, parent):
         super().__init__(parent=parent, bd=2)
@@ -1395,14 +1211,14 @@ class MainMenu(tk.Menu):
         file.add_command(label="Options...", command=self.options_window, underline=0)
         file.add_separator()
         file.add_command(label="Exit", command=self.exit, underline=1)
-        big_font(file, 10)
+        elements.big_font(file, 10)
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
         helpmenu.add_command(label="Help...", command=lambda: helpwindow(text=core.HELP_TEXT))
         helpmenu.add_command(label="About...", command=self.aboutwindow)
-        big_font(helpmenu, 10)
+        elements.big_font(helpmenu, 10)
         self.add_cascade(label="Help", menu=helpmenu)
-        big_font(self, 10)
+        elements.big_font(self, 10)
 
     def options_window(self):
         """Open options window."""
@@ -1470,21 +1286,22 @@ class Options(Window):
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
-        tk.Label(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
+        elements.SimpleLabel(self, text="Task frames in main window: ").grid(row=0, column=0, sticky='w')
         counterframe = tk.Frame(self)
-        TaskButton(counterframe, text='<', command=self.decrease, textwidth=1, height=19).grid(row=0, column=0)
-        tk.Entry(counterframe, width=3, textvariable=counter, justify='center').grid(row=0, column=1, sticky='e')
-        TaskButton(counterframe, text='>', command=self.increase, textwidth=1, height=19).grid(row=0, column=2)
+        fontsize = 9
+        elements.CanvasButton(counterframe, text='<', command=self.decrease, fontsize=fontsize, height=fontsize * 3).grid(row=0, column=0)
+        elements.SimpleEntry(counterframe, width=3, textvariable=counter, justify='center').grid(row=0, column=1, sticky='e')
+        elements.CanvasButton(counterframe, text='>', command=self.increase, fontsize=fontsize, height=fontsize * 3).grid(row=0, column=2)
         counterframe.grid(row=0, column=1)
         tk.Frame(self, height=20).grid(row=1)
-        tk.Label(self, text="Always on top: ").grid(row=2, column=0, sticky='w', padx=5)
-        tk.Checkbutton(self, variable=on_top).grid(row=2, column=1, sticky='w', padx=5)
-        tk.Label(self, text="Compact interface: ").grid(row=3, column=0, sticky='w', padx=5)
-        tk.Checkbutton(self, variable=compact).grid(row=3, column=1, sticky='w', padx=5)
-        tk.Label(self, text="Save tasks on exit: ").grid(row=4, column=0, sticky='w', padx=5)
-        tk.Checkbutton(self, variable=preserve).grid(row=4, column=1, sticky='w', padx=5)
+        elements.SimpleLabel(self, text="Always on top: ").grid(row=2, column=0, sticky='w', padx=5)
+        elements.SimpleCheckbutton(self, variable=on_top).grid(row=2, column=1, sticky='w', padx=5)
+        elements.SimpleLabel(self, text="Compact interface: ").grid(row=3, column=0, sticky='w', padx=5)
+        elements.SimpleCheckbutton(self, variable=compact).grid(row=3, column=1, sticky='w', padx=5)
+        elements.SimpleLabel(self, text="Save tasks on exit: ").grid(row=4, column=0, sticky='w', padx=5)
+        elements.SimpleCheckbutton(self, variable=preserve).grid(row=4, column=1, sticky='w', padx=5)
         tk.Frame(self, height=20).grid(row=5)
-        TaskButton(self, text='Close', command=self.destroy).grid(row=6, column=1, sticky='e', padx=5, pady=5)
+        elements.TaskButton(self, text='Close', command=self.destroy).grid(row=6, column=1, sticky='e', padx=5, pady=5)
         self.bind("<Return>", lambda e: self.destroy())
         self.prepare()
 
@@ -1504,13 +1321,13 @@ class ExportWindow(Window):
         self.title("Export parameters")
         self.task_ids = [x[0] for x in data.values()]
         self.operating_mode = tk.IntVar(self)
-        tk.Label(self, text="Export mode").grid(row=0, column=0, columnspan=2, sticky='ns')
-        tk.Radiobutton(self, text="Task-based", variable=self.operating_mode, value=0).grid(row=1, column=0)
-        tk.Radiobutton(self, text="Date-based", variable=self.operating_mode, value=1).grid(row=1, column=1)
+        elements.SimpleLabel(self, text="Export mode", fontsize=10).grid(row=0, column=0, columnspan=2, sticky='ns', pady=5)
+        elements.SimpleRadiobutton(self, text="Task-based", variable=self.operating_mode, value=0).grid(row=1, column=0)
+        elements.SimpleRadiobutton(self, text="Date-based", variable=self.operating_mode, value=1).grid(row=1, column=1)
         tk.Frame(self, height=15).grid(row=2, column=0)
-        TaskButton(self, text="Export", command=self.get_data).grid(row=3, column=0, padx=5, pady=5, sticky='ws')
-        TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, padx=5, pady=5, sticky='es')
-        self.minsize(height=150, width=200)
+        elements.TaskButton(self, text="Export", command=self.get_data).grid(row=3, column=0, padx=5, pady=5, sticky='ws')
+        elements.TaskButton(self, text="Cancel", command=self.destroy).grid(row=3, column=1, padx=5, pady=5, sticky='es')
+        self.minsize(height=150, width=250)
         self.maxsize(width=450, height=300)
         self.grid_columnconfigure('all', weight=1)
         self.grid_rowconfigure('all', weight=1)
@@ -1592,11 +1409,11 @@ class MainWindow(tk.Tk):
         """Create elements which are displayed in full interface mode."""
         self.add_frame = tk.Frame(self, height=35)
         self.add_frame.grid(row=1, columnspan=5)
-        self.add_stop_button = TaskButton(self, text="Stop all", command=self.stopall)
+        self.add_stop_button = elements.TaskButton(self, text="Stop all", command=self.stopall)
         self.add_stop_button.grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-        self.add_clear_button = TaskButton(self, text="Clear all", command=self.taskframes.clear_all)
+        self.add_clear_button = elements.TaskButton(self, text="Clear all", command=self.taskframes.clear_all)
         self.add_clear_button.grid(row=2, column=0, sticky='wsn', pady=5, padx=5)
-        self.add_quit_button = TaskButton(self, text="Quit", command=self.destroy)
+        self.add_quit_button = elements.TaskButton(self, text="Quit", command=self.destroy)
         self.add_quit_button.grid(row=2, column=4, sticky='sne', pady=5, padx=5)
         if not firstrun:
             self.taskframes.change_interface('normal')
@@ -1626,12 +1443,6 @@ class MainWindow(tk.Tk):
                       field_id='tasks', updfiled='name')
             db.con.close()
             super().destroy()
-
-
-def big_font(unit, size=9):
-    """Font size of a given unit change."""
-    fontname = fonter.Font(font=unit['font']).actual()['family']
-    unit.config(font=(fontname, size))
 
 
 def helpwindow(parent=None, text=None):
@@ -1686,4 +1497,3 @@ global_options["selected_widget"] = None
 # Main window:
 run = MainWindow()
 run.mainloop()
-

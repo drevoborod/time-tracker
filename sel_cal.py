@@ -41,6 +41,8 @@ except ImportError: # py3k
 
     from tkinter.constants import CENTER, LEFT, N, E, W, S
     from tkinter import StringVar
+import elements
+
 
 def get_calendar(locale, fwday):
     # instantiate proper calendar class
@@ -107,7 +109,7 @@ class Calendar(ttk.Frame):
         lbtn = ttk.Button(hframe, style='L.TButton', command=self._on_press_left_button)
         lbtn.pack(side=LEFT)
 
-        self._header = ttk.Label(hframe, width=15, anchor=CENTER, textvariable=self._header_var)
+        self._header = elements.SimpleLabel(hframe, width=15, anchor=CENTER, textvariable=self._header_var)
         self._header.pack(side=LEFT, padx=12)
 
         rbtn = ttk.Button(hframe, style='R.TButton', command=self._on_press_right_button)
@@ -119,11 +121,11 @@ class Calendar(ttk.Frame):
         days_of_the_week = self._cal.formatweekheader(3).split()
 
         for i, day_of_the_week in enumerate(days_of_the_week):
-            Tkinter.Label(self, text=day_of_the_week, background='grey90').grid(row=1, column=i, sticky=N+E+W+S)
+            elements.SimpleLabel(self, text=day_of_the_week, background='grey90').grid(row=1, column=i, sticky=N+E+W+S)
 
         for i in range(6):
             for j in range(7):
-                self._day_labels[i,j] = label = Tkinter.Label(self, background = "white")
+                self._day_labels[i,j] = label = elements.SimpleLabel(self, background = "white")
 
                 label.grid(row=i+2, column=j, sticky=N+E+W+S)
                 label.bind("<Enter>", lambda event: event.widget.configure(background=self._act_bg, foreground=self._act_fg))
@@ -334,7 +336,7 @@ class Calendar(ttk.Frame):
 # see this URL for date format information:
 #     https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
 
-class Datepicker(ttk.Entry):
+class Datepicker(elements.SimpleTtkEntry):
     def __init__(self, master, current_month=None, current_year=None, entrywidth=None, entrystyle=None, datevar=None, dateformat="%Y-%m-%d", onselect=None, firstweekday=calendar.MONDAY, locale=None, activebackground='#b1dcfb', activeforeground='black', selectbackground='#003eff', selectforeground='white', borderwidth=1, relief="solid"):
 
         if datevar is not None:
@@ -349,7 +351,7 @@ class Datepicker(ttk.Entry):
         if entrystyle is not None:
             entry_config["style"] = entrystyle
 
-        ttk.Entry.__init__(self, master, textvariable=self.date_var, **entry_config)
+        elements.SimpleTtkEntry.__init__(self, master, textvariable=self.date_var, **entry_config)
 
         self.date_format = dateformat
 
