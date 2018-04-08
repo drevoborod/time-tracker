@@ -307,10 +307,18 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('minimize_to_tray', '0');
                 INSERT INTO options VALUES ('always_on_top', '0');
                 INSERT INTO options VALUES ('preserve_tasks', '0');
+                INSERT INTO options VALUES ('show_today', '0');
                 INSERT INTO options VALUES ('tasks', '');
                 INSERT INTO options VALUES ('compact_interface', '0');
                 INSERT INTO options VALUES ('version', '1.4_beta');
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
-#PATCH_SCRIPTS = {1: ["UPDATE options SET value='1.5' WHERE name='version';" ]}
-PATCH_SCRIPTS = {}
+PATCH_SCRIPTS = {
+    0: [
+        "INSERT INTO options VALUES ('show_today', '0');"
+    ],
+    # 2: [
+    #     "UPDATE options SET value='1.5' WHERE name='version';"
+    # ]
+}
+#PATCH_SCRIPTS = {}
