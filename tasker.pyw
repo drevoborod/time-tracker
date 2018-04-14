@@ -1228,7 +1228,7 @@ class MainMenu(tk.Menu):
         elements.big_font(file, 10)
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
-        helpmenu.add_command(label="Help...", command=lambda: helpwindow(text=core.HELP_TEXT))
+        helpmenu.add_command(label="Help...", command=lambda: helpwindow(parent=run, text=core.HELP_TEXT))
         helpmenu.add_command(label="About...", command=self.aboutwindow)
         elements.big_font(helpmenu, 10)
         self.add_cascade(label="Help", menu=helpmenu)
