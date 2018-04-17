@@ -68,7 +68,7 @@ class TaskLabel(elements.SimpleLabel):
 
 class Description(tk.Frame):
     """Description frame - Text frame with scroll."""
-    def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='disabled', **options):
+    def __init__(self, parent=None, copy_menu=True, paste_menu=False, state='normal', **options):
         super().__init__(master=parent)
         self.text = elements.SimpleText(self, bg=GLOBAL_OPTIONS["colour"], state=state, wrap='word', bd=2, **options)
         scroller = tk.Scrollbar(self)
@@ -344,8 +344,8 @@ class TaskList(tk.Frame):
         super().__init__(master=parent, **options)
         self.taskslist = ttk.Treeview(self)     # A table.
         style = ttk.Style()
-        style.configure(".", font=('Helvetica', 9))
-        style.configure("Treeview.Heading", font=('Helvetica', 9))
+        style.configure(".", font=('Helvetica', 11))
+        style.configure("Treeview.Heading", font=('Helvetica', 11))
         scroller = tk.Scrollbar(self)
         scroller.config(command=self.taskslist.yview)
         self.taskslist.config(yscrollcommand=scroller.set)
@@ -937,7 +937,7 @@ class HelpWindow(Window):
         super().__init__(master=parent, **options)
         self.title("Help")
         main_frame = tk.Frame(self)
-        self.helptext = Description(main_frame)
+        self.helptext = Description(main_frame, fontsize=13)
         self.helptext.insert(text)
         self.helptext.config(state='disabled')
         self.helptext.grid(row=0, column=0, sticky='news')

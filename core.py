@@ -314,9 +314,9 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
 PATCH_SCRIPTS = {
-    1: [
-        "INSERT INTO options VALUES ('show_today', '0');"
-    ],
+    # 1: [
+    #     "INSERT INTO options VALUES ('show_today', '0');"
+    # ],
     # 2: [
     #     "UPDATE options SET value='1.5' WHERE name='version';"
     # ]

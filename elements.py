@@ -4,7 +4,7 @@ import tkinter as tk
 
 
 class Text(tk.Widget):
-    def __init__(self, fontsize=9, **kwargs):
+    def __init__(self, fontsize=11, **kwargs):
         super().__init__(**kwargs)
         big_font(self, fontsize)
 
@@ -42,7 +42,7 @@ class SimpleTtkEntry(Text, tk.ttk.Entry):
 class CanvasButton(Text, tk.Canvas):
     """Button emulation based on Canvas() widget. Can have text and/or preconfigured image."""
     def __init__(self, master=None, image=None, text=None, variable=None, width=None, height=None, textwidth=None,
-                 textheight=None, fontsize=9, opacity=None, relief='raised', bg=None, bd=2, state='normal',
+                 textheight=None, fontsize=11, opacity=None, relief='raised', bg=None, bd=2, state='normal',
                  takefocus=True, command=None):
         super().__init__(master=master)
         self.pressed = False
