@@ -263,20 +263,25 @@ def patch_database():
     key = '0'
     if not res:
         for key in sorted(PATCH_SCRIPTS):
-            for script in PATCH_SCRIPTS[key]:
-                con.executescript(script)
-                con.commit()
+            apply_script(PATCH_SCRIPTS[key], con)
         res = (1, )
     else:
         for key in sorted(PATCH_SCRIPTS):
             if int(res[0]) < key:
-                for script in PATCH_SCRIPTS[key]:
-                    con.executescript(script)
-                    con.commit()
+                apply_script(PATCH_SCRIPTS[key], con)
     if res[0] != key:
         con.executescript("UPDATE options SET value='{0}' WHERE name='patch_ver';".format(str(key)))
         con.commit()
     con.close()
+
+
+def apply_script(scripts_list, db_connection):
+    for script in scripts_list:
+        try:
+            db_connection.executescript(script)
+            db_connection.commit()
+        except sqlite3.DatabaseError:
+            pass
 
 
 HELP_TEXT = get_help()
