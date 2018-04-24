@@ -237,10 +237,7 @@ class TaskFrame(tk.Frame):
         else:
             self.date_exists = True
         # Taking current counter value from database:
-        if int(GLOBAL_OPTIONS["show_today"]):
-            self.running_time = self.task[5]
-        else:
-            self.running_time = self.task[2]
+        self.set_current_time()
         self.timer_window.config(text=core.time_format(self.running_time))
         self.tasklabel.config(text=self.task[1])
         self.startbutton.config(state='normal')
@@ -253,6 +250,20 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.config(state='normal')
         if self.description:
             self.description.update_text(self.task[3])
+
+    def set_current_time(self):
+        """Set current_time depending on time displaying options value."""
+        if int(GLOBAL_OPTIONS["show_today"]):
+            self.running_time = self.task[5]
+        else:
+            self.running_time = self.task[2]
+
+    def reload_timer(self):
+        """Used for task data reloading without explicitly redraw anything but timer."""
+        self.timer_stop()
+        self.task = self.db.select_task(self.task_id)
+        self.set_current_time()
+        self.timer_start()
 
     def check_date(self):
         """Used to check if date has been changed since last timer value save."""
@@ -270,6 +281,7 @@ class TaskFrame(tk.Frame):
             self.db.insert("activity", ("date", "task_id", "spent_time"),
                            (self.current_date, self.task[0], self.running_today_time))
             self.date_exists = True
+           # self.reload_timer()
         else:
             self.db.update_task(self.task[0], value=self.running_today_time)
         self.timestamp = self.running_today_time
