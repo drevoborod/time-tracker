@@ -1259,37 +1259,43 @@ class MainMenu(tk.Menu):
         save = tk.IntVar(value=int(GLOBAL_OPTIONS['preserve_tasks']))
         # 'show current day in timers' option:
         show_today = tk.IntVar(value=int(GLOBAL_OPTIONS['show_today']))
+        toggle = int(GLOBAL_OPTIONS['toggle_tasks'])
+        toggler = tk.IntVar(value=toggle)
         params = {}
-        Options(run, var, ontop, compact_iface, save, show_today)
-        try:
-            count = var.get()
-        except tk.TclError:
-            pass
-        else:
-            if count < 1:
-                count = 1
-            elif count > GLOBAL_OPTIONS["MAX_TASKS"]:
-                count = GLOBAL_OPTIONS["MAX_TASKS"]
-            params['timers_count'] = count
-        # apply value of 'always on top' option:
-        params['always_on_top'] = ontop.get()
-        run.wm_attributes("-topmost", ontop.get())
-        # apply value of 'compact interface' option:
-        params['compact_interface'] = compact_iface.get()
-        if compact != compact_iface.get():
-            if compact_iface.get() == 0:
-                run.full_interface()
-            elif compact_iface.get() == 1:
-                run.small_interface()
-        # apply value of 'save tasks on exit' option:
-        params['preserve_tasks'] = save.get()
-        # apply value of 'show current day in timers' option:
-        params['show_today'] = show_today.get()
-        # save all parameters to DB:
-        self.change_parameter(params)
-        # redraw taskframes if needed:
-        run.taskframes.fill()
-        run.taskframes.refill()
+        accept = tk.BooleanVar()
+        Options(run, accept, var, ontop, compact_iface, save, show_today, toggler)
+        if accept.get():
+            try:
+                count = var.get()
+            except tk.TclError:
+                pass
+            else:
+                if count < 1:
+                    count = 1
+                elif count > GLOBAL_OPTIONS["MAX_TASKS"]:
+                    count = GLOBAL_OPTIONS["MAX_TASKS"]
+                params['timers_count'] = count
+            # apply value of 'always on top' option:
+            params['always_on_top'] = ontop.get()
+            run.wm_attributes("-topmost", ontop.get())
+            # apply value of 'compact interface' option:
+            params['compact_interface'] = compact_iface.get()
+            if compact != compact_iface.get():
+                if compact_iface.get() == 0:
+                    run.full_interface()
+                elif compact_iface.get() == 1:
+                    run.small_interface()
+            # apply value of 'save tasks on exit' option:
+            params['preserve_tasks'] = save.get()
+            # apply value of 'show current day in timers' option:
+            params['show_today'] = show_today.get()
+            # apply value of 'Allow run only one task at a time' option:
+            params['toggle_tasks'] = toggler.get()
+            # save all parameters to DB:
+            self.change_parameter(params)
+            # redraw taskframes if needed:
+            run.taskframes.fill()
+            run.taskframes.refill()
         run.lift()
 
     def change_parameter(self, paramdict):
@@ -1312,8 +1318,9 @@ class MainMenu(tk.Menu):
 
 class Options(Window):
     """Options window which can be opened from main menu."""
-    def __init__(self, parent, counter, on_top, compact, preserve, show_today, **options):
+    def __init__(self, parent, is_applied, counter, on_top, compact, preserve, show_today, toggler, **options):
         super().__init__(master=parent, width=300, height=200, **options)
+        self.is_applied = is_applied
         self.title("Options")
         self.resizable(height=0, width=0)
         self.counter = counter
@@ -1333,10 +1340,17 @@ class Options(Window):
         elements.SimpleCheckbutton(self, variable=preserve).grid(row=4, column=1, sticky='w', padx=5)
         elements.SimpleLabel(self, text="Show time for current day only in timer's window: ").grid(row=5, column=0, sticky='w', padx=5)
         elements.SimpleCheckbutton(self, variable=show_today).grid(row=5, column=1, sticky='w', padx=5)
-        tk.Frame(self, height=20).grid(row=6)
-        elements.TaskButton(self, text='Close', command=self.destroy).grid(row=7, column=1, sticky='e', padx=5, pady=5)
-        self.bind("<Return>", lambda e: self.destroy())
+        elements.SimpleLabel(self, text="Allow to run only one task at a time: ").grid(row=6, column=0, sticky='w', padx=5)
+        elements.SimpleCheckbutton(self, variable=toggler).grid(row=6, column=1, sticky='w', padx=5)
+        tk.Frame(self, height=20).grid(row=7)
+        elements.TaskButton(self, text='OK', command=self.apply).grid(row=8, column=0, sticky='w', padx=5, pady=5)
+        elements.TaskButton(self, text='Cancel', command=self.destroy).grid(row=8, column=1, sticky='e', padx=5, pady=5)
+        self.bind("<Return>", lambda e: self.apply())
         self.prepare()
+
+    def apply(self):
+        self.is_applied.set(True)
+        self.destroy()
 
     def increase(self):
         if self.counter.get() < GLOBAL_OPTIONS["MAX_TASKS"]:
