@@ -193,7 +193,7 @@ class TaskFrame(tk.Frame):
         self.timer_stop()
         for w in self.winfo_children():
             w.destroy()
-        GLOBAL_OPTIONS["tasks"].remove(self.task[0])
+        GLOBAL_OPTIONS["tasks"].pop(self.task[0])
         self.create_content()
 
     def name_dialogue(self):
@@ -210,7 +210,7 @@ class TaskFrame(tk.Frame):
             # Checking if there is open task in this frame:
             if self.task:
                 # If it is, we remove it from running tasks set:
-                GLOBAL_OPTIONS["tasks"].remove(self.task[0])
+                GLOBAL_OPTIONS["tasks"].pop(self.task[0])
                 # Stopping current timer and saving its state:
                 self.timer_stop()
             self.get_restored_task_name(task_id)
@@ -227,7 +227,7 @@ class TaskFrame(tk.Frame):
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
         # Adding task id to set of running tasks:
-        GLOBAL_OPTIONS["tasks"].add(task[0])
+        GLOBAL_OPTIONS["tasks"][task[0]] = False
         self.task = task
         self.current_date = core.date_format(datetime.datetime.now())
         # Set current time, just for this day:
@@ -294,7 +294,7 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(text=core.time_format(self.running_time if self.running_time < 86400
                                                        else self.running_today_time))
         # Checking if "Stop all" button is pressed:
-        if not GLOBAL_OPTIONS["stopall"]:
+        if not GLOBAL_OPTIONS["stopall"] and GLOBAL_OPTIONS["tasks"][self.task_id]:
             # Every n seconds counter value is saved in database:
             if counter >= GLOBAL_OPTIONS["SAVE_INTERVAL"]:
                 self.check_date()
@@ -310,6 +310,10 @@ class TaskFrame(tk.Frame):
         """Counter start."""
         if not self.running:
             GLOBAL_OPTIONS["stopall"] = False
+            if int(GLOBAL_OPTIONS["toggle_tasks"]):
+                for key in GLOBAL_OPTIONS["tasks"]:
+                    GLOBAL_OPTIONS["tasks"][key] = False
+            GLOBAL_OPTIONS["tasks"][self.task_id] = True
             # Setting current counter value:
             self.start_time = time.time() - self.running_time
             # This value is used to add record to database:
@@ -327,6 +331,7 @@ class TaskFrame(tk.Frame):
             self.running_time = time.time() - self.start_time
             self.running_today_time = time.time() - self.start_today_time
             self.running = False
+            GLOBAL_OPTIONS["tasks"][self.task_id] = False
             # Writing value into database:
             self.check_date()
             self.task[2] = self.running_time
@@ -345,7 +350,7 @@ class TaskFrame(tk.Frame):
         """Closes frame and writes counter value into database."""
         self.timer_stop()
         if self.task:
-            GLOBAL_OPTIONS["tasks"].remove(self.task[0])
+            GLOBAL_OPTIONS["tasks"].pop(self.task[0])
         self.db.con.close()
         tk.Frame.destroy(self)
 
@@ -1188,7 +1193,7 @@ class MainFrame(elements.ScrolledCanvas):
                 w.destroy()
             self.fill()
 
-    def refill(self):
+    def frames_refill(self):
         """Reload data in every task frame with data."""
         for w in self.content_frame.winfo_children():
             if hasattr(w, 'task'):
@@ -1295,7 +1300,10 @@ class MainMenu(tk.Menu):
             self.change_parameter(params)
             # redraw taskframes if needed:
             run.taskframes.fill()
-            run.taskframes.refill()
+            run.taskframes.frames_refill()
+            # Stop all tasks if exclusive run method has been enabled:
+            if int(GLOBAL_OPTIONS["toggle_tasks"]):
+                GLOBAL_OPTIONS["stopall"] = True
         run.lift()
 
     def change_parameter(self, paramdict):
@@ -1534,9 +1542,9 @@ if __name__ == "__main__":
     GLOBAL_OPTIONS = get_options()
     # Global tasks ids set. Used for preserve duplicates:
     if GLOBAL_OPTIONS["tasks"]:
-        GLOBAL_OPTIONS["tasks"] = set([int(x) for x in GLOBAL_OPTIONS["tasks"].split(",")])
+        GLOBAL_OPTIONS["tasks"] = dict.fromkeys([int(x) for x in GLOBAL_OPTIONS["tasks"].split(",")], False)
     else:
-        GLOBAL_OPTIONS["tasks"] = set()
+        GLOBAL_OPTIONS["tasks"] = dict()
     # List of preserved tasks which are not open:
     GLOBAL_OPTIONS["preserved_tasks_list"] = list(GLOBAL_OPTIONS["tasks"])
     # If True, all running timers will be stopped:
