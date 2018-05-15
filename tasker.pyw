@@ -1302,7 +1302,7 @@ class MainMenu(tk.Menu):
             run.taskframes.fill()
             run.taskframes.frames_refill()
             # Stop all tasks if exclusive run method has been enabled:
-            if int(GLOBAL_OPTIONS["toggle_tasks"]):
+            if int(GLOBAL_OPTIONS["toggle_tasks"]) and int(GLOBAL_OPTIONS["toggle_tasks"]) != toggle:
                 GLOBAL_OPTIONS["stopall"] = True
         run.lift()
 
