@@ -1052,6 +1052,7 @@ class FilterWindow(Window):
                        enddate=self.dateslist.states_list[0][0])
         if correct.get():
             for date in self.dateslist.states_list:
+                date[1][0].set(0)
                 if core.str_to_date(start_date.get()) <= core.str_to_date(date[0]) <= core.str_to_date(end_date.get()):
                     date[1][0].set(1)
 
