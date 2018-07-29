@@ -319,12 +319,12 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('version', '1.4_beta');
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
-PATCH_SCRIPTS = {
-    1: [
-        "INSERT INTO options VALUES ('toggle_tasks', '0');"
-    ],
+# PATCH_SCRIPTS = {
+    # 1: [
+    #     "INSERT INTO options VALUES ('toggle_tasks', '0');"
+    # ],
     # 2: [
-    #     "UPDATE options SET value='1.5' WHERE name='version';"
+    #     "UPDATE options SET value='2.0' WHERE name='version';"
     # ]
-}
-#PATCH_SCRIPTS = {}
+# }
+PATCH_SCRIPTS = {}

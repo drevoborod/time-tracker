@@ -4,7 +4,11 @@ import time
 import datetime
 import copy
 
-import tkinter as tk
+try:
+    import tkinter as tk
+except ModuleNotFoundError:
+    import sys
+    sys.exit("Unable to start GUI. Please install Tk for Python: https://docs.python.org/3/library/tkinter.html.")
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
@@ -209,13 +213,13 @@ class TaskFrame(tk.Frame):
         if task_id not in GLOBAL_OPTIONS["tasks"]:
             # Checking if there is open task in this frame:
             if self.task:
-                # If it is, we remove it from running tasks set:
-                GLOBAL_OPTIONS["tasks"].pop(self.task[0])
                 # Stopping current timer and saving its state:
                 self.timer_stop()
+                # If there is open task, we remove it from running tasks set:
+                GLOBAL_OPTIONS["tasks"].pop(self.task[0])
             self.get_restored_task_name(task_id)
         else:
-            # If selected task is already open in another frame:
+            # If selected task is already opened in another frame:
             if self.task_id != task_id:
                 showinfo("Task exists", "Task is already opened.")
 
