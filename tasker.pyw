@@ -800,7 +800,7 @@ class TaskEditWindow(Window):
         datlist.grid(row=6, column=3, rowspan=3, columnspan=2, sticky='ew', padx=5, pady=5)
         #
         tk.Frame(self, height=40).grid(row=9)
-        elements.TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)   # При нажатии на эту кнопку происходит обновление данных в БД.
+        elements.TaskButton(self, text='Ok', command=self.update_task).grid(row=10, column=0, sticky='sw', padx=5, pady=5)
         elements.TaskButton(self, text='Cancel', command=self.destroy).grid(row=10, column=4, sticky='se', padx=5, pady=5)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(3, weight=10)
@@ -965,7 +965,7 @@ class HelpWindow(Window):
         main_frame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
-        elements.TaskButton(self, text='ОК', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
+        elements.TaskButton(self, text='OK', command=self.destroy).grid(row=1, column=0, sticky='e', pady=5, padx=5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.bind("<Escape>", lambda e: self.destroy())
