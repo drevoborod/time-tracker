@@ -457,8 +457,7 @@ class TaskSelectionWindow(Window):
         searchentry_context_menu = RightclickMenu(paste_item=1, copy_item=0)
         self.searchentry.bind("<Button-3>", searchentry_context_menu.context_menu_show)
         # Case sensitive checkbutton:
-        self.ignore_case = tk.IntVar(self)
-        self.ignore_case.set(1)
+        self.ignore_case = tk.IntVar(self, value=1)
         elements.SimpleCheckbutton(self, text="Ignore case", takefocus=False, variable=self.ignore_case).grid(row=1, column=0,
                                                                                                      padx=6, pady=5, sticky='w')
         # Search button:
