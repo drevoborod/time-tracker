@@ -263,20 +263,25 @@ def patch_database():
     key = '0'
     if not res:
         for key in sorted(PATCH_SCRIPTS):
-            for script in PATCH_SCRIPTS[key]:
-                con.executescript(script)
-                con.commit()
+            apply_script(PATCH_SCRIPTS[key], con)
         res = (1, )
     else:
         for key in sorted(PATCH_SCRIPTS):
             if int(res[0]) < key:
-                for script in PATCH_SCRIPTS[key]:
-                    con.executescript(script)
-                    con.commit()
+                apply_script(PATCH_SCRIPTS[key], con)
     if res[0] != key:
         con.executescript("UPDATE options SET value='{0}' WHERE name='patch_ver';".format(str(key)))
         con.commit()
     con.close()
+
+
+def apply_script(scripts_list, db_connection):
+    for script in scripts_list:
+        try:
+            db_connection.executescript(script)
+            db_connection.commit()
+        except sqlite3.DatabaseError:
+            pass
 
 
 HELP_TEXT = get_help()
@@ -307,10 +312,19 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('minimize_to_tray', '0');
                 INSERT INTO options VALUES ('always_on_top', '0');
                 INSERT INTO options VALUES ('preserve_tasks', '0');
+                INSERT INTO options VALUES ('show_today', '0');
+                INSERT INTO options VALUES ('toggle_tasks', '0');
                 INSERT INTO options VALUES ('tasks', '');
                 INSERT INTO options VALUES ('compact_interface', '0');
                 INSERT INTO options VALUES ('version', '1.4_beta');
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
-#PATCH_SCRIPTS = {1: ["UPDATE options SET value='1.5' WHERE name='version';" ]}
+# PATCH_SCRIPTS = {
+    # 1: [
+    #     "INSERT INTO options VALUES ('toggle_tasks', '0');"
+    # ],
+    # 2: [
+    #     "UPDATE options SET value='2.0' WHERE name='version';"
+    # ]
+# }
 PATCH_SCRIPTS = {}
