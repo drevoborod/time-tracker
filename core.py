@@ -5,6 +5,7 @@ import time
 import datetime
 
 import sqlite3
+from collections import OrderedDict as odict
 
 
 class DbErrors(Exception):
@@ -29,22 +30,25 @@ class Db:
         self.con.close()
         self.connect()
 
-    def exec_script(self, script):
+    def exec_script(self, script, *values):
         """Custom script execution and commit. Returns lastrowid. Raises DbErrors on database exceptions."""
         try:
-            if not isinstance(script, tuple):
+            if not values:
                 self.cur.execute(script)
             else:
-                self.cur.execute(script[0], script[1])
+                self.cur.execute(script, values)
         except sqlite3.DatabaseError as err:
             raise DbErrors(err)
         else:
             self.con.commit()
             return self.cur.lastrowid
 
-    def find_by_clause(self, table, field, value, searchfield):
+    def find_by_clause(self, table, field, value, searchfield, order=None):
         """Returns "searchfield" for field=value."""
-        self.exec_script('SELECT {3} FROM {0} WHERE {1}="{2}"'.format(table, field, value, searchfield))
+        order_by = ''
+        if order:
+            order_by = ' ORDER BY {0}'.format(order)
+        self.exec_script('SELECT {3} FROM {0} WHERE {1}="{2}"{4}'.format(table, field, value, searchfield, order_by))
         return self.cur.fetchall()
 
     def find_all(self, table, sortfield=None):
@@ -73,9 +77,9 @@ class Db:
         return task
 
     def insert(self, table, fields, values):
-        """Insert into fields given values. Fields and values should be tuples with length 2 or 3."""
-        return self.exec_script(('INSERT INTO {0} {1} VALUES {2}'.format(table, fields, '(?, ?)' if len(values) == 2
-                                                                         else '(?, ?, ?)'), values))
+        """Insert into fields given values. Fields and values should be tuples of same length."""
+        placeholder = "(" + ",".join(["?"] * len(values)) + ")"
+        return self.exec_script('INSERT INTO {0} {1} VALUES {2}'.format(table, fields, placeholder), *values)
 
     def insert_task(self, name):
         """Insert task into database."""
@@ -92,7 +96,7 @@ class Db:
 
     def update(self, field_id, field, value, table="tasks", updfiled="id"):
         """Updates given field in given table with given id using given value :) """
-        self.exec_script(("UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled), (value, )))
+        self.exec_script("UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field, field_id, updfiled), value)
 
     def update_task(self, task_id, field="spent_time", value=0):
         """Updates some fields for given task id."""
@@ -104,20 +108,70 @@ class Db:
         else:
             self.update(task_id, field=field, value=value)
 
-    def delete(self, ids, field="id", table="tasks"):
-        """Removes several records. ids should be a tuple."""
-        if len(ids) == 1:
-            i = "('%s')" % ids[0]
-        else:
-            i = ids
-        self.exec_script("DELETE FROM {1} WHERE {2} in {0}".format(i, table, field))
+    def delete(self, table="tasks", **field_values):
+        """Removes several records using multiple "field in (values)" clauses.
+        field_values has to be a dictionary which values can be tuples:
+        field1=(value1, value), field2=value1, field3=(value1, value2, value3)"""
+        clauses = []
+        for key in field_values:
+            value = field_values[key]
+            if type(value) in (list, tuple):
+                value = tuple(value)
+                if len(value) == 1:
+                    value = "('%s')" % value[0]
+                clauses.append("{0} in {1}".format(key, value))
+            else:
+                clauses.append("{0}='{1}'".format(key, value))
+        clauses = " AND ".join(clauses)
+        if len(clauses) > 0:
+            clauses = " WHERE " + clauses
+        self.exec_script("DELETE FROM {0}{1}".format(table, clauses))
 
-    def delete_tasks(self, ids):
-        """Removes task and all corresponding records."""
-        self.delete(ids)
-        self.delete(ids, field="task_id", table="activity")
-        self.delete(ids, field="task_id", table="timestamps")
-        self.delete(ids, field="task_id", table="tasks_tags")
+    def delete_tasks(self, values):
+        """Removes task and all corresponding records. Values has to be tuple."""
+        self.delete(id=values)
+        self.delete(task_id=values, table="activity")
+        self.delete(task_id=values, table="timestamps")
+        self.delete(task_id=values, table="tasks_tags")
+
+    def tasks_to_export(self, ids):
+        """Prepare tasks list for export."""
+        self.exec_script("select name, description, activity.date, activity.spent_time from tasks join activity "
+                         "on tasks.id=activity.task_id where tasks.id in {0} order by tasks.name, activity.date".
+                         format(tuple(ids)))
+        res = self.cur.fetchall()
+        result = odict()
+        for item in res:
+            if item[0] in result:
+                result[item[0]][1].append((item[2], time_format(item[3])))
+            else:
+                result[item[0]] = [item[1] if item[1] else '', [(item[2], time_format(item[3]))]]
+        self.exec_script("select name, fulltime from tasks join (select task_id, sum(spent_time) as fulltime "
+                         "from activity where task_id in {0} group by task_id) as act on tasks.id=act.task_id".
+                         format(tuple(ids)))
+        res = self.cur.fetchall()
+        for item in res:
+            result[item[0]].append(time_format(item[1]))
+        return result
+
+    def dates_to_export(self, ids):
+        """Prepare date-based tasks list for export."""
+        self.exec_script("select date, tasks.name, tasks.description, spent_time from activity join tasks "
+                         "on activity.task_id=tasks.id where task_id in {0} order by date, tasks.name".
+                         format(tuple(ids)))
+        res = self.cur.fetchall()
+        result = odict()
+        for item in res:
+            if item[0] in result:
+                result[item[0]][0].append([item[1], item[2] if item[2] else '', time_format(item[3])])
+            else:
+                result[item[0]] = [[[item[1], item[2] if item[2] else '', time_format(item[3])]]]
+        self.exec_script("select date, sum(spent_time) from activity where task_id in {0} group by date "
+                         "order by date".format(tuple(ids)))
+        res = self.cur.fetchall()
+        for item in res:
+            result[item[0]].append(time_format(item[1]))
+        return result
 
     def tags_dict(self, taskid):
         """Creates a list of tag ids, their values in (0, 1) and their names for given task id.
@@ -138,6 +192,11 @@ class Db:
         res.reverse()       # Should be reversed to preserve order like in database.
         return res
 
+    def simple_dateslist(self):
+        """Returns simple list of all dates of activity without duplicates."""
+        self.exec_script('SELECT DISTINCT date FROM activity ORDER BY date DESC')
+        return [x[0] for x in self.cur.fetchall()]
+
     def timestamps(self, taskid, current_time):
         """Returns timestamps list in same format as simple_tagslist()."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid, 'timestamp')
@@ -156,7 +215,7 @@ def check_database():
     patch_database()
 
 
-def export(filename, text):
+def write_to_disk(filename, text):
     """Creates file and fills it with given text."""
     expfile = open(filename, 'w')
     expfile.write(text)
@@ -175,17 +234,14 @@ def time_format(sec):
             return "{} days".format(day)
 
 
-def date_format(date):
-    """Returns formatted date. Accepts datetime or string or int/float.
-    Returns string or seconds since epoch."""
-    if isinstance(date, datetime.datetime):
-        return datetime.datetime.strftime(date, '%d.%m.%Y')
-    elif isinstance(date, str):
-        return time.mktime(time.strptime(date, '%d.%m.%Y'))
-    elif isinstance(date, (int, float)):
-        return datetime.datetime.strftime(datetime.datetime.fromtimestamp(date), '%d.%m.%Y')
-    else:
-        raise DbErrors("Wrong time format.")
+def date_format(date, template='%Y-%m-%d'):
+    """Returns formatted date (str). Accepts datetime."""
+    return datetime.datetime.strftime(date, template)
+
+
+def str_to_date(string, template='%Y-%m-%d'):
+    """Returns datetime from string."""
+    return datetime.datetime.strptime(string, template)
 
 
 def get_help():
@@ -204,22 +260,28 @@ def patch_database():
     cur = con.cursor()
     cur.execute("SELECT value FROM options WHERE name='patch_ver';")
     res = cur.fetchone()
+    key = '0'
     if not res:
         for key in sorted(PATCH_SCRIPTS):
-            for script in PATCH_SCRIPTS[key]:
-                con.executescript(script)
-                con.commit()
+            apply_script(PATCH_SCRIPTS[key], con)
         res = (1, )
     else:
         for key in sorted(PATCH_SCRIPTS):
             if int(res[0]) < key:
-                for script in PATCH_SCRIPTS[key]:
-                    con.executescript(script)
-                    con.commit()
+                apply_script(PATCH_SCRIPTS[key], con)
     if res[0] != key:
         con.executescript("UPDATE options SET value='{0}' WHERE name='patch_ver';".format(str(key)))
         con.commit()
     con.close()
+
+
+def apply_script(scripts_list, db_connection):
+    for script in scripts_list:
+        try:
+            db_connection.executescript(script)
+            db_connection.commit()
+        except sqlite3.DatabaseError:
+            pass
 
 
 HELP_TEXT = get_help()
@@ -245,36 +307,24 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('filter_tags', '');
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
+                INSERT INTO options VALUES ('patch_ver', '0');
+                INSERT INTO options VALUES ('timers_count', '3');
+                INSERT INTO options VALUES ('minimize_to_tray', '0');
+                INSERT INTO options VALUES ('always_on_top', '0');
+                INSERT INTO options VALUES ('preserve_tasks', '0');
+                INSERT INTO options VALUES ('show_today', '0');
+                INSERT INTO options VALUES ('toggle_tasks', '0');
+                INSERT INTO options VALUES ('tasks', '');
+                INSERT INTO options VALUES ('compact_interface', '0');
+                INSERT INTO options VALUES ('version', '1.5');
+                INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
-PATCH_SCRIPTS = {1:
-                    ["INSERT INTO options VALUES ('patch_ver', '1');",
-                     "INSERT INTO options VALUES ('timers_count', '3');",
-                     "INSERT INTO options VALUES ('minimize_to_tray', '0');",
-                     "INSERT INTO options VALUES ('always_on_top', '0');"
-                     ],
-                 2: ["INSERT INTO options VALUES ('version', '1.1');"
-                     ],
-                 3: ["UPDATE options SET value='beta_1.1' WHERE name='version';"
-                     ],
-                 4: ["UPDATE options SET value='1.1' WHERE name='version';"
-                     ],
-                 5: ["UPDATE options SET value='1.1.1' WHERE name='version';"
-                     ],
-                 6: ["UPDATE options SET value='1.1.2' WHERE name='version';"
-                     ],
-                 7: ["UPDATE options SET value='1.2_beta' WHERE name='version';"
-                     ],
-                 8: ["UPDATE options SET value='1.2' WHERE name='version';"
-                     ],
-                 9: ["UPDATE options SET value='1.2.1.' WHERE name='version';"
-                     ],
-                 10: ["UPDATE options SET value='1.2.2.' WHERE name='version';"
-                      ],
-                 11: ["INSERT INTO options VALUES ('compact_interface', '0');",
-                      "UPDATE options SET value='1.2.3.' WHERE name='version';"
-                      ],
-                 12: ["UPDATE options SET value='1.3' WHERE name='version';",
-                      "INSERT INTO options VALUES ('preserve_tasks', '0');",
-                      "INSERT INTO options VALUES ('tasks', '');"
-                      ]
-                 }
+# PATCH_SCRIPTS = {
+    # 1: [
+    #     "INSERT INTO options VALUES ('toggle_tasks', '0');"
+    # ],
+    # 2: [
+    #     "UPDATE options SET value='2.0' WHERE name='version';"
+    # ]
+# }
+PATCH_SCRIPTS = {}
