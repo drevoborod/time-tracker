@@ -166,10 +166,10 @@ class CanvasButton(Text, tk.Canvas):
             self.bg = bg
         recreate = False
         if hasattr(self, 'textlabel'):
-            coords = self.coords(
-                'text')  # New text will appear in the same position as previous.
+            # New text will appear in the same position as previous:
+            coords = self.coords('text')
             recreate = True
-            self.delete(self.textlabel)
+            self.delete('text')
         if isinstance(textorvariable, tk.Variable):
             self.textlabel = tk.Label(self, textvariable=textorvariable, bd=0,
                                       bg=self.bg, font=font, justify='center',

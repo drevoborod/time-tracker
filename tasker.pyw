@@ -347,9 +347,7 @@ class TaskFrame(tk.Frame):
         self.timer_window.config(text=core.time_format(
             self.running_time if self.running_time < 86400
             else self.running_today_time))
-        # Checking if "Stop all" button is pressed:
-        if not GLOBAL_OPTIONS["stopall"] and GLOBAL_OPTIONS["tasks"][
-                self.task_id]:
+        if GLOBAL_OPTIONS["tasks"][self.task_id]:
             # Every n seconds counter value is saved in database:
             if counter >= GLOBAL_OPTIONS["SAVE_INTERVAL"]:
                 self.check_date()
@@ -1445,6 +1443,8 @@ class MainFrame(elements.ScrolledCanvas):
         super().__init__(parent=parent, bd=2)
         self.frames_count = 0
         self.rows_counter = 0
+        self.frames = []
+        self.active_frames = []
         self.fill()
 
     def clear(self):
@@ -1468,6 +1468,7 @@ class MainFrame(elements.ScrolledCanvas):
             for w in self.content_frame.winfo_children():
                 self.frames_count -= 1
                 w.destroy()
+            self.active_frames.clear()
             self.fill()
 
     def frames_refill(self):
@@ -1493,6 +1494,7 @@ class MainFrame(elements.ScrolledCanvas):
                 if GLOBAL_OPTIONS["preserved_tasks_list"]:
                     task_id = GLOBAL_OPTIONS["preserved_tasks_list"].pop(0)
                     task.get_restored_task_name(task_id)
+                self.frames.append(task)
                 self.rows_counter += 1
             self.frames_count += len(row_count)
             self.content_frame.update()
@@ -1512,6 +1514,22 @@ class MainFrame(elements.ScrolledCanvas):
                     widget.small_interface()
             except TclError:
                 pass
+
+    def pause_all(self):
+        for frame in self.frames:
+            if frame.running:
+                self.active_frames.append(frame)
+                frame.timer_stop()
+
+    def resume_all(self):
+        for frame in self.active_frames:
+            frame.timer_start()
+
+    def stop_all(self):
+        for frame in self.frames:
+            if frame.running:
+                frame.timer_stop()
+        self.active_frames.clear()
 
 
 class MainMenu(tk.Menu):
@@ -1799,6 +1817,7 @@ class MainWindow(tk.Tk):
         if GLOBAL_OPTIONS['always_on_top'] == '1':
             self.wm_attributes("-topmost", 1)
         self.bind("<Key>", self.hotkeys)
+        self.paused = False
 
     def hotkeys(self, event):
         """Execute corresponding actions for hotkeys."""
@@ -1823,7 +1842,8 @@ class MainWindow(tk.Tk):
         self.add_clear_button.grid(row=2, column=0, sticky='wsn', pady=5,
                                    padx=5)
         self.add_pause_button = elements.TaskButton(self, text="Pause all",
-                                                    command=self.pause_all)
+                                                    command=self.pause_all,
+                                                    textwidth=10)
         self.add_pause_button.grid(row=2, column=3, sticky='snw', pady=5,
                                    padx=5)
         self.add_quit_button = elements.TaskButton(self, text="Quit",
@@ -1841,11 +1861,20 @@ class MainWindow(tk.Tk):
         self.taskframes.change_interface('small')
 
     def pause_all(self):
-        pass
+        if self.paused:
+            self.add_pause_button.config(text="Pause all")
+            self.taskframes.resume_all()
+            self.paused = False
+        else:
+            self.add_pause_button.config(text="Resume all")
+            self.taskframes.pause_all()
+            self.paused = True
 
     def stopall(self):
         """Stop all running timers."""
-        GLOBAL_OPTIONS["stopall"] = True
+        self.taskframes.stop_all()
+        self.paused = False
+        self.add_pause_button.config(text="Pause all")
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -1919,8 +1948,6 @@ if __name__ == "__main__":
         GLOBAL_OPTIONS["tasks"] = dict()
     # List of preserved tasks which are not open:
     GLOBAL_OPTIONS["preserved_tasks_list"] = list(GLOBAL_OPTIONS["tasks"])
-    # If True, all running timers will be stopped:
-    GLOBAL_OPTIONS["stopall"] = False
     # Widget which is currently connected to context menu:
     GLOBAL_OPTIONS["selected_widget"] = None
     GLOBAL_OPTIONS.update(
