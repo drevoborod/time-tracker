@@ -226,6 +226,7 @@ class TaskFrame(tk.Frame):
             self.timer_stop()
         else:
             self.timer_start()
+        GLOBAL_OPTIONS["paused"].discard(self)
 
     def properties_window(self):
         """Task properties window."""
@@ -1444,7 +1445,6 @@ class MainFrame(elements.ScrolledCanvas):
         self.frames_count = 0
         self.rows_counter = 0
         self.frames = []
-        self.active_frames = []
         self.fill()
 
     def clear(self):
@@ -1518,18 +1518,19 @@ class MainFrame(elements.ScrolledCanvas):
     def pause_all(self):
         for frame in self.frames:
             if frame.running:
-                self.active_frames.append(frame)
+                GLOBAL_OPTIONS["paused"].add(frame)
                 frame.timer_stop()
 
     def resume_all(self):
-        for frame in self.active_frames:
+        for frame in GLOBAL_OPTIONS["paused"]:
             frame.timer_start()
+        GLOBAL_OPTIONS["paused"].clear()
 
     def stop_all(self):
         for frame in self.frames:
             if frame.running:
                 frame.timer_stop()
-        self.active_frames.clear()
+        GLOBAL_OPTIONS["paused"].clear()
 
 
 class MainMenu(tk.Menu):
@@ -1950,8 +1951,9 @@ if __name__ == "__main__":
     GLOBAL_OPTIONS["preserved_tasks_list"] = list(GLOBAL_OPTIONS["tasks"])
     # Widget which is currently connected to context menu:
     GLOBAL_OPTIONS["selected_widget"] = None
-    GLOBAL_OPTIONS.update(
-        {"MAX_TASKS": MAX_TASKS, "SAVE_INTERVAL": SAVE_INTERVAL})
+    GLOBAL_OPTIONS.update({"MAX_TASKS": MAX_TASKS,
+                           "SAVE_INTERVAL": SAVE_INTERVAL,
+                           "paused": set()})
 
     # Main window:
     run = MainWindow()
