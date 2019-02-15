@@ -1468,7 +1468,7 @@ class MainFrame(elements.ScrolledCanvas):
             for w in self.content_frame.winfo_children():
                 self.frames_count -= 1
                 w.destroy()
-            self.active_frames.clear()
+            GLOBAL_OPTIONS["paused"].clear()
             self.fill()
 
     def frames_refill(self):
@@ -1829,6 +1829,8 @@ class MainWindow(tk.Tk):
         elif event.keysym in (
         'Cyrillic_shorti', 'Cyrillic_SHORTI', 'q', 'Q', 'Escape'):
             self.destroy()
+        elif event.keysym in ('Cyrillic_ZE', 'Cyrillic_ze', 'p', 'P'):
+            self.pause_all()
 
     def full_interface(self, firstrun=False):
         """Create elements which are displayed in full interface mode."""
@@ -1856,18 +1858,21 @@ class MainWindow(tk.Tk):
 
     def small_interface(self):
         """Destroy all additional interface elements."""
-        for widget in self.add_frame, self.add_stop_button, \
-                      self.add_clear_button, self.add_quit_button:
+        for widget in (self.add_frame, self.add_stop_button,
+                       self.add_clear_button, self.add_quit_button,
+                       self.add_pause_button):
             widget.destroy()
         self.taskframes.change_interface('small')
 
     def pause_all(self):
         if self.paused:
-            self.add_pause_button.config(text="Pause all")
+            if GLOBAL_OPTIONS["compact_interface"] == "0":
+                self.add_pause_button.config(text="Pause all")
             self.taskframes.resume_all()
             self.paused = False
         else:
-            self.add_pause_button.config(text="Resume all")
+            if GLOBAL_OPTIONS["compact_interface"] == "0":
+                self.add_pause_button.config(text="Resume all")
             self.taskframes.pause_all()
             self.paused = True
 
@@ -1875,7 +1880,8 @@ class MainWindow(tk.Tk):
         """Stop all running timers."""
         self.taskframes.stop_all()
         self.paused = False
-        self.add_pause_button.config(text="Pause all")
+        if GLOBAL_OPTIONS["compact_interface"] == "0":
+            self.add_pause_button.config(text="Pause all")
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -1954,7 +1960,6 @@ if __name__ == "__main__":
     GLOBAL_OPTIONS.update({"MAX_TASKS": MAX_TASKS,
                            "SAVE_INTERVAL": SAVE_INTERVAL,
                            "paused": set()})
-
     # Main window:
     run = MainWindow()
     run.mainloop()
