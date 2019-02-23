@@ -138,9 +138,7 @@ class Db:
             value = field_values[key]
             if type(value) in (list, tuple):
                 value = tuple(value)
-                if len(value) == 1:
-                    value = "('%s')" % value[0]
-                clauses.append("{0} in {1}".format(key, value))
+                clauses.append("{0} in ({1})".format(key, ",".join((map(str, value)))))
             else:
                 clauses.append("{0}='{1}'".format(key, value))
         clauses = " AND ".join(clauses)
@@ -161,9 +159,9 @@ class Db:
         self.exec_script(
             "select name, description, activity.date, activity.spent_time "
             "from tasks join activity "
-            "on tasks.id=activity.task_id where tasks.id in {0} "
+            "on tasks.id=activity.task_id where tasks.id in ({0}) "
             "order by tasks.name, activity.date".
-            format(tuple(ids)))
+            format(",".join(map(str, ids))))
         res = self.cur.fetchall()
         result = odict()
         for item in res:
@@ -175,9 +173,9 @@ class Db:
         self.exec_script(
             "select name, fulltime from tasks join (select task_id, "
             "sum(spent_time) as fulltime "
-            "from activity where task_id in {0} group by task_id) "
+            "from activity where task_id in ({0}) group by task_id) "
             "as act on tasks.id=act.task_id".
-            format(tuple(ids)))
+            format(",".join(map(str, ids))))
         res = self.cur.fetchall()
         for item in res:
             result[item[0]].append(time_format(item[1]))
@@ -188,9 +186,9 @@ class Db:
         self.exec_script(
             "select date, tasks.name, tasks.description, "
             "spent_time from activity join tasks "
-            "on activity.task_id=tasks.id where task_id in {0} "
+            "on activity.task_id=tasks.id where task_id in ({0}) "
             "order by date, tasks.name".
-            format(tuple(ids)))
+            format(",".join(map(str, ids))))
         res = self.cur.fetchall()
         result = odict()
         for item in res:
@@ -202,7 +200,7 @@ class Db:
                                      time_format(item[3])]]]
         self.exec_script(
             "select date, sum(spent_time) from activity where task_id "
-            "in {0} group by date order by date".format(tuple(ids)))
+            "in ({0}) group by date order by date".format(",".join(map(str, ids))))
         res = self.cur.fetchall()
         for item in res:
             result[item[0]].append(time_format(item[1]))

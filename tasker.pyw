@@ -1298,31 +1298,29 @@ class FilterWindow(Window):
                          'JOIN (SELECT task_id, sum(spent_time) ' \
                          'AS total_time ' \
                          'FROM activity GROUP BY task_id) AS act ' \
-                         'ON act.task_id=tasks.id WHERE date IN {1} ' \
-                         'OR tag_id IN {0} ' \
-                         'GROUP BY act.task_id'.format(
-                    "('%s')" % tags[0] if len(tags) == 1 else tuple(tags),
-                    "('%s')" % dates[0] if len(dates) == 1 else tuple(dates))
+                         'ON act.task_id=tasks.id WHERE date IN ({1}) ' \
+                         'OR tag_id IN ({0}) ' \
+                         'GROUP BY act.task_id'.\
+                    format(",".join(map(str, tags)), "'%s'" % "','".join(dates))
             else:
                 if dates and tags:
                     script = 'SELECT DISTINCT id, name, total_time, ' \
                              'description, creation_date FROM tasks  JOIN ' \
                              '(SELECT task_id, sum(spent_time) AS total_time '\
-                             'FROM activity WHERE activity.date IN {0} ' \
+                             'FROM activity WHERE activity.date IN ({0}) ' \
                              'GROUP BY task_id) AS act ' \
                              'ON act.task_id=tasks.id JOIN (SELECT tt.task_id'\
                              ' FROM tasks_tags AS tt WHERE ' \
-                             'tt.tag_id IN {1} GROUP BY tt.task_id ' \
+                             'tt.tag_id IN ({1}) GROUP BY tt.task_id ' \
                              'HAVING COUNT(DISTINCT tt.tag_id)={3}) AS x ON ' \
                              'x.task_id=tasks.id JOIN (SELECT act.task_id ' \
-                             'FROM activity AS act WHERE act.date IN {0} ' \
+                             'FROM activity AS act WHERE act.date IN ({0}) ' \
                              'GROUP BY act.task_id HAVING ' \
                              'COUNT(DISTINCT act.date)={2}) AS y ON ' \
-                             'y.task_id=tasks.id'.format(
-                        "('%s')" % dates[0] if len(dates) == 1 else tuple(
-                            dates),
-                        "('%s')" % tags[0] if len(tags) == 1 else tuple(tags),
-                        len(dates), len(tags))
+                             'y.task_id=tasks.id'.\
+                        format("'%s'" % "','".join(dates), ",".join(map(str,
+                                                                        tags)),
+                               len(dates), len(tags))
                 elif not dates:
                     script = 'SELECT DISTINCT id, name, total_time, ' \
                              'description, creation_date FROM tasks  ' \
@@ -1330,26 +1328,24 @@ class FilterWindow(Window):
                              'AS total_time FROM activity GROUP BY ' \
                              'task_id) AS act ON act.task_id=tasks.id ' \
                              'JOIN (SELECT tt.task_id FROM tasks_tags ' \
-                             'AS tt WHERE tt.tag_id IN {0} GROUP BY ' \
+                             'AS tt WHERE tt.tag_id IN ({0}) GROUP BY ' \
                              'tt.task_id HAVING ' \
                              'COUNT(DISTINCT tt.tag_id)={1}) AS x ON ' \
-                             'x.task_id=tasks.id'.format(
-                        tuple(tags) if len(tags) > 1 else "(%s)" % tags[0],
-                        len(tags))
+                             'x.task_id=tasks.id'.\
+                        format(",".join(map(str, tags)), len(tags))
                 elif not tags:
                     script = 'SELECT DISTINCT id, name, total_time, ' \
                              'description, creation_date FROM tasks  ' \
                              'JOIN (SELECT task_id, sum(spent_time) ' \
                              'AS total_time FROM activity WHERE activity.date'\
-                             ' IN {0} GROUP BY task_id) AS act ' \
+                             ' IN ({0}) GROUP BY task_id) AS act ' \
                              'ON act.task_id=tasks.id JOIN (SELECT ' \
                              'act.task_id FROM activity AS act ' \
-                             'WHERE act.date IN {0} GROUP BY act.task_id ' \
+                             'WHERE act.date IN ({0}) GROUP BY act.task_id ' \
                              'HAVING COUNT(DISTINCT act.date)={1}) AS y ' \
-                             'ON y.task_id=tasks.id'.format(
-                        tuple(dates) if len(dates) > 1 else "('%s')" % dates[
-                            0],
-                        len(dates))
+                             'ON y.task_id=tasks.id'.format("'%s'" % "','"
+                                                            .join(dates),
+                                                            len(dates))
         GLOBAL_OPTIONS["filter_dict"] = {
             'operating_mode': self.operating_mode.get(),
             'script': script,
@@ -1783,11 +1779,20 @@ class ExportWindow(Window):
         self.export('\n'.join(prepared_data))
 
     def export(self, data):
-        filename = asksaveasfilename(parent=self, defaultextension=".csv",
-                                     filetypes=[("All files", "*.*"), (
-                                     "Comma-separated texts", "*.csv")])
-        if filename:
-            core.write_to_disk(filename, data)
+        while True:
+            filename = asksaveasfilename(parent=self, defaultextension=".csv",
+                                         filetypes=[("All files", "*.*"), (
+                                         "Comma-separated texts", "*.csv")])
+            if filename:
+                try:
+                    core.write_to_disk(filename, data)
+                except PermissionError:
+                    showinfo("Unable to save file", "No permission to save file here!"
+                                                    "Please select another location.")
+                else:
+                    break
+            else:
+                break
         self.destroy()
 
 
