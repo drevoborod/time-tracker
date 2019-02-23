@@ -364,7 +364,6 @@ class TaskFrame(tk.Frame):
     def timer_start(self):
         """Counter start."""
         if not self.running:
-            GLOBAL_OPTIONS["stopall"] = False
             if int(GLOBAL_OPTIONS["toggle_tasks"]):
                 for key in GLOBAL_OPTIONS["tasks"]:
                     GLOBAL_OPTIONS["tasks"][key] = False
@@ -1604,7 +1603,7 @@ class MainMenu(tk.Menu):
             # Stop all tasks if exclusive run method has been enabled:
             if int(GLOBAL_OPTIONS["toggle_tasks"]) and int(
                     GLOBAL_OPTIONS["toggle_tasks"]) != toggle:
-                GLOBAL_OPTIONS["stopall"] = True
+                run.stopall()
         run.lift()
 
     def change_parameter(self, paramdict):
