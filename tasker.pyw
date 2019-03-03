@@ -158,9 +158,9 @@ class TaskFrame(tk.Frame):
             opacity='left')
         self.start_button.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
-        self.timer_window = TaskLabel(self, width=10, state='disabled')
-        elements.big_font(self.timer_window, size=20)
-        self.timer_window.grid(row=3, column=1, pady=5)
+        self.timer_label = TaskLabel(self, width=10, state='disabled')
+        elements.big_font(self.timer_label, size=20)
+        self.timer_label.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = elements.CanvasButton(
             self,
             text='Add\ntimestamp',
@@ -279,7 +279,7 @@ class TaskFrame(tk.Frame):
         self.date_exists = True if self.task["spent_today"] else False
         # Taking current counter value from database:
         self.set_current_time()
-        self.timer_window.config(text=core.time_format(self.spent_current))
+        self.timer_label.config(text=core.time_format(self.spent_current))
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
         self.start_button.config(image='resource/start_normal.png'
@@ -287,7 +287,7 @@ class TaskFrame(tk.Frame):
                                 else 'resource/start_normal.pgm')
         self.properties_button.config(state='normal')
         self.clear_button.config(state='normal')
-        self.timer_window.config(state='normal')
+        self.timer_label.config(state='normal')
         self.add_timestamp_button.config(state='normal')
         self.timestamps_window_button.config(state='normal')
         if hasattr(self, "description_area"):
@@ -329,7 +329,7 @@ class TaskFrame(tk.Frame):
         interval = 250
         self.spent_current = time.time() - self.start_time
         self.task["spent_today"] = time.time() - self.start_today_timestamp
-        self.timer_window.config(text=core.time_format(
+        self.timer_label.config(text=core.time_format(
             self.spent_current if self.spent_current < 86400
             else self.task["spent_today"]))
         if GLOBAL_OPTIONS["tasks"][self.task["id"]]:
@@ -340,8 +340,8 @@ class TaskFrame(tk.Frame):
             else:
                 counter += interval
             # self.timer variable becomes ID created by after():
-            self.timer = self.timer_window.after(interval, self.timer_update,
-                                                 counter)
+            self.timer = self.timer_label.after(interval, self.timer_update,
+                                                counter)
         else:
             self.timer_stop()
 
@@ -367,7 +367,7 @@ class TaskFrame(tk.Frame):
         """Stop counter and save its value to database."""
         if self.running:
             # after_cancel() stops execution of callback with given ID.
-            self.timer_window.after_cancel(self.timer)
+            self.timer_label.after_cancel(self.timer)
             self.spent_current = time.time() - self.start_time
             self.task["spent_today"] = time.time() - self.start_today_timestamp
             self.running = False
@@ -1462,7 +1462,7 @@ class MainFrame(elements.ScrolledCanvas):
                 if w.task:
                     state = w.running
                     w.timer_stop()
-                    w.prepare_task(w.db.select_task(w.task_id))
+                    w.prepare_task(w.db.select_task(w.task["id"]))
                     if state:
                         w.timer_start()
 
