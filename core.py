@@ -287,6 +287,64 @@ class Db:
         return res
 
 
+def prepare_filter_query(dates, tags, mode):
+    """Query to get filtered tasks data from database."""
+    if mode == "OR":
+        return 'SELECT id, name, total_time, description, ' \
+               'creation_date FROM tasks JOIN activity ' \
+               'ON activity.task_id=tasks.id JOIN tasks_tags ' \
+               'ON tasks_tags.task_id=tasks.id ' \
+               'JOIN (SELECT task_id, sum(spent_time) ' \
+               'AS total_time ' \
+               'FROM activity GROUP BY task_id) AS act ' \
+               'ON act.task_id=tasks.id WHERE date IN ({1}) ' \
+               'OR tag_id IN ({0}) ' \
+               'GROUP BY act.task_id'. \
+            format(",".join(map(str, tags)), "'%s'" % "','".join(dates))
+    else:
+        if dates and tags:
+            return 'SELECT DISTINCT id, name, total_time, ' \
+                   'description, creation_date FROM tasks  JOIN ' \
+                   '(SELECT task_id, sum(spent_time) AS total_time ' \
+                   'FROM activity WHERE activity.date IN ({0}) ' \
+                   'GROUP BY task_id) AS act ' \
+                   'ON act.task_id=tasks.id JOIN (SELECT tt.task_id' \
+                   ' FROM tasks_tags AS tt WHERE ' \
+                   'tt.tag_id IN ({1}) GROUP BY tt.task_id ' \
+                   'HAVING COUNT(DISTINCT tt.tag_id)={3}) AS x ON ' \
+                   'x.task_id=tasks.id JOIN (SELECT act.task_id ' \
+                   'FROM activity AS act WHERE act.date IN ({0}) ' \
+                   'GROUP BY act.task_id HAVING ' \
+                   'COUNT(DISTINCT act.date)={2}) AS y ON ' \
+                   'y.task_id=tasks.id'. \
+                format("'%s'" % "','".join(dates),
+                       ",".join(map(str, tags)), len(dates), len(tags))
+        elif not dates:
+            return 'SELECT DISTINCT id, name, total_time, ' \
+                   'description, creation_date FROM tasks  ' \
+                   'JOIN (SELECT task_id, sum(spent_time) ' \
+                   'AS total_time FROM activity GROUP BY ' \
+                   'task_id) AS act ON act.task_id=tasks.id ' \
+                   'JOIN (SELECT tt.task_id FROM tasks_tags ' \
+                   'AS tt WHERE tt.tag_id IN ({0}) GROUP BY ' \
+                   'tt.task_id HAVING ' \
+                   'COUNT(DISTINCT tt.tag_id)={1}) AS x ON ' \
+                   'x.task_id=tasks.id'. \
+                format(",".join(map(str, tags)), len(tags))
+        elif not tags:
+            return 'SELECT DISTINCT id, name, total_time, ' \
+                   'description, creation_date FROM tasks  ' \
+                   'JOIN (SELECT task_id, sum(spent_time) ' \
+                   'AS total_time FROM activity WHERE activity.date' \
+                   ' IN ({0}) GROUP BY task_id) AS act ' \
+                   'ON act.task_id=tasks.id JOIN (SELECT ' \
+                   'act.task_id FROM activity AS act ' \
+                   'WHERE act.date IN ({0}) GROUP BY act.task_id ' \
+                   'HAVING COUNT(DISTINCT act.date)={1}) AS y ' \
+                   'ON y.task_id=tasks.id'.format("'%s'" % "','"
+                                                  .join(dates), len(dates))
+
+
 def check_database():
     """Check if database file exists."""
     if not os.path.exists(TABLE_FILE):
