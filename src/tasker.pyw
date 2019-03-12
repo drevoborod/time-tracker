@@ -2,6 +2,7 @@
 
 import copy
 import datetime
+import os
 import time
 
 try:
@@ -153,8 +154,9 @@ class TaskFrame(tk.Frame):
             fontsize=14,
             command=self.start_stop,
             variable=self.startstop_var,
-            image='resource/start_disabled.png' if tk.TkVersion >= 8.6
-            else 'resource/start_disabled.pgm',
+            image=os.curdir + '/resource/start_disabled.png'
+            if tk.TkVersion >= 8.6
+            else os.curdir + '/resource/start_disabled.pgm',
             opacity='left')
         self.start_button.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
@@ -282,9 +284,9 @@ class TaskFrame(tk.Frame):
         self.timer_label.config(text=core.time_format(self.spent_current))
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
-        self.start_button.config(image='resource/start_normal.png'
+        self.start_button.config(image=os.curdir + '/resource/start_normal.png'
                                 if tk.TkVersion >= 8.6
-                                else 'resource/start_normal.pgm')
+                                else os.curdir + '/resource/start_normal.pgm')
         self.properties_button.config(state='normal')
         self.clear_button.config(state='normal')
         self.timer_label.config(state='normal')
@@ -359,8 +361,8 @@ class TaskFrame(tk.Frame):
             self.timer_update()
             self.running = True
             self.start_button.config(
-                image='resource/stop.png' if tk.TkVersion >= 8.6
-                else 'resource/stop.pgm')
+                image=os.curdir + '/resource/stop.png' if tk.TkVersion >= 8.6
+                else os.curdir + '/resource/stop.pgm')
             self.startstop_var.set("Stop")
 
     def timer_stop(self):
@@ -377,8 +379,9 @@ class TaskFrame(tk.Frame):
             self.task["spent_total"] = self.spent_current
             self.update_description()
             self.start_button.config(
-                image='resource/start_normal.png' if tk.TkVersion >= 8.6
-                else 'resource/start_normal.pgm')
+                image=os.curdir + '/resource/start_normal.png'
+                if tk.TkVersion >= 8.6
+                else os.curdir + '/resource/start_normal.pgm')
             self.startstop_var.set("Start")
 
     def update_description(self):
@@ -522,16 +525,17 @@ class TaskSelectionWindow(Window):
                                                                        sticky='w')
         # Search button:
         elements.CanvasButton(self, takefocus=False, text='Search',
-                              image='resource/magnifier.png'
+                              image=os.curdir + '/resource/magnifier.png'
                               if tk.TkVersion >= 8.6
-                              else 'resource/magnifier.pgm',
+                              else os.curdir + '/resource/magnifier.pgm',
                               command=self.locate_task).grid(row=1, column=3,
                                                              sticky='w',
                                                              padx=5, pady=5)
         # Refresh button:
         elements.TaskButton(self, takefocus=False,
-                            image='resource/refresh.png'
-                            if tk.TkVersion >= 8.6 else 'resource/refresh.pgm',
+                            image=os.curdir + '/resource/refresh.png'
+                            if tk.TkVersion >= 8.6
+                            else os.curdir + '/resource/refresh.pgm',
                             command=self.update_table).grid(row=1, column=4,
                                                             sticky='e', padx=5,
                                                             pady=5)
@@ -554,11 +558,11 @@ class TaskSelectionWindow(Window):
                                    sticky='news')
         # "Select all" button:
         sel_button = elements.TaskButton(self, text="Select all",
-                                        command=self.select_all)
+                                         command=self.select_all)
         sel_button.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
         clear_button = elements.TaskButton(self, text="Clear all",
-                                          command=self.clear_all)
+                                           command=self.clear_all)
         clear_button.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
         self.edit_button = elements.TaskButton(self, text="Properties...",

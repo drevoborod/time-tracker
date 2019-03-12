@@ -8,8 +8,7 @@
 ###
 
 import random
-import core
-
+from src import core
 
 TASK_LIMIT = 50
 

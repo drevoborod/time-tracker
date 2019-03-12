@@ -41,6 +41,7 @@ except ImportError:  # py3k
 
     from tkinter.constants import CENTER, LEFT, N, E, W, S
     from tkinter import StringVar
+
 import elements
 
 
