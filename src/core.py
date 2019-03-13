@@ -107,8 +107,8 @@ class Db:
             return task_id
 
     def update(self, field_id, field, value, table="tasks", updfiled="id"):
-        """Updates given field in given table with given id
-        using given value :) """
+        """Updates provided field in provided table with provided id
+        using provided value """
         self.exec_script(
             "UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field,
                                                           field_id, updfiled),

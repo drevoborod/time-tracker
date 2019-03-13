@@ -212,12 +212,12 @@ class TaskFrame(tk.Frame):
 
     def timestamps_window(self):
         """Timestamps window opening."""
-        TimestampsWindow(self.task["id"], self.spent_current, run)
+        TimestampsWindow(self.task["id"], self.task["spent_total"], run)
 
     def add_timestamp(self):
         """Adding timestamp to database."""
         self.db.insert('timestamps', ('task_id', 'timestamp'),
-                       (self.task["id"], self.spent_current))
+                       (self.task["id"], self.task["spent_total"]))
         showinfo("Timestamp added", "Timestamp added.")
 
     def start_stop(self):
@@ -309,8 +309,6 @@ class TaskFrame(tk.Frame):
         if current_date != self.current_date:
             self.current_date = current_date
             self.date_exists = False
-            self.task["spent_today"] = self.task["spent_today"] - self.timestamp
-            self.start_today_timestamp = time.time() - self.task["spent_today"]
         self.task_update()
 
     def task_update(self):
@@ -322,15 +320,14 @@ class TaskFrame(tk.Frame):
             self.date_exists = True
         else:
             self.db.update_task(self.task["id"], value=self.task["spent_today"])
-        self.timestamp = self.task["spent_today"]
 
     def timer_update(self, counter=0):
         """Renewal of the counter."""
-        # Time interval in milliseconds
-        # before next iteration of recursion:
-        interval = GLOBAL_OPTIONS["TIMER_INTERVAL"]
-        self.spent_current = time.time() - self.start_time
-        self.task["spent_today"] = time.time() - self.start_today_timestamp
+        spent = time.time() - self.start_time
+        self.spent_current += spent
+        self.task["spent_today"] += spent
+        self.task["spent_total"] += spent
+        self.start_time = time.time()
         self.timer_label.config(text=core.time_format(
             self.spent_current if self.spent_current < 86400
             else self.task["spent_today"]))
@@ -340,10 +337,10 @@ class TaskFrame(tk.Frame):
                 self.check_date()
                 counter = 0
             else:
-                counter += interval
+                counter += GLOBAL_OPTIONS["TIMER_INTERVAL"]
             # self.timer variable becomes ID created by after():
-            self.timer = self.timer_label.after(interval, self.timer_update,
-                                                counter)
+            self.timer = self.timer_label.after(
+                GLOBAL_OPTIONS["TIMER_INTERVAL"], self.timer_update, counter)
         else:
             self.timer_stop()
 
@@ -355,9 +352,8 @@ class TaskFrame(tk.Frame):
                     GLOBAL_OPTIONS["tasks"][key] = False
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
             # Setting current counter value:
-            self.start_time = time.time() - self.spent_current
+            self.start_time = time.time() - self.task["spent_today"]
             # This value is used to add record to database:
-            self.start_today_timestamp = time.time() - self.task["spent_today"]
             self.timer_update()
             self.running = True
             self.start_button.config(
@@ -370,13 +366,10 @@ class TaskFrame(tk.Frame):
         if self.running:
             # after_cancel() stops execution of callback with given ID.
             self.timer_label.after_cancel(self.timer)
-            self.spent_current = time.time() - self.start_time
-            self.task["spent_today"] = time.time() - self.start_today_timestamp
             self.running = False
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = False
             # Writing value into database:
             self.check_date()
-            self.task["spent_total"] = self.spent_current
             self.update_description()
             self.start_button.config(
                 image=os.curdir + '/resource/start_normal.png'
