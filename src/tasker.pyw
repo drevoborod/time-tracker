@@ -9,10 +9,10 @@ try:
     import tkinter as tk
 except ModuleNotFoundError:
     import sys
-
     sys.exit(
         "Unable to start GUI. Please install Tk for Python: "
         "https://docs.python.org/3/library/tkinter.html.")
+
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno, showinfo
 from tkinter import ttk
@@ -328,7 +328,7 @@ class TaskFrame(tk.Frame):
         """Renewal of the counter."""
         # Time interval in milliseconds
         # before next iteration of recursion:
-        interval = 250
+        interval = GLOBAL_OPTIONS["TIMER_INTERVAL"]
         self.spent_current = time.time() - self.start_time
         self.task["spent_today"] = time.time() - self.start_today_timestamp
         self.timer_label.config(text=core.time_format(
@@ -1853,6 +1853,8 @@ def get_options():
 if __name__ == "__main__":
     # Maximum number of task frames:
     MAX_TASKS = 10
+    # Interval between timer renewal:
+    TIMER_INTERVAL = 250
     # Interval between saving time to database:
     SAVE_INTERVAL = 10000  # ms
     # Check if tasks database actually exists:
@@ -1870,6 +1872,7 @@ if __name__ == "__main__":
     # Widget which is currently connected to context menu:
     GLOBAL_OPTIONS["selected_widget"] = None
     GLOBAL_OPTIONS.update({"MAX_TASKS": MAX_TASKS,
+                           "TIMER_INTERVAL": TIMER_INTERVAL,
                            "SAVE_INTERVAL": SAVE_INTERVAL,
                            "paused": set()})
     # Main window:
