@@ -179,7 +179,7 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.grid(row=3, column=3, sticky='wsn',
                                            padx=5)
         self.properties_button = elements.TaskButton(
-            self, text="Properties...", textwidth=9, state='disabled',
+            self, text="Properties...", textwidth=11, state='disabled',
             command=self.properties_window)
         self.properties_button.grid(row=3, column=4, sticky='e', padx=5)
         # Clear frame button:
@@ -188,7 +188,6 @@ class TaskFrame(tk.Frame):
                                                 command=self.clear)
         self.clear_button.grid(row=3, column=5, sticky='e', padx=5)
         self.running = False
-        self.timestamp = 0
 
     def normal_interface(self):
         """Creates elements which are visible only in full interface mode."""
@@ -277,16 +276,14 @@ class TaskFrame(tk.Frame):
         GLOBAL_OPTIONS["tasks"][task["id"]] = False
         self.task = task
         self.current_date = core.date_format(datetime.datetime.now())
-        # Set current time, just for this day:
-        self.date_exists = True if self.task["spent_today"] else False
-        # Taking current counter value from database:
+        # Set current time, just for this session:
         self.set_current_time()
         self.timer_label.config(text=core.time_format(self.spent_current))
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
         self.start_button.config(image=os.curdir + '/resource/start_normal.png'
-                                if tk.TkVersion >= 8.6
-                                else os.curdir + '/resource/start_normal.pgm')
+                                 if tk.TkVersion >= 8.6
+                                 else os.curdir + '/resource/start_normal.pgm')
         self.properties_button.config(state='normal')
         self.clear_button.config(state='normal')
         self.timer_label.config(state='normal')
@@ -302,22 +299,15 @@ class TaskFrame(tk.Frame):
         else:
             self.spent_current = self.task["spent_total"]
 
-    def check_date(self):
-        """Used to check if date has been changed
-        since last timer value save."""
+    def task_update(self):
+        """Updates time in the database."""
         current_date = core.date_format(datetime.datetime.now())
         if current_date != self.current_date:
             self.current_date = current_date
-            self.date_exists = False
-        self.task_update()
-
-    def task_update(self):
-        """Updates time in the database."""
-        if not self.date_exists:
             self.db.insert("activity", ("date", "task_id", "spent_time"),
                            (self.current_date, self.task["id"],
                             self.task["spent_today"]))
-            self.date_exists = True
+            self.task["spent_today"] = 0
         else:
             self.db.update_task(self.task["id"], value=self.task["spent_today"])
 
@@ -331,18 +321,15 @@ class TaskFrame(tk.Frame):
         self.timer_label.config(text=core.time_format(
             self.spent_current if self.spent_current < 86400
             else self.task["spent_today"]))
-        if GLOBAL_OPTIONS["tasks"][self.task["id"]]:
-            # Every n seconds counter value is saved in database:
-            if counter >= GLOBAL_OPTIONS["SAVE_INTERVAL"]:
-                self.check_date()
-                counter = 0
-            else:
-                counter += GLOBAL_OPTIONS["TIMER_INTERVAL"]
-            # self.timer variable becomes ID created by after():
-            self.timer = self.timer_label.after(
-                GLOBAL_OPTIONS["TIMER_INTERVAL"], self.timer_update, counter)
+        # Every n seconds counter value is saved in database:
+        if counter >= GLOBAL_OPTIONS["SAVE_INTERVAL"]:
+            self.task_update()
+            counter = 0
         else:
-            self.timer_stop()
+            counter += GLOBAL_OPTIONS["TIMER_INTERVAL"]
+        # self.timer variable becomes ID created by after():
+        self.timer = self.timer_label.after(
+            GLOBAL_OPTIONS["TIMER_INTERVAL"], self.timer_update, counter)
 
     def timer_start(self):
         """Counter start."""
@@ -351,15 +338,14 @@ class TaskFrame(tk.Frame):
                 for key in GLOBAL_OPTIONS["tasks"]:
                     GLOBAL_OPTIONS["tasks"][key] = False
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
-            # Setting current counter value:
-            self.start_time = time.time() - self.task["spent_today"]
-            # This value is used to add record to database:
-            self.timer_update()
+            # Setting current timestamp:
+            self.start_time = time.time()
             self.running = True
             self.start_button.config(
                 image=os.curdir + '/resource/stop.png' if tk.TkVersion >= 8.6
                 else os.curdir + '/resource/stop.pgm')
             self.startstop_var.set("Stop")
+            self.timer_update()
 
     def timer_stop(self):
         """Stop counter and save its value to database."""
@@ -369,7 +355,7 @@ class TaskFrame(tk.Frame):
             self.running = False
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = False
             # Writing value into database:
-            self.check_date()
+            self.task_update()
             self.update_description()
             self.start_button.config(
                 image=os.curdir + '/resource/start_normal.png'
@@ -1072,9 +1058,9 @@ class TagsEditWindow(Window):
 class TimestampsWindow(TagsEditWindow):
     """Window with timestamps for selected task."""
 
-    def __init__(self, taskid, current_task_time, parent=None, **options):
+    def __init__(self, taskid, task_time, parent=None, **options):
         self.task_id = taskid
-        self.current_time = current_task_time
+        self.task_time = task_time
         super().__init__(parent=parent, **options)
 
     def select_all(self):
@@ -1109,7 +1095,7 @@ class TimestampsWindow(TagsEditWindow):
     def tags_get(self):
         """Creates timestamps list."""
         self.tags = Tagslist(
-            self.db.timestamps(self.task_id, self.current_time), self,
+            self.db.timestamps(self.task_id, self.task_time), self,
             width=400, height=300)
 
     def del_record(self, dellist):
@@ -1749,11 +1735,11 @@ class MainWindow(tk.Tk):
             command=self.taskframes.clear_all)
         self.add_clear_button.grid(row=2, column=0, sticky='wsn', pady=5,
                                    padx=5)
-        self.add_pause_button = elements.TaskButton(self, text="Pause all",
-                                                    command=self.pause_all,
-                                                    textwidth=10)
-        self.add_pause_button.grid(row=2, column=3, sticky='snw', pady=5,
-                                   padx=5)
+        self.pause_button = elements.TaskButton(self, text="Pause all",
+                                                command=self.pause_all,
+                                                textwidth=10)
+        self.pause_button.grid(row=2, column=3, sticky='snw', pady=5,
+                               padx=5)
         self.add_quit_button = elements.TaskButton(self, text="Quit",
                                                    command=self.destroy)
         self.add_quit_button.grid(row=2, column=4, sticky='sne', pady=5,
@@ -1765,19 +1751,19 @@ class MainWindow(tk.Tk):
         """Destroy all additional interface elements."""
         for widget in (self.add_frame, self.add_stop_button,
                        self.add_clear_button, self.add_quit_button,
-                       self.add_pause_button):
+                       self.pause_button):
             widget.destroy()
         self.taskframes.change_interface('small')
 
     def pause_all(self):
         if self.paused:
             if GLOBAL_OPTIONS["compact_interface"] == "0":
-                self.add_pause_button.config(text="Pause all")
+                self.pause_button.config(text="Pause all", anchor="we")
             self.taskframes.resume_all()
             self.paused = False
         else:
             if GLOBAL_OPTIONS["compact_interface"] == "0":
-                self.add_pause_button.config(text="Resume all")
+                self.pause_button.config(text="Resume all", anchor="we")
             self.taskframes.pause_all()
             self.paused = True
 
@@ -1786,7 +1772,7 @@ class MainWindow(tk.Tk):
         self.taskframes.stop_all()
         self.paused = False
         if GLOBAL_OPTIONS["compact_interface"] == "0":
-            self.add_pause_button.config(text="Pause all")
+            self.pause_button.config(text="Pause all")
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")

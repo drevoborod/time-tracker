@@ -276,13 +276,13 @@ class Db:
             'SELECT DISTINCT date FROM activity ORDER BY date DESC')
         return [x[0] for x in self.cur.fetchall()]
 
-    def timestamps(self, taskid, current_time):
+    def timestamps(self, taskid, task_total_spent_time):
         """Returns timestamps list in same format as simple_tagslist()."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid,
                                          'timestamp')
         res = [[x[0], [0, '{0}; {1} spent since that moment'.format(
-            time_format(x[0]), time_format(current_time - x[0]))]] for x in
-               timestamps]
+            time_format(x[0]), time_format(task_total_spent_time - x[0]))]]
+               for x in timestamps]
         res.reverse()
         return res
 
