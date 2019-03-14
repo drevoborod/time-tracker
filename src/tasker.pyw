@@ -276,9 +276,7 @@ class TaskFrame(tk.Frame):
         GLOBAL_OPTIONS["tasks"][task["id"]] = False
         self.task = task
         self.current_date = core.date_format(datetime.datetime.now())
-        # Set current time, just for this session:
-        self.set_current_time()
-        self.timer_label.config(text=core.time_format(self.spent_current))
+        self.timer_label.config(text=core.time_format(self.get_current_time()))
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
         self.start_button.config(image=os.curdir + '/resource/start_normal.png'
@@ -292,12 +290,12 @@ class TaskFrame(tk.Frame):
         if hasattr(self, "description_area"):
             self.description_area.update_text(self.task["descr"])
 
-    def set_current_time(self):
-        """Set current_time depending on time displaying options value."""
+    def get_current_time(self):
+        """Return current_time depending on time displaying options value."""
         if int(GLOBAL_OPTIONS["show_today"]):
-            self.spent_current = self.task["spent_today"]
+            return self.task["spent_today"]
         else:
-            self.spent_current = self.task["spent_total"]
+            return self.task["spent_total"]
 
     def task_update(self):
         """Updates time in the database."""
@@ -314,12 +312,12 @@ class TaskFrame(tk.Frame):
     def timer_update(self, counter=0):
         """Renewal of the counter."""
         spent = time.time() - self.start_time
-        self.spent_current += spent
         self.task["spent_today"] += spent
         self.task["spent_total"] += spent
         self.start_time = time.time()
+        current_spent = self.get_current_time()
         self.timer_label.config(text=core.time_format(
-            self.spent_current if self.spent_current < 86400
+            current_spent if current_spent < 86400
             else self.task["spent_today"]))
         # Every n seconds counter value is saved in database:
         if counter >= GLOBAL_OPTIONS["SAVE_INTERVAL"]:
