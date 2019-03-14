@@ -135,8 +135,7 @@ class TaskFrame(tk.Frame):
 
     def create_content(self):
         """Creates all window elements."""
-        self.startstop_var = tk.StringVar()  # Text on "Start" button.
-        self.startstop_var.set("Start")
+        self.startstop_var = tk.StringVar(value="Start")  # Text on "Start" button.
         # Fake name of running task (which actually is not selected yet).
         self.task = None
         if GLOBAL_OPTIONS["compact_interface"] == "0":
@@ -211,7 +210,8 @@ class TaskFrame(tk.Frame):
 
     def timestamps_window(self):
         """Timestamps window opening."""
-        TimestampsWindow(self.task["id"], self.task["spent_total"], run)
+        TimestampsWindow(self.task["id"], self.task["spent_total"],
+                         ROOT_WINDOW)
 
     def add_timestamp(self):
         """Adding timestamp to database."""
@@ -230,7 +230,8 @@ class TaskFrame(tk.Frame):
     def properties_window(self):
         """Task properties window."""
         edited_var = tk.IntVar()
-        TaskEditWindow(self.task["id"], parent=run, variable=edited_var)
+        TaskEditWindow(self.task["id"], parent=ROOT_WINDOW,
+                       variable=edited_var)
         if edited_var.get() == 1:
             self.update_description()
 
@@ -245,7 +246,7 @@ class TaskFrame(tk.Frame):
     def name_dialogue(self):
         """Task selection window."""
         var = tk.IntVar()
-        TaskSelectionWindow(run, taskvar=var)
+        TaskSelectionWindow(ROOT_WINDOW, taskvar=var)
         if var.get():
             self.get_task_name(var.get())
 
@@ -1458,7 +1459,7 @@ class MainMenu(tk.Menu):
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
         helpmenu.add_command(label="Help...",
-                             command=lambda: helpwindow(parent=run,
+                             command=lambda: helpwindow(parent=ROOT_WINDOW,
                                                         text=core.HELP_TEXT))
         helpmenu.add_command(label="About...", command=self.aboutwindow)
         elements.big_font(helpmenu, 10)
@@ -1482,8 +1483,8 @@ class MainMenu(tk.Menu):
         toggler_var = tk.IntVar(value=toggle)
         params = {}
         accept_var = tk.BooleanVar()
-        Options(run, accept_var, timers_count_var, ontop, compact_iface, save,
-                show_today_var, toggler_var)
+        Options(ROOT_WINDOW, accept_var, timers_count_var, ontop,
+                compact_iface, save, show_today_var, toggler_var)
         if accept_var.get():
             try:
                 count = timers_count_var.get()
@@ -1497,14 +1498,14 @@ class MainMenu(tk.Menu):
                 params['timers_count'] = count
             # apply value of 'always on top' option:
             params['always_on_top'] = ontop.get()
-            run.wm_attributes("-topmost", ontop.get())
+            ROOT_WINDOW.wm_attributes("-topmost", ontop.get())
             # apply value of 'compact interface' option:
             params['compact_interface'] = compact_iface.get()
             if compact != compact_iface.get():
                 if compact_iface.get() == 0:
-                    run.full_interface()
+                    ROOT_WINDOW.full_interface()
                 elif compact_iface.get() == 1:
-                    run.small_interface()
+                    ROOT_WINDOW.small_interface()
             # apply value of 'save tasks on exit' option:
             params['preserve_tasks'] = save.get()
             # apply value of 'show current day in timers' option:
@@ -1514,13 +1515,13 @@ class MainMenu(tk.Menu):
             # save all parameters to DB:
             self.change_parameter(params)
             # redraw taskframes if needed:
-            run.taskframes.fill()
-            run.taskframes.frames_refill()
+            ROOT_WINDOW.taskframes.fill()
+            ROOT_WINDOW.taskframes.frames_refill()
             # Stop all tasks if exclusive run method has been enabled:
             if int(GLOBAL_OPTIONS["toggle_tasks"]) and int(
                     GLOBAL_OPTIONS["toggle_tasks"]) != toggle:
-                run.stopall()
-        run.lift()
+                ROOT_WINDOW.stop_all()
+        ROOT_WINDOW.lift()
 
     def change_parameter(self, paramdict):
         """Change option in the database."""
@@ -1536,10 +1537,11 @@ class MainMenu(tk.Menu):
         showinfo("About Tasker",
                  "Tasker {0}.\nCopyright (c) Alexey Kallistov, {1}".format(
                      GLOBAL_OPTIONS['version'],
-                     datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
+                     datetime.datetime.strftime(datetime.datetime.now(),
+                                                "%Y")))
 
     def exit(self):
-        run.destroy()
+        ROOT_WINDOW.destroy()
 
 
 class Options(Window):
@@ -1693,6 +1695,7 @@ class MainWindow(tk.Tk):
         self.taskframes = MainFrame(self)  # Main window content.
         self.taskframes.grid(row=0, columnspan=5)
         self.bind("<Configure>", self.taskframes.reconf_canvas)
+        self.paused = False
         if GLOBAL_OPTIONS["compact_interface"] == "0":
             self.full_interface(True)
         self.grid_rowconfigure(0, weight=1)
@@ -1707,12 +1710,11 @@ class MainWindow(tk.Tk):
         if GLOBAL_OPTIONS['always_on_top'] == '1':
             self.wm_attributes("-topmost", 1)
         self.bind("<Key>", self.hotkeys)
-        self.paused = False
 
     def hotkeys(self, event):
         """Execute corresponding actions for hotkeys."""
         if event.keysym in ('Cyrillic_yeru', 'Cyrillic_YERU', 's', 'S'):
-            self.stopall()
+            self.stop_all()
         elif event.keysym in ('Cyrillic_es', 'Cyrillic_ES', 'c', 'C'):
             self.taskframes.clear_all()
         elif event.keysym in (
@@ -1725,15 +1727,18 @@ class MainWindow(tk.Tk):
         """Create elements which are displayed in full interface mode."""
         self.add_frame = tk.Frame(self, height=35)
         self.add_frame.grid(row=1, columnspan=5)
-        self.add_stop_button = elements.TaskButton(self, text="Stop all",
-                                                   command=self.stopall)
-        self.add_stop_button.grid(row=2, column=2, sticky='sn', pady=5, padx=5)
-        self.add_clear_button = elements.TaskButton(
+        self.stop_button = elements.TaskButton(self, text="Stop all",
+                                               command=self.stop_all)
+        self.stop_button.grid(row=2, column=2, sticky='sn', pady=5, padx=5)
+        self.clear_button = elements.TaskButton(
             self, text="Clear all",
             command=self.taskframes.clear_all)
-        self.add_clear_button.grid(row=2, column=0, sticky='wsn', pady=5,
-                                   padx=5)
-        self.pause_button = elements.TaskButton(self, text="Pause all",
+        self.clear_button.grid(row=2, column=0, sticky='wsn', pady=5,
+                               padx=5)
+        self.pause_all_var = tk.StringVar(value="Resume all" if self.paused
+                                          else "Pause all")
+        self.pause_button = elements.TaskButton(self,
+                                                variable=self.pause_all_var,
                                                 command=self.pause_all,
                                                 textwidth=10)
         self.pause_button.grid(row=2, column=3, sticky='snw', pady=5,
@@ -1747,8 +1752,8 @@ class MainWindow(tk.Tk):
 
     def small_interface(self):
         """Destroy all additional interface elements."""
-        for widget in (self.add_frame, self.add_stop_button,
-                       self.add_clear_button, self.add_quit_button,
+        for widget in (self.add_frame, self.stop_button,
+                       self.clear_button, self.add_quit_button,
                        self.pause_button):
             widget.destroy()
         self.taskframes.change_interface('small')
@@ -1756,21 +1761,21 @@ class MainWindow(tk.Tk):
     def pause_all(self):
         if self.paused:
             if GLOBAL_OPTIONS["compact_interface"] == "0":
-                self.pause_button.config(text="Pause all", anchor="we")
+                self.pause_all_var.set("Pause all")
             self.taskframes.resume_all()
             self.paused = False
         else:
             if GLOBAL_OPTIONS["compact_interface"] == "0":
-                self.pause_button.config(text="Resume all", anchor="we")
+                self.pause_all_var.set("Resume all")
             self.taskframes.pause_all()
             self.paused = True
 
-    def stopall(self):
+    def stop_all(self):
         """Stop all running timers."""
         self.taskframes.stop_all()
         self.paused = False
         if GLOBAL_OPTIONS["compact_interface"] == "0":
-            self.pause_button.config(text="Pause all")
+            self.pause_all_var.set("Pause all")
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -1853,5 +1858,5 @@ if __name__ == "__main__":
                            "SAVE_INTERVAL": SAVE_INTERVAL,
                            "paused": set()})
     # Main window:
-    run = MainWindow()
-    run.mainloop()
+    ROOT_WINDOW = MainWindow()
+    ROOT_WINDOW.mainloop()
