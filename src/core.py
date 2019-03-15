@@ -65,24 +65,22 @@ class Db:
         return self.cur.fetchall()
 
     def select_task(self, task_id):
-        """Returns tuple of values for given task_id."""
-        task = list(
-            self.find_by_clause(searchfield='*', field='id', value=task_id,
-                                table='tasks')[0])
+        """Returns dictionary of values for given task_id."""
+        res = self.find_by_clause(searchfield='*', field='id', value=task_id,
+                                table='tasks')[0]
+        task = {key: res[number] for number, key
+                in enumerate(["id", "name", "descr", "creation_date"])}
         # Adding full spent time:
         self.exec_script(
             'SELECT sum(spent_time) FROM activity WHERE task_id=%s' % task_id)
         # Adding spent time on position 3:
-        task.insert(2, self.cur.fetchone()[0])
+        task["spent_total"] = self.cur.fetchone()[0]
         # Append today's spent time:
         self.exec_script(
             'SELECT spent_time FROM activity WHERE task_id={0} AND '
             'date="{1}"'.format(task_id, date_format(datetime.datetime.now())))
         today_time = self.cur.fetchone()
-        if today_time:
-            task.append(today_time[0])
-        else:
-            task.append(today_time)
+        task["spent_today"] = today_time[0] if today_time else 0
         return task
 
     def insert(self, table, fields, values):
@@ -109,8 +107,8 @@ class Db:
             return task_id
 
     def update(self, field_id, field, value, table="tasks", updfiled="id"):
-        """Updates given field in given table with given id
-        using given value :) """
+        """Updates provided field in provided table with provided id
+        using provided value """
         self.exec_script(
             "UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field,
                                                           field_id, updfiled),
@@ -162,23 +160,41 @@ class Db:
             "on tasks.id=activity.task_id where tasks.id in ({0}) "
             "order by tasks.name, activity.date".
             format(",".join(map(str, ids))))
-        res = self.cur.fetchall()
-        result = odict()
-        for item in res:
-            if item[0] in result:
-                result[item[0]][1].append((item[2], time_format(item[3])))
+        db_response = [{"name": item[0], "descr": item[1] if item[1] else '',
+                        "date": item[2], "spent_time": item[3]}
+                       for item in self.cur.fetchall()]
+        prepared_data = odict()
+        for item in db_response:
+            if item["name"] in prepared_data:
+                prepared_data[item["name"]]["dates"].append(
+                    (item["date"], time_format(item["spent_time"])))
             else:
-                result[item[0]] = [item[1] if item[1] else '',
-                                   [(item[2], time_format(item[3]))]]
+                prepared_data[item["name"]] = {
+                    "descr": item['descr'],
+                    "dates": [(item["date"],
+                              time_format(item["spent_time"]))]}
         self.exec_script(
             "select name, fulltime from tasks join (select task_id, "
             "sum(spent_time) as fulltime "
             "from activity where task_id in ({0}) group by task_id) "
             "as act on tasks.id=act.task_id".
             format(",".join(map(str, ids))))
-        res = self.cur.fetchall()
-        for item in res:
-            result[item[0]].append(time_format(item[1]))
+        for item in self.cur.fetchall():
+            prepared_data[item[0]]["spent_total"] = time_format(item[1])
+
+        result = ['Task,Description,Dates,Time,Total working time']
+        for key in prepared_data:
+            temp_list = [key, prepared_data[key]["descr"],
+                         prepared_data[key]["dates"][0][0],
+                         prepared_data[key]["dates"][0][1],
+                         prepared_data[key]["spent_total"]]
+            result.append(','.join(temp_list))
+            if len(prepared_data[key]["dates"]) > 1:
+                for i in range(1, len(prepared_data[key]["dates"])):
+                    result.append(','.join(
+                        ['', '', prepared_data[key]["dates"][i][0],
+                         prepared_data[key]["dates"][i][1], '']))
+                    i += 1
         return result
 
     def dates_to_export(self, ids):
@@ -189,21 +205,46 @@ class Db:
             "on activity.task_id=tasks.id where task_id in ({0}) "
             "order by date, tasks.name".
             format(",".join(map(str, ids))))
-        res = self.cur.fetchall()
-        result = odict()
-        for item in res:
-            if item[0] in result:
-                result[item[0]][0].append([item[1], item[2] if item[2] else '',
-                                           time_format(item[3])])
+        db_response = [{"date": item[0], "name": item[1],
+                        "descr": item[2] if item[2] else '',
+                        "spent_time": item[3]} for item in self.cur.fetchall()]
+
+        prepared_data = odict()
+        for item in db_response:
+            if item["date"] in prepared_data:
+                prepared_data[item["date"]]["tasks"].append({
+                    "name": item["name"], "descr": item["descr"],
+                    "spent_time": time_format(item["spent_time"])})
             else:
-                result[item[0]] = [[[item[1], item[2] if item[2] else '',
-                                     time_format(item[3])]]]
+                prepared_data[item["date"]] = {
+                    "tasks": [{"name": item["name"],
+                               "descr": item["descr"],
+                               "spent_time": time_format(item["spent_time"])}]}
         self.exec_script(
             "select date, sum(spent_time) from activity where task_id "
-            "in ({0}) group by date order by date".format(",".join(map(str, ids))))
-        res = self.cur.fetchall()
-        for item in res:
-            result[item[0]].append(time_format(item[1]))
+            "in ({0}) group by date order by date".format(",".join(map(str,
+                                                                       ids))))
+        for item in self.cur.fetchall():
+            prepared_data[item[0]]["spent_total"] = (time_format(item[1]))
+
+        result = [
+            'Date,Tasks,Descriptions,Time,Summarized working time']
+        for key in prepared_data:
+            temp_list = [key,
+                         prepared_data[key]["tasks"][0]["name"],
+                         prepared_data[key]["tasks"][0]["descr"],
+                         prepared_data[key]["tasks"][0]["spent_time"],
+                         prepared_data[key]["spent_total"]]
+            result.append(','.join(temp_list))
+            if len(prepared_data[key]["tasks"]) > 1:
+                for i in range(1, len(prepared_data[key]["tasks"])):
+                    result.append(','.join(
+                        ['',
+                         prepared_data[key]["tasks"][i]["name"],
+                         prepared_data[key]["tasks"][i]["descr"],
+                         prepared_data[key]["tasks"][i]["spent_time"],
+                         '']))
+                    i += 1
         return result
 
     def tags_dict(self, taskid):
@@ -235,15 +276,73 @@ class Db:
             'SELECT DISTINCT date FROM activity ORDER BY date DESC')
         return [x[0] for x in self.cur.fetchall()]
 
-    def timestamps(self, taskid, current_time):
+    def timestamps(self, taskid, task_total_spent_time):
         """Returns timestamps list in same format as simple_tagslist()."""
         timestamps = self.find_by_clause('timestamps', 'task_id', taskid,
                                          'timestamp')
         res = [[x[0], [0, '{0}; {1} spent since that moment'.format(
-            time_format(x[0]), time_format(current_time - x[0]))]] for x in
-               timestamps]
+            time_format(x[0]), time_format(task_total_spent_time - x[0]))]]
+               for x in timestamps]
         res.reverse()
         return res
+
+
+def prepare_filter_query(dates, tags, mode):
+    """Query to get filtered tasks data from database."""
+    if mode == "OR":
+        return 'SELECT id, name, total_time, description, ' \
+               'creation_date FROM tasks JOIN activity ' \
+               'ON activity.task_id=tasks.id JOIN tasks_tags ' \
+               'ON tasks_tags.task_id=tasks.id ' \
+               'JOIN (SELECT task_id, sum(spent_time) ' \
+               'AS total_time ' \
+               'FROM activity GROUP BY task_id) AS act ' \
+               'ON act.task_id=tasks.id WHERE date IN ({1}) ' \
+               'OR tag_id IN ({0}) ' \
+               'GROUP BY act.task_id'. \
+            format(",".join(map(str, tags)), "'%s'" % "','".join(dates))
+    else:
+        if dates and tags:
+            return 'SELECT DISTINCT id, name, total_time, ' \
+                   'description, creation_date FROM tasks  JOIN ' \
+                   '(SELECT task_id, sum(spent_time) AS total_time ' \
+                   'FROM activity WHERE activity.date IN ({0}) ' \
+                   'GROUP BY task_id) AS act ' \
+                   'ON act.task_id=tasks.id JOIN (SELECT tt.task_id' \
+                   ' FROM tasks_tags AS tt WHERE ' \
+                   'tt.tag_id IN ({1}) GROUP BY tt.task_id ' \
+                   'HAVING COUNT(DISTINCT tt.tag_id)={3}) AS x ON ' \
+                   'x.task_id=tasks.id JOIN (SELECT act.task_id ' \
+                   'FROM activity AS act WHERE act.date IN ({0}) ' \
+                   'GROUP BY act.task_id HAVING ' \
+                   'COUNT(DISTINCT act.date)={2}) AS y ON ' \
+                   'y.task_id=tasks.id'. \
+                format("'%s'" % "','".join(dates),
+                       ",".join(map(str, tags)), len(dates), len(tags))
+        elif not dates:
+            return 'SELECT DISTINCT id, name, total_time, ' \
+                   'description, creation_date FROM tasks  ' \
+                   'JOIN (SELECT task_id, sum(spent_time) ' \
+                   'AS total_time FROM activity GROUP BY ' \
+                   'task_id) AS act ON act.task_id=tasks.id ' \
+                   'JOIN (SELECT tt.task_id FROM tasks_tags ' \
+                   'AS tt WHERE tt.tag_id IN ({0}) GROUP BY ' \
+                   'tt.task_id HAVING ' \
+                   'COUNT(DISTINCT tt.tag_id)={1}) AS x ON ' \
+                   'x.task_id=tasks.id'. \
+                format(",".join(map(str, tags)), len(tags))
+        elif not tags:
+            return 'SELECT DISTINCT id, name, total_time, ' \
+                   'description, creation_date FROM tasks  ' \
+                   'JOIN (SELECT task_id, sum(spent_time) ' \
+                   'AS total_time FROM activity WHERE activity.date' \
+                   ' IN ({0}) GROUP BY task_id) AS act ' \
+                   'ON act.task_id=tasks.id JOIN (SELECT ' \
+                   'act.task_id FROM activity AS act ' \
+                   'WHERE act.date IN ({0}) GROUP BY act.task_id ' \
+                   'HAVING COUNT(DISTINCT act.date)={1}) AS y ' \
+                   'ON y.task_id=tasks.id'.format("'%s'" % "','"
+                                                  .join(dates), len(dates))
 
 
 def check_database():
