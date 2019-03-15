@@ -457,7 +457,7 @@ TABLE_STRUCTURE = """\
                 INSERT INTO options VALUES ('toggle_tasks', '0');
                 INSERT INTO options VALUES ('tasks', '');
                 INSERT INTO options VALUES ('compact_interface', '0');
-                INSERT INTO options VALUES ('version', '1.5');
+                INSERT INTO options VALUES ('version', '1.5.1');
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
 # PATCH_SCRIPTS = {
