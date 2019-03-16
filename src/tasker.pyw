@@ -443,6 +443,7 @@ class TaskTable(tk.Frame):
         self.tasks = copy.deepcopy(tasks)
         for t in tasks:
             t[1] = core.time_format(t[1])
+            t[2] = core.table_date_format(t[2])
         self.insert_tasks(tasks)
 
     def focus_(self, item):
@@ -519,7 +520,7 @@ class TaskSelectionWindow(Window):
                                                             pady=5)
         # Naming of columns in tasks list:
         column_names = {'taskname': 'Task name', 'spent_time': 'Spent time',
-                       'creation_date': 'Creation date'}
+                       'creation_date': 'Created'}
         # Scrollable tasks table:
         self.table_frame = TaskTable(column_names, self, takefocus=True)
         self.table_frame.grid(row=2, column=0, columnspan=5, pady=10,

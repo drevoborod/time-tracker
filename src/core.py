@@ -7,6 +7,11 @@ import sqlite3
 import time
 
 
+DATE_TEMPLATE = "%Y-%m-%d"
+DATE_STORAGE_TEMPLATE = "%Y-%m-%dT%H:%M:%S.%f"
+DATE_FULL_HUMAN_READABLE_TEMPLATE = "%Y-%m-%d %H:%M:%S"
+
+
 class DbErrors(Exception):
     """Base class for errors in database operations."""
     pass
@@ -93,7 +98,7 @@ class Db:
 
     def insert_task(self, name):
         """Insert task into database."""
-        date = date_format(datetime.datetime.now())
+        date = date_format(datetime.datetime.now(), DATE_STORAGE_TEMPLATE)
         try:
             rowid = self.insert('tasks', ('name', 'creation_date'),
                                 (name, date))
@@ -102,7 +107,7 @@ class Db:
         else:
             task_id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
             self.insert("activity", ("date", "task_id", "spent_time"),
-                        (date, task_id, 0))
+                        (table_date_format(date, DATE_TEMPLATE), task_id, 0))
             self.insert("tasks_tags", ("tag_id", "task_id"), (1, task_id))
             return task_id
 
@@ -356,9 +361,8 @@ def check_database():
 
 def write_to_disk(filename, text):
     """Creates file and fills it with given text."""
-    expfile = open(filename, 'w')
-    expfile.write(text)
-    expfile.close()
+    with open(filename, 'w') as expfile:
+        expfile.write(text)
 
 
 def time_format(sec):
@@ -373,14 +377,19 @@ def time_format(sec):
             return "{} days".format(day)
 
 
-def date_format(date, template='%Y-%m-%d'):
+def date_format(date, template=DATE_TEMPLATE):
     """Returns formatted date (str). Accepts datetime."""
     return datetime.datetime.strftime(date, template)
 
 
-def str_to_date(string, template='%Y-%m-%d'):
+def str_to_date(string, template=DATE_TEMPLATE):
     """Returns datetime from string."""
     return datetime.datetime.strptime(string, template)
+
+
+def table_date_format(string, template=DATE_FULL_HUMAN_READABLE_TEMPLATE):
+    """Formats date stored in database to more human-readable"""
+    return date_format(str_to_date(string, DATE_STORAGE_TEMPLATE), template)
 
 
 def get_help():
