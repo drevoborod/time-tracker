@@ -213,11 +213,25 @@ class TaskFrame(tk.Frame):
         TimestampsWindow(self.task["id"], self.task["spent_total"],
                          ROOT_WINDOW)
 
-    def add_timestamp(self):
+    def add_timestamp(self, event_type=core.LOG_EVENTS["CUSTOM"],
+                      comment=None):
         """Adding timestamp to database."""
-        self.db.insert('timestamps', ('task_id', 'timestamp'),
-                       (self.task["id"], self.task["spent_total"]))
-        showinfo("Timestamp added", "Timestamp added.")
+        # Need to preserve time as it was at the moment of function calling:
+        timestamp = self.task["spent_total"]
+        current_time = core.date_format(datetime.datetime.now(),
+                                        core.DATE_STORAGE_TEMPLATE)
+        show_message = False
+        if comment is None:
+            show_message = True
+            comment_var = tk.StringVar()
+            TimestampCommentWindow(self, variable=comment_var)
+            comment = comment_var.get()
+        self.db.insert('timestamps', ('task_id', 'timestamp', 'event_type',
+                                      'datetime', 'comment'),
+                       (self.task["id"], timestamp, event_type,
+                        current_time, comment))
+        if show_message:
+            showinfo("Timestamp added", "Timestamp added.")
 
     def start_stop(self):
         """Changes "Start/Stop" button state. """
@@ -344,6 +358,14 @@ class TaskFrame(tk.Frame):
                 image=os.curdir + '/resource/stop.png' if tk.TkVersion >= 8.6
                 else os.curdir + '/resource/stop.pgm')
             self.startstop_var.set("Stop")
+            if self.task["id"] in [x.task["id"]
+                                   for x in GLOBAL_OPTIONS["paused"]]:
+                event_id = core.LOG_EVENTS["RESUME"]
+                comment = "Task unpaused."
+            else:
+                event_id = core.LOG_EVENTS["START"]
+                comment = "Task started."
+            self.add_timestamp(event_id, comment)
             self.timer_update()
 
     def timer_stop(self):
@@ -356,6 +378,14 @@ class TaskFrame(tk.Frame):
             # Writing value into database:
             self.task_update()
             self.update_description()
+            if self.task["id"] in [x.task["id"]
+                                   for x in GLOBAL_OPTIONS["paused"]]:
+                event_id = core.LOG_EVENTS["PAUSE"]
+                comment = "Task paused."
+            else:
+                event_id = core.LOG_EVENTS["STOP"]
+                comment = "Task stopped."
+            self.add_timestamp(event_id, comment)
             self.start_button.config(
                 image=os.curdir + '/resource/start_normal.png'
                 if tk.TkVersion >= 8.6
@@ -377,6 +407,42 @@ class TaskFrame(tk.Frame):
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
         self.db.con.close()
         tk.Frame.destroy(self)
+
+
+class TimestampCommentWindow(Window):
+    """Task properties window."""
+
+    def __init__(self, parent=None, variable=None, **options):
+        super().__init__(master=parent, **options)
+        self.comment_var = variable
+        self.title("Timestamp comment")
+        elements.SimpleLabel(self, text="Enter comment:", fontsize=10).grid(
+            row=0, column=0, columnspan=2, pady=5, padx=5, sticky='we')
+
+        #tk.Frame(self, height=30).grid(row=2)
+        self.comment_area = Description(self, paste_menu=True, width=60,
+                                        height=6)
+        self.comment_area.config(state='normal', bg='white')
+        self.comment_area.grid(row=1, column=0, columnspan=2, sticky='we')
+
+        tk.Frame(self, height=40).grid(row=2)
+        elements.TaskButton(self, text='Ok', command=self.get_comment).grid(
+            row=3, column=0, sticky='sw', padx=5, pady=5)
+        elements.TaskButton(self, text='Cancel', command=self.cancel).grid(
+            row=3, column=1, sticky='se', padx=5, pady=5)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.comment_area.text.focus_set()
+        self.prepare()
+
+    def get_comment(self):
+        self.comment_var.set(self.comment_area.get())
+        self.destroy()
+
+    def cancel(self):
+        self.comment_var.set("")
+        self.destroy()
 
 
 class TaskTable(tk.Frame):

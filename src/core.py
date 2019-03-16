@@ -436,6 +436,13 @@ def apply_script(scripts_list, db_connection):
 
 HELP_TEXT = get_help()
 TABLE_FILE = 'tasks.db'
+LOG_EVENTS = {
+    "START": 0,
+    "STOP": 1,
+    "PAUSE": 2,
+    "RESUME": 3,
+    "CUSTOM": 9
+}
 TABLE_STRUCTURE = """\
                 CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE,
@@ -446,8 +453,8 @@ TABLE_STRUCTURE = """\
                 spent_time INT);
                 CREATE TABLE tasks_tags (task_id INT,
                 tag_id INT);
-                CREATE TABLE timestamps (timestamp INT,
-                task_id INT);
+                CREATE TABLE timestamps (timestamp INT, task_id INT, 
+                event_type INT, datetime TEXT, comment TEXT);
                 CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE);
                 CREATE TABLE options (name TEXT UNIQUE,
