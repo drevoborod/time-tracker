@@ -4,6 +4,7 @@ import copy
 import datetime
 import os
 import time
+from collections import OrderedDict
 
 try:
     import tkinter as tk
@@ -65,6 +66,10 @@ class Window(tk.Toplevel):
                             self.winfo_screenheight() - self.winfo_height() -
                             150)))
             self.deiconify()  # restore hidden window.
+
+    def raise_window(self):
+        self.grab_set()
+        self.lift()
 
     def destroy(self):
         self.db.con.close()
@@ -222,14 +227,19 @@ class TaskFrame(tk.Frame):
                                         core.DATE_STORAGE_TEMPLATE)
         show_message = False
         if comment is None:
-            show_message = True
+            apply_var = tk.BooleanVar(value=True)
             comment_var = tk.StringVar()
-            TimestampCommentWindow(self, variable=comment_var)
-            comment = comment_var.get()
-        self.db.insert('timestamps', ('task_id', 'timestamp', 'event_type',
-                                      'datetime', 'comment'),
-                       (self.task["id"], timestamp, event_type,
-                        current_time, comment))
+            TimestampCommentWindow(self, comment_var=comment_var,
+                                   apply_var=apply_var)
+            if apply_var.get():
+                show_message = True
+                comment = comment_var.get()
+        if comment is not None:
+            self.db.insert('timestamps',
+                           ('task_id', 'timestamp', 'event_type',
+                            'datetime', 'comment'),
+                           (self.task["id"], timestamp, event_type,
+                            current_time, comment))
         if show_message:
             showinfo("Timestamp added", "Timestamp added.")
 
@@ -314,6 +324,7 @@ class TaskFrame(tk.Frame):
 
     def task_update(self):
         """Updates time in the database."""
+        self.db.update_task(self.task["id"], value=self.task["spent_today"])
         current_date = core.date_format(datetime.datetime.now())
         if current_date != self.current_date:
             self.current_date = current_date
@@ -321,8 +332,6 @@ class TaskFrame(tk.Frame):
                            (self.current_date, self.task["id"],
                             self.task["spent_today"]))
             self.task["spent_today"] = 0
-        else:
-            self.db.update_task(self.task["id"], value=self.task["spent_today"])
 
     def timer_update(self, counter=0):
         """Renewal of the counter."""
@@ -412,14 +421,14 @@ class TaskFrame(tk.Frame):
 class TimestampCommentWindow(Window):
     """Task properties window."""
 
-    def __init__(self, parent=None, variable=None, **options):
+    def __init__(self, parent=None, comment_var=None, apply_var=None,
+                 **options):
         super().__init__(master=parent, **options)
-        self.comment_var = variable
+        self.comment_var = comment_var
+        self.apply_var = apply_var
         self.title("Timestamp comment")
         elements.SimpleLabel(self, text="Enter comment:", fontsize=10).grid(
             row=0, column=0, columnspan=2, pady=5, padx=5, sticky='we')
-
-        #tk.Frame(self, height=30).grid(row=2)
         self.comment_area = Description(self, paste_menu=True, width=60,
                                         height=6)
         self.comment_area.config(state='normal', bg='white')
@@ -441,37 +450,82 @@ class TimestampCommentWindow(Window):
         self.destroy()
 
     def cancel(self):
-        self.comment_var.set("")
+        self.apply_var.set(False)
         self.destroy()
 
 
-class TaskTable(tk.Frame):
-    """Scrollable tasks table."""
+class Table(tk.Frame):
 
     def __init__(self, columns, parent=None, **options):
         super().__init__(master=parent, **options)
-        self.tasks_table = ttk.Treeview(self)
+        self.table = ttk.Treeview(self)
         style = ttk.Style()
         style.configure(".", font=('Helvetica', 11))
         style.configure("Treeview.Heading", font=('Helvetica', 11))
         scroller = tk.Scrollbar(self)
-        scroller.config(command=self.tasks_table.yview)
-        self.tasks_table.config(yscrollcommand=scroller.set)
+        scroller.config(command=self.table.yview)
+        self.table.config(yscrollcommand=scroller.set)
         scroller.pack(side='right', fill='y')
-        self.tasks_table.pack(fill='both', expand=1)
+        self.table.pack(fill='both', expand=1)
         # Creating and naming columns:
-        self.tasks_table.config(columns=tuple([key for key in columns]))
+        self.table.config(columns=tuple([key for key in columns]))
         for name in columns:
             # Configuring columns with given ids:
-            self.tasks_table.column(name, width=100, minwidth=100,
-                                    anchor='center')
+            self.table.column(name, width=100, minwidth=100,
+                              anchor='center')
             # Configuring headers of columns with given ids:
-            self.tasks_table.heading(name, text=columns[name],
-                                     command=lambda c=name:
+            self.table.heading(name, text=columns[name],
+                               command=lambda c=name:
                                         self.sort_table_contents(c, True))
-        self.tasks_table.column('#0', anchor='w', width=70, minwidth=50,
-                                stretch=0)
-        self.tasks_table.column('taskname', width=600, anchor='w')
+        self.table.column('#0', anchor='w', width=70, minwidth=50,
+                          stretch=0)
+
+    def _sort(self, position, reverse):
+        l = []
+        for index, task in enumerate(self.table.get_children()):
+            l.append((self.data[index][position], task))
+        # Sort tasks list by corresponding field to match current sorting:
+        self.data.sort(key=lambda x: x[position], reverse=reverse)
+        return l
+
+    def sort_table_contents(self, col, reverse):
+        """Should be redefined by successors."""
+        pass
+
+    def focus_(self, item):
+        """Focuses on the row with provided id."""
+        self.table.see(item)
+        self.table.selection_set(item)
+        self.table.focus_set()
+        self.table.focus(item)
+
+    def update_data(self, data):
+        """Update contents of internal data used to fill the table."""
+        for item in self.table.get_children():
+            self.table.delete(item)
+        self.data = copy.deepcopy(data)
+
+    def insert_rows(self, data):
+        """Insert rows in the table. Row contents
+        are tuples provided by 'values='."""
+        for i, v in enumerate(data):  # item, number, value:
+            self.table.insert('', i, text="#%d" % (i + 1), values=v)
+
+    def select_all(self):
+        self.table.selection_set(
+            self.table.get_children())
+
+    def clear_all(self):
+        self.table.selection_remove(
+            self.table.get_children())
+
+
+class TaskTable(Table):
+    """Scrollable tasks table."""
+
+    def __init__(self, columns, parent=None, **options):
+        super().__init__(columns, parent=parent, **options)
+        self.table.column('taskname', width=600, anchor='w')
 
     def sort_table_contents(self, col, reverse):
         """Sorting by click on column header."""
@@ -483,41 +537,17 @@ class TaskTable(tk.Frame):
             shortlist = self._sort(0, reverse)
         shortlist.sort(key=lambda x: x[0], reverse=reverse)
         for index, value in enumerate(shortlist):
-            self.tasks_table.move(value[1], '', index)
-        self.tasks_table.heading(col,
-                                 command=lambda:
-                                 self.sort_table_contents(col, not reverse))
+            self.table.move(value[1], '', index)
+        self.table.heading(col, command=lambda:
+                                    self.sort_table_contents(col, not reverse))
 
-    def _sort(self, position, reverse):
-        l = []
-        for index, task in enumerate(self.tasks_table.get_children()):
-            l.append((self.tasks[index][position], task))
-        # Sort tasks list by corresponding field to match current sorting:
-        self.tasks.sort(key=lambda x: x[position], reverse=reverse)
-        return l
-
-    def insert_tasks(self, tasks):
-        """Insert rows in the table. Row contents
-        are tuples provided by 'values='."""
-        for i, v in enumerate(tasks):  # item, number, value:
-            self.tasks_table.insert('', i, text="#%d" % (i + 1), values=v)
-
-    def update_list(self, tasks):
+    def update_tasks_list(self, data):
         """Refill table contents."""
-        for item in self.tasks_table.get_children():
-            self.tasks_table.delete(item)
-        self.tasks = copy.deepcopy(tasks)
-        for t in tasks:
+        self.update_data(data)
+        for t in data:
             t[1] = core.time_format(t[1])
             t[2] = core.table_date_format(t[2])
-        self.insert_tasks(tasks)
-
-    def focus_(self, item):
-        """Focuses on the row with provided id."""
-        self.tasks_table.see(item)
-        self.tasks_table.selection_set(item)
-        self.tasks_table.focus_set()
-        self.tasks_table.focus(item)
+        self.insert_rows(data)
 
 
 class TaskSelectionWindow(Window):
@@ -585,8 +615,9 @@ class TaskSelectionWindow(Window):
                                                             sticky='e', padx=5,
                                                             pady=5)
         # Naming of columns in tasks list:
-        column_names = {'taskname': 'Task name', 'spent_time': 'Spent time',
-                       'creation_date': 'Created'}
+        column_names = OrderedDict({'taskname': 'Task name',
+                                    'spent_time': 'Spent time',
+                                    'creation_date': 'Created'})
         # Scrollable tasks table:
         self.table_frame = TaskTable(column_names, self, takefocus=True)
         self.table_frame.grid(row=2, column=0, columnspan=5, pady=10,
@@ -603,11 +634,12 @@ class TaskSelectionWindow(Window):
                                    sticky='news')
         # "Select all" button:
         sel_button = elements.TaskButton(self, text="Select all",
-                                         command=self.select_all)
+                                         command=self.table_frame.select_all)
         sel_button.grid(row=4, column=0, sticky='w', padx=5, pady=5)
         # "Clear all" button:
-        clear_button = elements.TaskButton(self, text="Clear all",
-                                           command=self.clear_all)
+        clear_button = elements.TaskButton(self, text="Clear selection",
+                                           textwidth=12,
+                                           command=self.table_frame.clear_all)
         clear_button.grid(row=4, column=1, sticky='e', padx=5, pady=5)
         # Task properties button:
         self.edit_button = elements.TaskButton(self, text="Properties...",
@@ -636,52 +668,52 @@ class TaskSelectionWindow(Window):
         self.grid_rowconfigure(2, weight=1, minsize=50)
         self.update_table()  # Fill table contents.
         self.current_task = ''  # Current selected task.
-        self.table_frame.tasks_table.bind("<Down>", self.descr_down)
-        self.table_frame.tasks_table.bind("<Up>", self.descr_up)
-        self.table_frame.tasks_table.bind("<Button-1>", self.descr_click)
+        self.table_frame.table.bind("<Down>", self.descr_down)
+        self.table_frame.table.bind("<Up>", self.descr_up)
+        self.table_frame.table.bind("<Button-1>", self.descr_click)
         self.table_frame.bind("<FocusIn>",
                               lambda e: self.focus_first_item(forced=False))
         # Need to avoid masquerading of default ttk.Treeview action
         # on Shift+click and Control+click:
         self.modifier_pressed = False
-        self.table_frame.tasks_table.bind("<KeyPress-Shift_L>",
-                                          lambda e: self.shift_control_pressed())
-        self.table_frame.tasks_table.bind("<KeyPress-Shift_R>",
-                                          lambda e: self.shift_control_pressed())
-        self.table_frame.tasks_table.bind("<KeyPress-Control_L>",
-                                          lambda e: self.shift_control_pressed())
-        self.table_frame.tasks_table.bind("<KeyPress-Control_R>",
-                                          lambda e: self.shift_control_pressed())
-        self.table_frame.tasks_table.bind("<KeyRelease-Shift_L>",
-                                          lambda e: self.shift_control_released())
-        self.table_frame.tasks_table.bind("<KeyRelease-Shift_R>",
-                                          lambda e: self.shift_control_released())
-        self.table_frame.tasks_table.bind("<KeyRelease-Control_L>",
-                                          lambda e: self.shift_control_released())
-        self.table_frame.tasks_table.bind("<KeyRelease-Control_R>",
-                                          lambda e: self.shift_control_released())
+        self.table_frame.table.bind("<KeyPress-Shift_L>",
+                                    lambda e: self.shift_control_pressed())
+        self.table_frame.table.bind("<KeyPress-Shift_R>",
+                                    lambda e: self.shift_control_pressed())
+        self.table_frame.table.bind("<KeyPress-Control_L>",
+                                    lambda e: self.shift_control_pressed())
+        self.table_frame.table.bind("<KeyPress-Control_R>",
+                                    lambda e: self.shift_control_pressed())
+        self.table_frame.table.bind("<KeyRelease-Shift_L>",
+                                    lambda e: self.shift_control_released())
+        self.table_frame.table.bind("<KeyRelease-Shift_R>",
+                                    lambda e: self.shift_control_released())
+        self.table_frame.table.bind("<KeyRelease-Control_L>",
+                                    lambda e: self.shift_control_released())
+        self.table_frame.table.bind("<KeyRelease-Control_R>",
+                                    lambda e: self.shift_control_released())
         self.search_entry.bind("<Return>", lambda e: self.locate_task())
         self.bind("<F5>", lambda e: self.update_table())
         elements.TaskButton(self, text="Open", command=self.get_task).grid(
             row=6, column=0, padx=5, pady=5, sticky='w')
         elements.TaskButton(self, text="Cancel", command=self.destroy).grid(
             row=6, column=4, padx=5, pady=5, sticky='e')
-        self.table_frame.tasks_table.bind("<Return>", self.get_task_id)
-        self.table_frame.tasks_table.bind("<Double-1>", self.get_task_id)
+        self.table_frame.table.bind("<Return>", self.get_task_id)
+        self.table_frame.table.bind("<Double-1>", self.get_task_id)
         self.prepare()
 
     def check_row(self, event):
         """Check if mouse click is over the row,
         not another tasks_table element."""
         if (event.type == '4' and len(
-                self.table_frame.tasks_table.identify_row(event.y)) > 0) or (
+                self.table_frame.table.identify_row(event.y)) > 0) or (
                 event.type == '2'):
             return True
 
     def get_task(self):
         """Get selected task id from database and close window."""
         # List of selected tasks item id's:
-        tasks = self.table_frame.tasks_table.selection()
+        tasks = self.table_frame.table.selection()
         if tasks:
             self.task_id_var.set(self.tdict[tasks[0]]["id"])
             self.destroy()
@@ -699,25 +731,25 @@ class TaskSelectionWindow(Window):
 
     def focus_first_item(self, forced=True):
         """Selects first item in the table if no items selected."""
-        if self.table_frame.tasks_table.get_children():
-            item = self.table_frame.tasks_table.get_children()[0]
+        if self.table_frame.table.get_children():
+            item = self.table_frame.table.get_children()[0]
         else:
             return
         if forced:
             self.table_frame.focus_(item)
             self.update_descr(item)
         else:
-            if not self.table_frame.tasks_table.selection():
+            if not self.table_frame.table.selection():
                 self.table_frame.focus_(item)
                 self.update_descr(item)
             else:
-                self.table_frame.tasks_table.focus_set()
+                self.table_frame.table.focus_set()
 
     def locate_task(self):
         """Search task by keywords."""
         searchword = self.search_entry.get()
         if searchword:
-            self.clear_all()
+            self.table_frame.clear_all()
             task_items = []
             if self.ignore_case_var.get():
                 for key in self.tdict:
@@ -736,11 +768,11 @@ class TaskSelectionWindow(Window):
                             task_items.append(key)
             if task_items:
                 for item in task_items:
-                    self.table_frame.tasks_table.selection_add(item)
-                item = self.table_frame.tasks_table.selection()[0]
-                self.table_frame.tasks_table.see(item)
-                self.table_frame.tasks_table.focus_set()
-                self.table_frame.tasks_table.focus(item)
+                    self.table_frame.table.selection_add(item)
+                item = self.table_frame.table.selection()[0]
+                self.table_frame.table.see(item)
+                self.table_frame.table.focus_set()
+                self.table_frame.table.focus(item)
                 self.update_descr(item)
             else:
                 showinfo("No results",
@@ -799,14 +831,12 @@ class TaskSelectionWindow(Window):
         tlist = [{"id": task[0], "name": task[1], "spent_time": task[2],
                   "descr": task[3], "creation_date": task[4]}
                  for task in self.db.cur.fetchall()]
-        self.table_frame.update_list([[f["name"], f["spent_time"],
-                                       f["creation_date"]] for f in tlist])
+        self.table_frame.update_tasks_list(
+            [[f["name"], f["spent_time"], f["creation_date"]] for f in tlist])
         # Dictionary with row ids and tasks info:
         self.tdict = {}
-        i = 0
-        for task_id in self.table_frame.tasks_table.get_children():
-            self.tdict[task_id] = tlist[i]
-            i += 1
+        for n, task_id in enumerate(self.table_frame.table.get_children()):
+            self.tdict[task_id] = tlist[n]
         self.update_descr(None)
         self.update_fulltime()
 
@@ -819,15 +849,15 @@ class TaskSelectionWindow(Window):
     def descr_click(self, event):
         """Updates description for the task with item id of the row
         selected by click."""
-        pos = self.table_frame.tasks_table.identify_row(event.y)
+        pos = self.table_frame.table.identify_row(event.y)
         if pos and pos != '#0' and not self.modifier_pressed:
             self.table_frame.focus_(pos)
-        self.update_descr(self.table_frame.tasks_table.focus())
+        self.update_descr(self.table_frame.table.focus())
 
     def descr_up(self, event):
         """Updates description for the item id which is BEFORE selected."""
-        item = self.table_frame.tasks_table.focus()
-        prev_item = self.table_frame.tasks_table.prev(item)
+        item = self.table_frame.table.focus()
+        prev_item = self.table_frame.table.prev(item)
         if prev_item == '':
             self.update_descr(item)
         else:
@@ -835,8 +865,8 @@ class TaskSelectionWindow(Window):
 
     def descr_down(self, event):
         """Updates description for the item id which is AFTER selected."""
-        item = self.table_frame.tasks_table.focus()
-        next_item = self.table_frame.tasks_table.next(item)
+        item = self.table_frame.table.focus()
+        next_item = self.table_frame.table.next(item)
         if next_item == '':
             self.update_descr(item)
         else:
@@ -849,19 +879,11 @@ class TaskSelectionWindow(Window):
         elif item != '':
             self.description_area.update_text(self.tdict[item]["descr"])
 
-    def select_all(self):
-        self.table_frame.tasks_table.selection_set(
-            self.table_frame.tasks_table.get_children())
-
-    def clear_all(self):
-        self.table_frame.tasks_table.selection_remove(
-            self.table_frame.tasks_table.get_children())
-
     def delete(self):
         """Remove selected tasks from the database and the table."""
-        ids = [self.tdict[x]["id"] for x in self.table_frame.tasks_table.selection()
+        ids = [self.tdict[x]["id"] for x in self.table_frame.table.selection()
                if self.tdict[x]["id"] not in GLOBAL_OPTIONS["tasks"]]
-        items = [x for x in self.table_frame.tasks_table.selection() if
+        items = [x for x in self.table_frame.table.selection() if
                  self.tdict[x]["id"] in ids]
         if ids:
             answer = askyesno("Warning",
@@ -869,7 +891,7 @@ class TaskSelectionWindow(Window):
                               parent=self)
             if answer:
                 self.db.delete_tasks(tuple(ids))
-                self.table_frame.tasks_table.delete(*items)
+                self.table_frame.table.delete(*items)
                 for item in items:
                     self.tdict.pop(item)
                 self.update_descr(None)
@@ -877,7 +899,7 @@ class TaskSelectionWindow(Window):
 
     def edit(self):
         """Show task edit window."""
-        item = self.table_frame.tasks_table.focus()
+        item = self.table_frame.table.focus()
         try:
             id_name = {"id": self.tdict[item]["id"],
                        "name": self.tdict[item]["name"]}
@@ -893,7 +915,7 @@ class TaskSelectionWindow(Window):
                 self.tdict[item] = new_task_info
                 self.update_descr(item)
                 # Update data in a table:
-                self.table_frame.tasks_table.item(
+                self.table_frame.table.item(
                     item, values=(new_task_info["name"],
                                   core.time_format(new_task_info["spent_total"]),
                                   new_task_info["creation_date"]))
@@ -927,10 +949,6 @@ class TaskSelectionWindow(Window):
                        table='options', updfiled='name')
         if update != self.filter_query():
             self.update_table()
-
-    def raise_window(self):
-        self.grab_set()
-        self.lift()
 
 
 class TaskEditWindow(Window):
@@ -1121,54 +1139,107 @@ class TagsEditWindow(Window):
         self.db.delete(tag_id=dellist, table='tasks_tags')
 
 
-class TimestampsWindow(TagsEditWindow):
+class TimestampsTable(Table):
+
+    def __init__(self, columns, parent=None, **options):
+        super().__init__(columns, parent=parent, **options)
+        self.table.column('stamp', width=200, anchor='w')
+        self.table.column('since', width=150, anchor='w')
+        self.table.column('comment', width=250, anchor='w')
+        self.table.column('real', width=250, anchor='w')
+
+    def sort_table_contents(self, col, reverse):
+        """Sorting by click on column header."""
+        if col == "stamp":
+            shortlist = self._sort(0, reverse)
+        elif col == "real":
+            shortlist = self._sort(1, reverse)
+        elif col == "since":
+            shortlist = self._sort(2, reverse)
+        else:
+            return
+        shortlist.sort(key=lambda x: x[0], reverse=reverse)
+        for index, value in enumerate(shortlist):
+            self.table.move(value[1], '', index)
+        self.table.heading(
+            col, command=lambda: self.sort_table_contents(col, not reverse))
+
+    def update_timestamps_list(self, data):
+        """Refill table contents."""
+        self.update_data(data)
+        for t in data:
+            t[0] = core.time_format(int(t[0]))
+            t[1] = core.table_date_format(t[1])
+            t[2] = core.time_format(int(t[2]))
+        self.insert_rows(data)
+
+
+class TimestampsWindow(Window):
     """Window with timestamps for selected task."""
 
     def __init__(self, taskid, task_time, parent=None, **options):
+        super().__init__(master=parent, **options)
         self.task_id = taskid
         self.task_time = task_time
-        super().__init__(parent=parent, **options)
-
-    def select_all(self):
-        for item in self.tags.states_list:
-            item[1][0].set(1)
-
-    def clear_all(self):
-        for item in self.tags.states_list:
-            item[1][0].set(0)
-
-    def window_elements_config(self):
-        """Configure some window parameters."""
         self.title("Timestamps: {}".format(
             self.db.find_by_clause('tasks', 'id', self.task_id, 'name')[0][0]))
-        self.minsize(width=400, height=300)
+        column_names = OrderedDict({"stamp": "Timestamp",
+                                    "real": "Date and time",
+                                    "since": "Time spent since",
+                                    "comment": "Comment"})
+        self.stamps_frame = TimestampsTable(column_names, parent=self)
+        self.stamps_frame.grid(row=0, column=0, columnspan=2)
         elements.TaskButton(self, text="Select all",
-                            command=self.select_all).grid(row=2, column=0,
+                            command=self.stamps_frame.select_all).grid(
+                                                          row=1, column=0,
                                                           pady=5, padx=5,
                                                           sticky='w')
-        elements.TaskButton(self, text="Clear all",
-                            command=self.clear_all).grid(row=2, column=2,
+        elements.TaskButton(self, text="Clear selection", textwidth=12,
+                            command=self.stamps_frame.clear_all).grid(
+                                                         row=1, column=1,
                                                          pady=5, padx=5,
                                                          sticky='e')
-        tk.Frame(self, height=40).grid(row=3)
-        self.close_button.grid(row=4, column=2, pady=5, padx=5, sticky='w')
-        self.delete_button.grid(row=4, column=0, pady=5, padx=5, sticky='e')
+        tk.Frame(self, height=40).grid(row=2)
+        self.update_table()
+        elements.TaskButton(
+            self, text="Delete...", command=self.delete).grid(
+            row=3, column=0, pady=5, padx=5, sticky='w')
+        elements.TaskButton(self, text="Close", command=self.destroy).grid(
+            row=3, column=1, pady=5, padx=5, sticky='e')
+        self.resizable(height=0, width=0)
+        self.prepare()
 
-    def addentry(self):
-        """Empty method just for suppressing unnecessary element creation."""
-        pass
+    def update_table(self):
+        db_contents = self.db.find_by_clause("timestamps", "task_id",
+                                             self.task_id, "*")
+        tlist = [{"stamp": timestamp[0], "datetime": timestamp[3],
+                  "comment": timestamp[4],
+                  "spent_since": self.task_time - timestamp[0]}
+                 for timestamp in db_contents]
+        self.stamps_frame.update_timestamps_list([[f["stamp"], f["datetime"],
+                                                   f["spent_since"],
+                                                   f["comment"]] for f in tlist])
+        self.sdict = {}
+        for n, task_id in enumerate(self.stamps_frame.table.get_children()):
+            self.sdict[task_id] = tlist[n]
 
-    def tags_get(self):
-        """Creates timestamps list."""
-        self.tags = Tagslist(
-            self.db.timestamps(self.task_id, self.task_time), self,
-            width=400, height=300)
-
-    def del_record(self, dellist):
+    def delete(self):
         """Deletes selected timestamps."""
-        for x in dellist:
-            self.db.delete(table="timestamps", timestamp=x,
-                           task_id=self.task_id)
+        ids = self.stamps_frame.table.selection()
+        dates = [self.sdict[x]["datetime"] for x in ids]
+        if ids:
+            answer = askyesno("Warning",
+                              "Are you sure you want to delete "
+                              "selected timestamps?",
+                              parent=self)
+            if answer:
+                for x in dates:
+                    self.db.delete(table="timestamps", datetime=x,
+                                   task_id=self.task_id)
+
+                self.stamps_frame.table.delete(*ids)
+                for item in ids:
+                    self.sdict.pop(item)
 
 
 class HelpWindow(Window):

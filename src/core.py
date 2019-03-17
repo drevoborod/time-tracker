@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from collections import OrderedDict as odict
+from collections import OrderedDict
 import datetime
 import os
 import sqlite3
@@ -98,16 +98,15 @@ class Db:
 
     def insert_task(self, name):
         """Insert task into database."""
-        date = date_format(datetime.datetime.now(), DATE_STORAGE_TEMPLATE)
         try:
             rowid = self.insert('tasks', ('name', 'creation_date'),
-                                (name, date))
+                                (name, date_format(datetime.datetime.now(),
+                                                   DATE_STORAGE_TEMPLATE)))
         except sqlite3.IntegrityError:
             raise DbErrors("Task name already exists")
         else:
             task_id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
-            self.insert("activity", ("date", "task_id", "spent_time"),
-                        (table_date_format(date, DATE_TEMPLATE), task_id, 0))
+            self.insert_task_activity(task_id, 0)
             self.insert("tasks_tags", ("tag_id", "task_id"), (1, task_id))
             return task_id
 
@@ -122,14 +121,24 @@ class Db:
     def update_task(self, task_id, field="spent_time", value=0):
         """Updates some fields for given task id."""
         if field == 'spent_time':
-            self.exec_script("SELECT rowid FROM activity WHERE task_id={0} "
-                             "AND date='{1}'".format(task_id, date_format(
-                datetime.datetime.now())))
-            daterow = self.cur.fetchone()[0]
-            self.update(daterow, table='activity', updfiled='rowid',
-                        field=field, value=value)
+            try:
+                self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
+                                 " AND date='{1}'".format(task_id, date_format(
+                                  datetime.datetime.now())))
+                daterow = self.cur.fetchone()[0]
+            except TypeError:
+                self.insert_task_activity(task_id, value)
+            else:
+                self.update(daterow, table='activity', updfiled='rowid',
+                            field=field, value=value)
         else:
             self.update(task_id, field=field, value=value)
+
+    def insert_task_activity(self, task_id, spent_time):
+        self.insert("activity", ("date", "task_id", "spent_time"),
+                    (date_format(datetime.datetime.now()),
+                     task_id,
+                     spent_time))
 
     def delete(self, table="tasks", **field_values):
         """Removes several records using multiple "field in (values)" clauses.
@@ -168,7 +177,7 @@ class Db:
         db_response = [{"name": item[0], "descr": item[1] if item[1] else '',
                         "date": item[2], "spent_time": item[3]}
                        for item in self.cur.fetchall()]
-        prepared_data = odict()
+        prepared_data = OrderedDict()
         for item in db_response:
             if item["name"] in prepared_data:
                 prepared_data[item["name"]]["dates"].append(
@@ -214,7 +223,7 @@ class Db:
                         "descr": item[2] if item[2] else '',
                         "spent_time": item[3]} for item in self.cur.fetchall()]
 
-        prepared_data = odict()
+        prepared_data = OrderedDict()
         for item in db_response:
             if item["date"] in prepared_data:
                 prepared_data[item["date"]]["tasks"].append({
