@@ -368,17 +368,16 @@ class TaskFrame(tk.Frame):
                 else os.curdir + '/resource/stop.pgm')
             self.startstop_var.set("Stop")
             if log:
-                if self.task["id"] in [x.task["id"]
-                                       for x in GLOBAL_OPTIONS["paused"]]:
+                if self in GLOBAL_OPTIONS["paused"]:
                     event_id = core.LOG_EVENTS["RESUME"]
-                    comment = "Task unpaused."
+                    comment = "Task resumed."
                 else:
                     event_id = core.LOG_EVENTS["START"]
                     comment = "Task started."
                 self.add_timestamp(event_id, comment)
             self.timer_update()
 
-    def timer_stop(self, log=True):
+    def timer_stop(self, log=True, log_message=None):
         """Stop counter and save its value to database."""
         if self.running:
             # after_cancel() stops execution of callback with given ID.
@@ -389,13 +388,12 @@ class TaskFrame(tk.Frame):
             self.task_update()
             self.update_description()
             if log:
-                if self.task["id"] in [x.task["id"]
-                                       for x in GLOBAL_OPTIONS["paused"]]:
+                if self in GLOBAL_OPTIONS["paused"]:
                     event_id = core.LOG_EVENTS["PAUSE"]
                     comment = "Task paused."
                 else:
                     event_id = core.LOG_EVENTS["STOP"]
-                    comment = "Task stopped."
+                    comment = "Task stopped." if not log_message else log_message
                 self.add_timestamp(event_id, comment)
             self.start_button.config(
                 image=os.curdir + '/resource/start_normal.png'
@@ -413,7 +411,11 @@ class TaskFrame(tk.Frame):
 
     def destroy(self):
         """Closes frame and writes counter value into database."""
-        self.timer_stop()
+        message = "Task stopped on application exit."
+        self.timer_stop(log_message=message)
+        if self in GLOBAL_OPTIONS["paused"]:
+            GLOBAL_OPTIONS["paused"].remove(self)
+            self.add_timestamp(core.LOG_EVENTS["STOP"], message)
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
         self.db.con.close()
