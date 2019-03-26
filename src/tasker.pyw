@@ -227,7 +227,7 @@ class TaskFrame(tk.Frame):
                                         core.DATE_STORAGE_TEMPLATE)
         show_message = False
         if comment is None:
-            apply_var = tk.BooleanVar(value=True)
+            apply_var = tk.BooleanVar()
             comment_var = tk.StringVar()
             TimestampCommentWindow(self, comment_var=comment_var,
                                    apply_var=apply_var)
@@ -353,7 +353,7 @@ class TaskFrame(tk.Frame):
         self.timer = self.timer_label.after(
             GLOBAL_OPTIONS["TIMER_INTERVAL"], self.timer_update, counter)
 
-    def timer_start(self):
+    def timer_start(self, log=True):
         """Counter start."""
         if not self.running:
             if int(GLOBAL_OPTIONS["toggle_tasks"]):
@@ -367,17 +367,18 @@ class TaskFrame(tk.Frame):
                 image=os.curdir + '/resource/stop.png' if tk.TkVersion >= 8.6
                 else os.curdir + '/resource/stop.pgm')
             self.startstop_var.set("Stop")
-            if self.task["id"] in [x.task["id"]
-                                   for x in GLOBAL_OPTIONS["paused"]]:
-                event_id = core.LOG_EVENTS["RESUME"]
-                comment = "Task unpaused."
-            else:
-                event_id = core.LOG_EVENTS["START"]
-                comment = "Task started."
-            self.add_timestamp(event_id, comment)
+            if log:
+                if self.task["id"] in [x.task["id"]
+                                       for x in GLOBAL_OPTIONS["paused"]]:
+                    event_id = core.LOG_EVENTS["RESUME"]
+                    comment = "Task unpaused."
+                else:
+                    event_id = core.LOG_EVENTS["START"]
+                    comment = "Task started."
+                self.add_timestamp(event_id, comment)
             self.timer_update()
 
-    def timer_stop(self):
+    def timer_stop(self, log=True):
         """Stop counter and save its value to database."""
         if self.running:
             # after_cancel() stops execution of callback with given ID.
@@ -387,14 +388,15 @@ class TaskFrame(tk.Frame):
             # Writing value into database:
             self.task_update()
             self.update_description()
-            if self.task["id"] in [x.task["id"]
-                                   for x in GLOBAL_OPTIONS["paused"]]:
-                event_id = core.LOG_EVENTS["PAUSE"]
-                comment = "Task paused."
-            else:
-                event_id = core.LOG_EVENTS["STOP"]
-                comment = "Task stopped."
-            self.add_timestamp(event_id, comment)
+            if log:
+                if self.task["id"] in [x.task["id"]
+                                       for x in GLOBAL_OPTIONS["paused"]]:
+                    event_id = core.LOG_EVENTS["PAUSE"]
+                    comment = "Task paused."
+                else:
+                    event_id = core.LOG_EVENTS["STOP"]
+                    comment = "Task stopped."
+                self.add_timestamp(event_id, comment)
             self.start_button.config(
                 image=os.curdir + '/resource/start_normal.png'
                 if tk.TkVersion >= 8.6
@@ -429,28 +431,30 @@ class TimestampCommentWindow(Window):
         self.title("Timestamp comment")
         elements.SimpleLabel(self, text="Enter comment:", fontsize=10).grid(
             row=0, column=0, columnspan=2, pady=5, padx=5, sticky='we')
-        self.comment_area = Description(self, paste_menu=True, width=60,
-                                        height=6)
+        # self.comment_area = Description(self, paste_menu=True, width=60,
+        #                                 height=6)
+        self.comment_area = elements.SimpleEntry(self)
         self.comment_area.config(state='normal', bg='white')
         self.comment_area.grid(row=1, column=0, columnspan=2, sticky='we')
 
         tk.Frame(self, height=40).grid(row=2)
         elements.TaskButton(self, text='Ok', command=self.get_comment).grid(
             row=3, column=0, sticky='sw', padx=5, pady=5)
-        elements.TaskButton(self, text='Cancel', command=self.cancel).grid(
+        elements.TaskButton(self, text='Cancel', command=self.destroy).grid(
             row=3, column=1, sticky='se', padx=5, pady=5)
+        context_menu = RightclickMenu(paste_item=1, copy_item=0)
+        self.comment_area.bind("<Button-3>", context_menu.context_menu_show)
+        self.comment_area.bind("<Return>", lambda e: self.get_comment())
         self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-        self.comment_area.text.focus_set()
+        self.grid_columnconfigure(1, weight=1)
+        self.resizable(height=0, width=1)
+        self.minsize(width=500, height=10)
+        self.comment_area.focus_set()
         self.prepare()
 
     def get_comment(self):
+        self.apply_var.set(True)
         self.comment_var.set(self.comment_area.get())
-        self.destroy()
-
-    def cancel(self):
-        self.apply_var.set(False)
         self.destroy()
 
 
@@ -1182,7 +1186,7 @@ class TimestampsWindow(Window):
                                     "since": "Time spent since",
                                     "comment": "Comment"})
         self.stamps_frame = TimestampsTable(column_names, parent=self)
-        self.stamps_frame.grid(row=0, column=0, columnspan=2)
+        self.stamps_frame.grid(row=0, column=0, columnspan=2, sticky='news')
         elements.TaskButton(self, text="Select all",
                             command=self.stamps_frame.select_all).grid(
                                                           row=1, column=0,
@@ -1200,9 +1204,9 @@ class TimestampsWindow(Window):
             row=3, column=0, pady=5, padx=5, sticky='w')
         elements.TaskButton(self, text="Close", command=self.destroy).grid(
             row=3, column=1, pady=5, padx=5, sticky='e')
-        #self.resizable(height=0, width=0)
-        self.grid_columnconfigure(2, weight=1, minsize=500)
+        self.grid_columnconfigure(1, weight=1, minsize=500)
         self.grid_rowconfigure(0, weight=1, minsize=300)
+        self.minsize(width=710, height=500)
         self.prepare()
 
     def update_table(self):
@@ -1523,10 +1527,10 @@ class MainFrame(elements.ScrolledCanvas):
             if hasattr(w, 'task'):
                 if w.task:
                     state = w.running
-                    w.timer_stop()
+                    w.timer_stop(log=False)
                     w.prepare_task(w.db.select_task(w.task["id"]))
                     if state:
-                        w.timer_start()
+                        w.timer_start(log=False)
 
     def fill(self):
         """Create contents of the main frame."""
