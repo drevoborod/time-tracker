@@ -912,14 +912,8 @@ class TaskSelectionWindow(Window):
                 # Reload task information from database:
                 new_task_info = self.db.select_task(id_name["id"])
                 # Update description:
-                self.tdict[item] = new_task_info
+                self.tdict[item]["descr"] = new_task_info["descr"]
                 self.update_descr(item)
-                # Update data in a table:
-                self.table_frame.table.item(
-                    item, values=(new_task_info["name"],
-                                  core.time_format(new_task_info["spent_total"]),
-                                  new_task_info["creation_date"]))
-                self.update_fulltime()
         self.raise_window()
 
     def filterwindow(self):
@@ -1145,7 +1139,7 @@ class TimestampsTable(Table):
         super().__init__(columns, parent=parent, **options)
         self.table.column('stamp', width=200, anchor='w')
         self.table.column('since', width=150, anchor='w')
-        self.table.column('comment', width=250, anchor='w')
+        self.table.column('comment', width=450, anchor='w')
         self.table.column('real', width=250, anchor='w')
 
     def sort_table_contents(self, col, reverse):
@@ -1206,7 +1200,9 @@ class TimestampsWindow(Window):
             row=3, column=0, pady=5, padx=5, sticky='w')
         elements.TaskButton(self, text="Close", command=self.destroy).grid(
             row=3, column=1, pady=5, padx=5, sticky='e')
-        self.resizable(height=0, width=0)
+        #self.resizable(height=0, width=0)
+        self.grid_columnconfigure(2, weight=1, minsize=500)
+        self.grid_rowconfigure(0, weight=1, minsize=300)
         self.prepare()
 
     def update_table(self):
@@ -1580,6 +1576,8 @@ class MainFrame(elements.ScrolledCanvas):
         for frame in self.frames:
             if frame.running:
                 frame.timer_stop()
+            if frame in GLOBAL_OPTIONS["paused"]:
+                frame.add_timestamp(core.LOG_EVENTS["STOP"], "Task stopped.")
         GLOBAL_OPTIONS["paused"].clear()
 
 
