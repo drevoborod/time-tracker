@@ -118,21 +118,31 @@ class Db:
                                                           field_id, updfiled),
             value)
 
-    def update_task(self, task_id, field="spent_time", value=0):
+    def update_task(self, task_id, field="spent_time", value=0, prev_date=None):
         """Updates some fields for given task id."""
+        res = None
         if field == 'spent_time':
-            try:
-                self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
-                                 " AND date='{1}'".format(task_id, date_format(
-                                  datetime.datetime.now())))
-                daterow = self.cur.fetchone()[0]
-            except TypeError:
-                self.insert_task_activity(task_id, value)
+            now = datetime.datetime.now()
+            current_date = date_format(now)
+            if current_date == prev_date:
+                req_date = current_date
             else:
-                self.update(daterow, table='activity', updfiled='rowid',
-                            field=field, value=value)
+                self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
+                                 " AND date='{1}'".format(task_id, prev_date))
+                secs = datetime.timedelta(hours=now.hour, minutes=now.minute,
+                                          seconds=now.second).total_seconds()
+                self.insert_task_activity(task_id, secs)
+                req_date = prev_date
+                value = value - secs
+                res = {"remainder": secs, "current_date": current_date}
+            self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
+                             " AND date='{1}'".format(task_id, req_date))
+            daterow = self.cur.fetchone()[0]
+            self.update(daterow, table='activity', updfiled='rowid',
+                        field=field, value=value)
         else:
             self.update(task_id, field=field, value=value)
+        return res
 
     def insert_task_activity(self, task_id, spent_time):
         self.insert("activity", ("date", "task_id", "spent_time"),

@@ -324,14 +324,12 @@ class TaskFrame(tk.Frame):
 
     def task_update(self):
         """Updates time in the database."""
-        self.db.update_task(self.task["id"], value=self.task["spent_today"])
-        current_date = core.date_format(datetime.datetime.now())
-        if current_date != self.current_date:
-            self.current_date = current_date
-            self.db.insert("activity", ("date", "task_id", "spent_time"),
-                           (self.current_date, self.task["id"],
-                            self.task["spent_today"]))
-            self.task["spent_today"] = 0
+        res = self.db.update_task(self.task["id"],
+                                  value=self.task["spent_today"],
+                                  prev_date=self.current_date)
+        if res:
+            self.current_date = res["current_date"]
+            self.task["spent_today"] = res["remainder"]
 
     def timer_update(self, counter=0):
         """Renewal of the counter."""
