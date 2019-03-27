@@ -122,31 +122,32 @@ class Db:
         """Updates some fields for given task id."""
         res = None
         if field == 'spent_time':
-            now = datetime.datetime.now()
-            current_date = date_format(now)
-            if current_date == prev_date:
-                req_date = current_date
-            else:
+            try:
                 self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
                                  " AND date='{1}'".format(task_id, prev_date))
-                secs = datetime.timedelta(hours=now.hour, minutes=now.minute,
-                                          seconds=now.second).total_seconds()
-                self.insert_task_activity(task_id, secs)
-                req_date = prev_date
-                value = value - secs
-                res = {"remainder": secs, "current_date": current_date}
-            self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
-                             " AND date='{1}'".format(task_id, req_date))
-            daterow = self.cur.fetchone()[0]
-            self.update(daterow, table='activity', updfiled='rowid',
-                        field=field, value=value)
+                daterow = self.cur.fetchone()[0]
+            except TypeError:
+                now = datetime.datetime.now()
+                current_date = date_format(now)
+                if current_date == prev_date:
+                    self.insert_task_activity(task_id, value, current_date)
+                else:
+                    secs = datetime.timedelta(hours=now.hour,
+                                              minutes=now.minute,
+                                              seconds=now.second).total_seconds()
+                    self.insert_task_activity(task_id, value - secs, prev_date)
+                    self.insert_task_activity(task_id, secs, current_date)
+                    res = {"remainder": secs, "current_date": current_date}
+            else:
+                self.update(daterow, table='activity', updfiled='rowid',
+                            field=field, value=value)
         else:
             self.update(task_id, field=field, value=value)
         return res
 
-    def insert_task_activity(self, task_id, spent_time):
+    def insert_task_activity(self, task_id, spent_time, date=None):
         self.insert("activity", ("date", "task_id", "spent_time"),
-                    (date_format(datetime.datetime.now()),
+                    (date if date else date_format(datetime.datetime.now()),
                      task_id,
                      spent_time))
 
