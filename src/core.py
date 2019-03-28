@@ -118,29 +118,41 @@ class Db:
                                                           field_id, updfiled),
             value)
 
+    def check_task_activity_exists(self, task_id, date):
+        """Returns rowid of row with task activity for provided date
+        if such activity exists"""
+        self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
+                         " AND date='{1}'".format(task_id, date))
+        try:
+            return self.cur.fetchone()[0]
+        except TypeError:
+            return
+
     def update_task(self, task_id, field="spent_time", value=0, prev_date=None):
         """Updates some fields for given task id."""
         res = None
         if field == 'spent_time':
-            try:
-                self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
-                                 " AND date='{1}'".format(task_id, prev_date))
-                daterow = self.cur.fetchone()[0]
-            except TypeError:
-                now = datetime.datetime.now()
-                current_date = date_format(now)
-                if current_date == prev_date:
-                    self.insert_task_activity(task_id, value, current_date)
+            now = datetime.datetime.now()
+            current_date = date_format(now)
+            daterow = self.check_task_activity_exists(task_id, prev_date)
+            if current_date == prev_date:
+                if daterow:
+                    self.update(daterow, table='activity', updfiled='rowid',
+                                field=field, value=value)
                 else:
-                    secs = datetime.timedelta(hours=now.hour,
-                                              minutes=now.minute,
-                                              seconds=now.second).total_seconds()
-                    self.insert_task_activity(task_id, value - secs, prev_date)
-                    self.insert_task_activity(task_id, secs, current_date)
-                    res = {"remainder": secs, "current_date": current_date}
+                    self.insert_task_activity(task_id, value, prev_date)
             else:
-                self.update(daterow, table='activity', updfiled='rowid',
-                            field=field, value=value)
+                today_secs = datetime.timedelta(
+                    hours=now.hour, minutes=now.minute,
+                    seconds=now.second).total_seconds()
+                if daterow:
+                    self.update(daterow, table='activity', updfiled='rowid',
+                                field=field, value=value - today_secs)
+                else:
+                    self.insert_task_activity(task_id, value - today_secs,
+                                              prev_date)
+                self.insert_task_activity(task_id, today_secs, current_date)
+                res = {"remainder": today_secs, "current_date": current_date}
         else:
             self.update(task_id, field=field, value=value)
         return res
