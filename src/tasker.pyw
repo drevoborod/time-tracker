@@ -208,7 +208,7 @@ class TaskFrame(tk.Frame):
 
     def small_interface(self):
         """Destroy some interface elements when switching to 'compact' mode."""
-        for widget in self.l1, self.description_area:
+        for widget in (self.l1, self.description_area):
             widget.destroy()
         if hasattr(self, "description_area"):
             delattr(self, "description_area")
@@ -261,12 +261,17 @@ class TaskFrame(tk.Frame):
 
     def clear(self):
         """Recreation of frame contents."""
-        self.timer_stop()
+        message = "Task frame cleared."
+        self.timer_stop(log_message=message)
+        if self in GLOBAL_OPTIONS["paused"]:
+            GLOBAL_OPTIONS["paused"].remove(self)
+            self.add_timestamp(core.LOG_EVENTS["STOP"], message)
+        if self.task:
+            GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
+            if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+                self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
         for w in self.winfo_children():
             w.destroy()
-        GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
-        if GLOBAL_OPTIONS["preserve_tasks"] == "1":
-            self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
         self.create_content()
 
     def name_dialogue(self):
@@ -376,6 +381,7 @@ class TaskFrame(tk.Frame):
                     event_id = core.LOG_EVENTS["START"]
                     comment = "Task started."
                 self.add_timestamp(event_id, comment)
+                self.task_update()
             self.timer_update()
 
     def timer_stop(self, log=True, log_message=None):
@@ -419,8 +425,6 @@ class TaskFrame(tk.Frame):
             self.add_timestamp(core.LOG_EVENTS["STOP"], message)
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
-        if GLOBAL_OPTIONS["preserve_tasks"] == "1":
-            self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
         self.db.con.close()
         tk.Frame.destroy(self)
 
@@ -1503,7 +1507,7 @@ class MainFrame(elements.ScrolledCanvas):
         self.fill()
 
     def clear(self):
-        """Clear all task frames except with opened tasks."""
+        """Remove all task frames except with opened tasks."""
         for w in self.content_frame.winfo_children():
             if self.frames_count == int(GLOBAL_OPTIONS['timers_count']) \
                     or self.frames_count == len(GLOBAL_OPTIONS["tasks"]):
@@ -1518,9 +1522,9 @@ class MainFrame(elements.ScrolledCanvas):
         answer = askyesno("Really clear?",
                           "Are you sure you want to close all task frames?")
         if answer:
-            self.frames_count = 0
             for w in self.content_frame.winfo_children():
-                w.destroy()
+                if hasattr(w, 'task'):
+                    w.clear()
             GLOBAL_OPTIONS["paused"].clear()
             self.fill()
 
@@ -1540,7 +1544,7 @@ class MainFrame(elements.ScrolledCanvas):
         if self.frames_count < int(GLOBAL_OPTIONS['timers_count']):
             row_count = range(
                 int(GLOBAL_OPTIONS['timers_count']) - self.frames_count)
-            for row_number in row_count:
+            for _ in row_count:
                 task = TaskFrame(parent=self.content_frame)
                 task.grid(row=self.rows_counter, pady=5, padx=5, ipady=3,
                           sticky='ew')
