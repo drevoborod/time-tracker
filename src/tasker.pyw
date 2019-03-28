@@ -265,6 +265,8 @@ class TaskFrame(tk.Frame):
         for w in self.winfo_children():
             w.destroy()
         GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
+        if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+            self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
         self.create_content()
 
     def name_dialogue(self):
@@ -297,7 +299,7 @@ class TaskFrame(tk.Frame):
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
-        # Adding task id to set of running tasks:
+        # Adding task id and state to dictionary of running tasks:
         GLOBAL_OPTIONS["tasks"][task["id"]] = False
         self.task = task
         self.current_date = core.date_format(datetime.datetime.now())
@@ -314,6 +316,8 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.config(state='normal')
         if hasattr(self, "description_area"):
             self.description_area.update_text(self.task["descr"])
+        if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+            self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
 
     def get_current_time(self):
         """Return current_time depending on time displaying options value."""
@@ -355,8 +359,7 @@ class TaskFrame(tk.Frame):
         """Counter start."""
         if not self.running:
             if int(GLOBAL_OPTIONS["toggle_tasks"]):
-                for key in GLOBAL_OPTIONS["tasks"]:
-                    GLOBAL_OPTIONS["tasks"][key] = False
+                ROOT_WINDOW.stop_all()
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
             # Setting current timestamp:
             self.start_time = time.time()
@@ -1500,10 +1503,8 @@ class MainFrame(elements.ScrolledCanvas):
     def clear(self):
         """Clear all task frames except with opened tasks."""
         for w in self.content_frame.winfo_children():
-            if self.frames_count == int(GLOBAL_OPTIONS[
-                                            'timers_count']) \
-                    or self.frames_count == len(
-                    GLOBAL_OPTIONS["tasks"]):
+            if self.frames_count == int(GLOBAL_OPTIONS['timers_count']) \
+                    or self.frames_count == len(GLOBAL_OPTIONS["tasks"]):
                 break
             if hasattr(w, 'task'):
                 if w.task is None:
@@ -1515,10 +1516,12 @@ class MainFrame(elements.ScrolledCanvas):
         answer = askyesno("Really clear?",
                           "Are you sure you want to close all task frames?")
         if answer:
+            self.frames_count = 0
             for w in self.content_frame.winfo_children():
-                self.frames_count -= 1
                 w.destroy()
             GLOBAL_OPTIONS["paused"].clear()
+            if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+                self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
             self.fill()
 
     def frames_refill(self):
@@ -1608,6 +1611,7 @@ class MainMenu(tk.Menu):
 
     def options_window(self):
         """Open options window."""
+        self.db = core.Db()
         # number of main window frames:
         timers_count_var = tk.IntVar(value=int(GLOBAL_OPTIONS['timers_count']))
         # 'always on top' option:
@@ -1648,6 +1652,8 @@ class MainMenu(tk.Menu):
                     ROOT_WINDOW.small_interface()
             # apply value of 'save tasks on exit' option:
             params['preserve_tasks'] = save.get()
+            if not params['preserve_tasks']:
+                self.db.update_preserved_tasks('')
             # apply value of 'show current day in timers' option:
             params['show_today'] = show_today_var.get()
             # apply value of 'Allow run only one task at a time' option:
@@ -1665,13 +1671,12 @@ class MainMenu(tk.Menu):
 
     def change_parameter(self, paramdict):
         """Change option in the database."""
-        db = core.Db()
         for parameter_name in paramdict:
             par = str(paramdict[parameter_name])
-            db.update(table='options', field='value', value=par,
+            self.db.update(table='options', field='value', value=par,
                       field_id=parameter_name, updfiled='name')
-            GLOBAL_OPTIONS[parameter_name] = par
-        db.con.close()
+            GLOBAL_OPTIONS[parameter_name] = str(par)
+        self.db.con.close()
 
     def aboutwindow(self):
         showinfo("About Tasker",
@@ -1922,7 +1927,7 @@ class MainWindow(tk.Tk):
         if answer:
             db = core.Db()
             if GLOBAL_OPTIONS["preserve_tasks"] == "1":
-                tasks = ','.join([str(x) for x in GLOBAL_OPTIONS["tasks"]])
+                tasks = GLOBAL_OPTIONS["tasks"]
                 if int(GLOBAL_OPTIONS['timers_count']) < len(
                         GLOBAL_OPTIONS["tasks"]):
                     db.update(table='options', field='value',
@@ -1930,8 +1935,7 @@ class MainWindow(tk.Tk):
                               field_id='timers_count', updfiled='name')
             else:
                 tasks = ''
-            db.update(table='options', field='value', value=tasks,
-                      field_id='tasks', updfiled='name')
+            db.update_preserved_tasks(tasks)
             db.con.close()
             super().destroy()
 
@@ -1986,7 +1990,7 @@ if __name__ == "__main__":
     # Global tasks ids set. Used for preserve duplicates:
     if GLOBAL_OPTIONS["tasks"]:
         GLOBAL_OPTIONS["tasks"] = dict.fromkeys(
-            [int(x) for x in GLOBAL_OPTIONS["tasks"].split(",")], False)
+            map(int, GLOBAL_OPTIONS["tasks"].split(",")), False)
     else:
         GLOBAL_OPTIONS["tasks"] = dict()
     # List of preserved tasks which are not open:

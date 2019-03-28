@@ -163,6 +163,12 @@ class Db:
                      task_id,
                      spent_time))
 
+    def update_preserved_tasks(self, tasks):
+        if type(tasks) is not str:
+            tasks = ','.join(map(str, tasks))
+        self.update(table='options', field='value', value=tasks,
+                    field_id='tasks', updfiled='name')
+
     def delete(self, table="tasks", **field_values):
         """Removes several records using multiple "field in (values)" clauses.
         field_values has to be a dictionary which values can be tuples:
