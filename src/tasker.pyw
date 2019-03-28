@@ -419,6 +419,8 @@ class TaskFrame(tk.Frame):
             self.add_timestamp(core.LOG_EVENTS["STOP"], message)
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
+        if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+            self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
         self.db.con.close()
         tk.Frame.destroy(self)
 
@@ -1520,8 +1522,6 @@ class MainFrame(elements.ScrolledCanvas):
             for w in self.content_frame.winfo_children():
                 w.destroy()
             GLOBAL_OPTIONS["paused"].clear()
-            if GLOBAL_OPTIONS["preserve_tasks"] == "1":
-                self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
             self.fill()
 
     def frames_refill(self):
