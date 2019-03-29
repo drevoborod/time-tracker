@@ -360,11 +360,12 @@ class TaskFrame(tk.Frame):
         self.timer = self.timer_label.after(
             GLOBAL_OPTIONS["TIMER_INTERVAL"], self.timer_update, counter)
 
-    def timer_start(self, log=True):
+    def timer_start(self, log=True, stop_all=True):
         """Counter start."""
         if not self.running:
             if GLOBAL_OPTIONS["toggle_tasks"]:
-                ROOT_WINDOW.stop_all()
+                if stop_all:
+                    ROOT_WINDOW.stop_all()
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
             # Setting current timestamp:
             self.start_time = time.time()
@@ -1528,17 +1529,6 @@ class MainFrame(elements.ScrolledCanvas):
             GLOBAL_OPTIONS["paused"].clear()
             self.fill()
 
-    def frames_refill(self):
-        """Reload data in every task frame with data."""
-        for w in self.content_frame.winfo_children():
-            if hasattr(w, 'task'):
-                if w.task:
-                    state = w.running
-                    w.timer_stop(log=False)
-                    w.prepare_task(w.db.select_task(w.task["id"]))
-                    if state:
-                        w.timer_start(log=False)
-
     def fill(self):
         """Create contents of the main frame."""
         if self.frames_count < GLOBAL_OPTIONS['timers_count']:
@@ -1580,8 +1570,9 @@ class MainFrame(elements.ScrolledCanvas):
 
     def resume_all(self):
         for frame in GLOBAL_OPTIONS["paused"]:
-            frame.timer_start()
-        GLOBAL_OPTIONS["paused"].clear()
+            frame.timer_start(stop_all=False)
+        if GLOBAL_OPTIONS["toggle_tasks"]:
+            GLOBAL_OPTIONS["paused"].clear()
 
     def stop_all(self):
         for frame in self.frames:
@@ -1666,11 +1657,14 @@ class MainMenu(tk.Menu):
             self.change_parameter(params)
             # redraw taskframes if needed:
             ROOT_WINDOW.taskframes.fill()
-            ROOT_WINDOW.taskframes.frames_refill()
             # Stop all tasks if exclusive run method has been enabled:
-            if GLOBAL_OPTIONS["toggle_tasks"] and \
-                    GLOBAL_OPTIONS["toggle_tasks"] != toggle:
+            if params['toggle_tasks'] and params['toggle_tasks'] != toggle and\
+                    len([x for x in GLOBAL_OPTIONS["tasks"].values() if x]) > 1:
                 ROOT_WINDOW.stop_all()
+            if params['toggle_tasks'] and params['toggle_tasks'] != toggle and\
+                    len(GLOBAL_OPTIONS["paused"]) > 1:
+                GLOBAL_OPTIONS["paused"].clear()
+                ROOT_WINDOW.pause_all()
         ROOT_WINDOW.lift()
 
     def change_parameter(self, paramdict):
