@@ -43,7 +43,7 @@ class Window(tk.Toplevel):
         """Allows window to be on the top of others
         when 'always on top' is enabled."""
         ontop = GLOBAL_OPTIONS['always_on_top']
-        if ontop == '1':
+        if ontop:
             self.wm_attributes("-topmost", 1)
 
     def place_window(self, parent):
@@ -143,7 +143,7 @@ class TaskFrame(tk.Frame):
         self.startstop_var = tk.StringVar(value="Start")  # Text on "Start" button.
         # Fake name of running task (which actually is not selected yet).
         self.task = None
-        if GLOBAL_OPTIONS["compact_interface"] == "0":
+        if not GLOBAL_OPTIONS["compact_interface"]:
             self.normal_interface()
         # Task name field:
         self.task_label = TaskLabel(self, width=50, anchor='w')
@@ -268,7 +268,7 @@ class TaskFrame(tk.Frame):
             self.add_timestamp(core.LOG_EVENTS["STOP"], message)
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
-            if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+            if GLOBAL_OPTIONS["preserve_tasks"]:
                 self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
         for w in self.winfo_children():
             w.destroy()
@@ -321,12 +321,12 @@ class TaskFrame(tk.Frame):
         self.timestamps_window_button.config(state='normal')
         if hasattr(self, "description_area"):
             self.description_area.update_text(self.task["descr"])
-        if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+        if GLOBAL_OPTIONS["preserve_tasks"]:
             self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
 
     def get_current_time(self):
         """Return current_time depending on time displaying options value."""
-        if int(GLOBAL_OPTIONS["show_today"]):
+        if GLOBAL_OPTIONS["show_today"]:
             return self.task["spent_today"]
         else:
             return self.task["spent_total"]
@@ -363,7 +363,7 @@ class TaskFrame(tk.Frame):
     def timer_start(self, log=True):
         """Counter start."""
         if not self.running:
-            if int(GLOBAL_OPTIONS["toggle_tasks"]):
+            if GLOBAL_OPTIONS["toggle_tasks"]:
                 ROOT_WINDOW.stop_all()
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
             # Setting current timestamp:
@@ -1509,7 +1509,7 @@ class MainFrame(elements.ScrolledCanvas):
     def clear(self):
         """Remove all task frames except with opened tasks."""
         for w in self.content_frame.winfo_children():
-            if self.frames_count == int(GLOBAL_OPTIONS['timers_count']) \
+            if self.frames_count == GLOBAL_OPTIONS['timers_count'] \
                     or self.frames_count == len(GLOBAL_OPTIONS["tasks"]):
                 break
             if hasattr(w, 'task'):
@@ -1541,9 +1541,9 @@ class MainFrame(elements.ScrolledCanvas):
 
     def fill(self):
         """Create contents of the main frame."""
-        if self.frames_count < int(GLOBAL_OPTIONS['timers_count']):
+        if self.frames_count < GLOBAL_OPTIONS['timers_count']:
             row_count = range(
-                int(GLOBAL_OPTIONS['timers_count']) - self.frames_count)
+                GLOBAL_OPTIONS['timers_count'] - self.frames_count)
             for _ in row_count:
                 task = TaskFrame(parent=self.content_frame)
                 task.grid(row=self.rows_counter, pady=5, padx=5, ipady=3,
@@ -1556,8 +1556,8 @@ class MainFrame(elements.ScrolledCanvas):
             self.frames_count += len(row_count)
             self.content_frame.update()
             self.canvbox.config(width=self.content_frame.winfo_width())
-        elif len(GLOBAL_OPTIONS["tasks"]) < self.frames_count > int(
-                GLOBAL_OPTIONS['timers_count']):
+        elif len(GLOBAL_OPTIONS["tasks"]) < self.frames_count > \
+                GLOBAL_OPTIONS['timers_count']:
             self.clear()
         self.content_frame.config(bg='#cfcfcf')
 
@@ -1617,17 +1617,17 @@ class MainMenu(tk.Menu):
         """Open options window."""
         self.db = core.Db()
         # number of main window frames:
-        timers_count_var = tk.IntVar(value=int(GLOBAL_OPTIONS['timers_count']))
+        timers_count_var = tk.IntVar(value=GLOBAL_OPTIONS['timers_count'])
         # 'always on top' option:
-        ontop = tk.IntVar(value=int(GLOBAL_OPTIONS['always_on_top']))
+        ontop = tk.IntVar(value=GLOBAL_OPTIONS['always_on_top'])
         # 'compact interface' option
-        compact = int(GLOBAL_OPTIONS['compact_interface'])
+        compact = GLOBAL_OPTIONS['compact_interface']
         compact_iface = tk.IntVar(value=compact)
         # 'save tasks on exit' option:
-        save = tk.IntVar(value=int(GLOBAL_OPTIONS['preserve_tasks']))
+        save = tk.IntVar(value=GLOBAL_OPTIONS['preserve_tasks'])
         # 'show current day in timers' option:
-        show_today_var = tk.IntVar(value=int(GLOBAL_OPTIONS['show_today']))
-        toggle = int(GLOBAL_OPTIONS['toggle_tasks'])
+        show_today_var = tk.IntVar(value=GLOBAL_OPTIONS['show_today'])
+        toggle = GLOBAL_OPTIONS['toggle_tasks']
         toggler_var = tk.IntVar(value=toggle)
         params = {}
         accept_var = tk.BooleanVar()
@@ -1646,7 +1646,7 @@ class MainMenu(tk.Menu):
                 params['timers_count'] = count
             # apply value of 'always on top' option:
             params['always_on_top'] = ontop.get()
-            ROOT_WINDOW.wm_attributes("-topmost", ontop.get())
+            ROOT_WINDOW.wm_attributes("-topmost", params['always_on_top'])
             # apply value of 'compact interface' option:
             params['compact_interface'] = compact_iface.get()
             if compact != compact_iface.get():
@@ -1668,18 +1668,17 @@ class MainMenu(tk.Menu):
             ROOT_WINDOW.taskframes.fill()
             ROOT_WINDOW.taskframes.frames_refill()
             # Stop all tasks if exclusive run method has been enabled:
-            if int(GLOBAL_OPTIONS["toggle_tasks"]) and int(
-                    GLOBAL_OPTIONS["toggle_tasks"]) != toggle:
+            if GLOBAL_OPTIONS["toggle_tasks"] and \
+                    GLOBAL_OPTIONS["toggle_tasks"] != toggle:
                 ROOT_WINDOW.stop_all()
         ROOT_WINDOW.lift()
 
     def change_parameter(self, paramdict):
         """Change option in the database."""
-        for parameter_name in paramdict:
-            par = str(paramdict[parameter_name])
-            self.db.update(table='options', field='value', value=par,
-                      field_id=parameter_name, updfiled='name')
-            GLOBAL_OPTIONS[parameter_name] = str(par)
+        for key, value in paramdict.items():
+            self.db.update(table='options', field='value', value=value,
+                      field_id=key, updfiled='name')
+            GLOBAL_OPTIONS[key] = value
         self.db.con.close()
 
     def aboutwindow(self):
@@ -1845,7 +1844,7 @@ class MainWindow(tk.Tk):
         self.taskframes.grid(row=0, columnspan=5)
         self.bind("<Configure>", self.taskframes.reconf_canvas)
         self.paused = False
-        if GLOBAL_OPTIONS["compact_interface"] == "0":
+        if not GLOBAL_OPTIONS["compact_interface"]:
             self.full_interface(True)
         self.grid_rowconfigure(0, weight=1)
         # Make main window always appear in good position
@@ -1856,7 +1855,7 @@ class MainWindow(tk.Tk):
         else:
             window_height = self.winfo_screenheight() - 250
         self.geometry('%dx%d+100+50' % (self.winfo_width(), window_height))
-        if GLOBAL_OPTIONS['always_on_top'] == '1':
+        if GLOBAL_OPTIONS['always_on_top']:
             self.wm_attributes("-topmost", 1)
         self.bind("<Key>", self.hotkeys)
 
@@ -1909,12 +1908,12 @@ class MainWindow(tk.Tk):
 
     def pause_all(self):
         if self.paused:
-            if GLOBAL_OPTIONS["compact_interface"] == "0":
+            if not GLOBAL_OPTIONS["compact_interface"]:
                 self.pause_all_var.set("Pause all")
             self.taskframes.resume_all()
             self.paused = False
         else:
-            if GLOBAL_OPTIONS["compact_interface"] == "0":
+            if not GLOBAL_OPTIONS["compact_interface"]:
                 self.pause_all_var.set("Resume all")
             self.taskframes.pause_all()
             self.paused = True
@@ -1923,14 +1922,14 @@ class MainWindow(tk.Tk):
         """Stop all running timers."""
         self.taskframes.stop_all()
         self.paused = False
-        if GLOBAL_OPTIONS["compact_interface"] == "0":
+        if not GLOBAL_OPTIONS["compact_interface"]:
             self.pause_all_var.set("Pause all")
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
         if answer:
             db = core.Db()
-            if GLOBAL_OPTIONS["preserve_tasks"] == "1":
+            if GLOBAL_OPTIONS["preserve_tasks"]:
                 tasks = GLOBAL_OPTIONS["tasks"]
                 if int(GLOBAL_OPTIONS['timers_count']) < len(
                         GLOBAL_OPTIONS["tasks"]):

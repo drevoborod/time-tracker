@@ -446,7 +446,7 @@ def patch_database():
     cur = con.cursor()
     cur.execute("SELECT value FROM options WHERE name='patch_ver';")
     res = cur.fetchone()
-    key = '0'
+    key = 0
     if not res:
         for key in sorted(PATCH_SCRIPTS):
             apply_script(PATCH_SCRIPTS[key], con)
@@ -457,8 +457,7 @@ def patch_database():
                 apply_script(PATCH_SCRIPTS[key], con)
     if res[0] != key:
         con.executescript(
-            "UPDATE options SET value='{0}' WHERE name='patch_ver';".format(
-                str(key)))
+            "UPDATE options SET value={0} WHERE name='patch_ver';".format(key))
         con.commit()
     con.close()
 
@@ -495,22 +494,20 @@ TABLE_STRUCTURE = """\
                 event_type INT, datetime TEXT, comment TEXT);
                 CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE);
-                CREATE TABLE options (name TEXT UNIQUE,
-                value TEXT);
+                CREATE TABLE options (name TEXT UNIQUE, value NUMERIC);
                 INSERT INTO tags VALUES (1, 'default');
                 INSERT INTO options (name) VALUES ('filter');
                 INSERT INTO options VALUES ('filter_tags', '');
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
-                INSERT INTO options VALUES ('patch_ver', '0');
-                INSERT INTO options VALUES ('timers_count', '3');
-                INSERT INTO options VALUES ('minimize_to_tray', '0');
-                INSERT INTO options VALUES ('always_on_top', '0');
-                INSERT INTO options VALUES ('preserve_tasks', '0');
-                INSERT INTO options VALUES ('show_today', '0');
-                INSERT INTO options VALUES ('toggle_tasks', '0');
+                INSERT INTO options VALUES ('patch_ver', 0);
+                INSERT INTO options VALUES ('timers_count', 3);
+                INSERT INTO options VALUES ('always_on_top', 0);
+                INSERT INTO options VALUES ('preserve_tasks', 0);
+                INSERT INTO options VALUES ('show_today', 0);
+                INSERT INTO options VALUES ('toggle_tasks', 0);
                 INSERT INTO options VALUES ('tasks', '');
-                INSERT INTO options VALUES ('compact_interface', '0');
+                INSERT INTO options VALUES ('compact_interface', 0);
                 INSERT INTO options VALUES ('version', '1.5.2');
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
