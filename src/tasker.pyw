@@ -1683,10 +1683,10 @@ class MainMenu(tk.Menu):
 
     def aboutwindow(self):
         showinfo("About Tasker",
-                 "Tasker {0}.\nCopyright (c) Alexey Kallistov, {1}".format(
+                 core.ABOUT_MESSAGE.format(
                      GLOBAL_OPTIONS['version'],
-                     datetime.datetime.strftime(datetime.datetime.now(),
-                                                "%Y")))
+                     core.CREATOR_NAME,
+                     datetime.datetime.strftime(datetime.datetime.now(), "%Y")))
 
     def exit(self):
         ROOT_WINDOW.destroy()

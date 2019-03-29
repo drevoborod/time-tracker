@@ -473,6 +473,8 @@ def apply_script(scripts_list, db_connection):
             pass
 
 
+CREATOR_NAME = "Alexey Kallistov"
+ABOUT_MESSAGE = "Tasker {0}\nCopyright (c)\n{1},\n{2}"
 HELP_TEXT = get_help()
 TABLE_FILE = 'tasks.db'
 LOG_EVENTS = {
