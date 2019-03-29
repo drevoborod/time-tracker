@@ -1993,8 +1993,7 @@ if __name__ == "__main__":
     # Global tasks ids set. Used for preserve duplicates:
     if GLOBAL_OPTIONS["tasks"]:
         GLOBAL_OPTIONS["tasks"] = dict.fromkeys(
-            [int(x) for x in GLOBAL_OPTIONS["tasks"].split(",") if len(x) > 0],
-            False)
+            map(int, str(GLOBAL_OPTIONS["tasks"]).split(",")), False)
     else:
         GLOBAL_OPTIONS["tasks"] = dict()
     # List of preserved tasks which are not open:
