@@ -166,6 +166,8 @@ class Db:
     def update_preserved_tasks(self, tasks):
         if type(tasks) is not str:
             tasks = ','.join(map(str, tasks))
+            if len(tasks) == 1:
+                tasks += ","
         self.update(table='options', field='value', value=tasks,
                     field_id='tasks', updfiled='name')
 

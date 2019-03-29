@@ -42,8 +42,7 @@ class Window(tk.Toplevel):
     def on_top_wait(self):
         """Allows window to be on the top of others
         when 'always on top' is enabled."""
-        ontop = GLOBAL_OPTIONS['always_on_top']
-        if ontop:
+        if GLOBAL_OPTIONS['always_on_top']:
             self.wm_attributes("-topmost", 1)
 
     def place_window(self, parent):
@@ -109,6 +108,7 @@ class Description(tk.Frame):
         self.context_menu = RightclickMenu(copy_item=copy_menu,
                                            paste_item=paste_menu)
         self.text.bind("<Button-3>", self.context_menu.context_menu_show)
+        self.text.bind("<Tab>", lambda e: self.text.tk_focusNext)
 
     def config(self, cnf=None, **kw):
         """Text configuration method."""
@@ -1993,7 +1993,8 @@ if __name__ == "__main__":
     # Global tasks ids set. Used for preserve duplicates:
     if GLOBAL_OPTIONS["tasks"]:
         GLOBAL_OPTIONS["tasks"] = dict.fromkeys(
-            map(int, GLOBAL_OPTIONS["tasks"].split(",")), False)
+            [int(x) for x in GLOBAL_OPTIONS["tasks"].split(",") if len(x) > 0],
+            False)
     else:
         GLOBAL_OPTIONS["tasks"] = dict()
     # List of preserved tasks which are not open:
