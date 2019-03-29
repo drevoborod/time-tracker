@@ -441,8 +441,6 @@ class TimestampCommentWindow(Window):
         self.title("Timestamp comment")
         elements.SimpleLabel(self, text="Enter comment:", fontsize=10).grid(
             row=0, column=0, columnspan=2, pady=5, padx=5, sticky='we')
-        # self.comment_area = Description(self, paste_menu=True, width=60,
-        #                                 height=6)
         self.comment_area = elements.SimpleEntry(self)
         self.comment_area.config(state='normal', bg='white')
         self.comment_area.grid(row=1, column=0, columnspan=2, sticky='we')
