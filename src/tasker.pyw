@@ -308,7 +308,7 @@ class TaskFrame(tk.Frame):
         GLOBAL_OPTIONS["tasks"][task["id"]] = False
         self.task = task
         self.current_date = core.date_format(datetime.datetime.now())
-        self.timer_label.config(text=core.time_format(self.get_current_time()))
+        self.configure_indicator()
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
         self.start_button.config(image=os.curdir + '/resource/start_normal.png'
@@ -324,12 +324,15 @@ class TaskFrame(tk.Frame):
         if GLOBAL_OPTIONS["preserve_tasks"]:
             self.db.update_preserved_tasks(GLOBAL_OPTIONS["tasks"])
 
-    def get_current_time(self):
-        """Return current_time depending on time displaying options value."""
+    def configure_indicator(self):
+        """Configure timer indicator depending on time displaying options value."""
         if GLOBAL_OPTIONS["show_today"]:
-            return self.task["spent_today"]
+            current_spent = self.task["spent_today"]
         else:
-            return self.task["spent_total"]
+            current_spent = self.task["spent_total"]
+        self.timer_label.config(text=core.time_format(
+            current_spent if current_spent < 86400
+            else self.task["spent_today"]))
 
     def task_update(self):
         """Updates time in the database."""
@@ -346,10 +349,7 @@ class TaskFrame(tk.Frame):
         self.task["spent_today"] += spent
         self.task["spent_total"] += spent
         self.start_time = time.time()
-        current_spent = self.get_current_time()
-        self.timer_label.config(text=core.time_format(
-            current_spent if current_spent < 86400
-            else self.task["spent_today"]))
+        self.configure_indicator()
         # Every n seconds counter value is saved in database:
         if counter >= GLOBAL_OPTIONS["SAVE_INTERVAL"]:
             self.task_update()
@@ -1527,6 +1527,12 @@ class MainFrame(elements.ScrolledCanvas):
             GLOBAL_OPTIONS["paused"].clear()
             self.fill()
 
+    def frames_timer_indicator_update(self):
+        """Explicitly reload timer in every task frame."""
+        for frame in self.frames:
+            if not frame.running:
+                frame.configure_indicator()
+
     def fill(self):
         """Create contents of the main frame."""
         if self.frames_count < GLOBAL_OPTIONS['timers_count']:
@@ -1655,6 +1661,7 @@ class MainMenu(tk.Menu):
             self.change_parameter(params)
             # redraw taskframes if needed:
             ROOT_WINDOW.taskframes.fill()
+            ROOT_WINDOW.taskframes.frames_timer_indicator_update()
             # Stop all tasks if exclusive run method has been enabled:
             if params['toggle_tasks'] and params['toggle_tasks'] != toggle and\
                     len([x for x in GLOBAL_OPTIONS["tasks"].values() if x]) > 1:
