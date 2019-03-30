@@ -266,6 +266,8 @@ class TaskFrame(tk.Frame):
         if self in GLOBAL_OPTIONS["paused"]:
             GLOBAL_OPTIONS["paused"].remove(self)
             self.add_timestamp(core.LOG_EVENTS["STOP"], message)
+            if len(GLOBAL_OPTIONS["paused"]) == 0:
+                ROOT_WINDOW.pause_all()
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
             if GLOBAL_OPTIONS["preserve_tasks"]:
@@ -273,6 +275,7 @@ class TaskFrame(tk.Frame):
         for w in self.winfo_children():
             w.destroy()
         self.create_content()
+        ROOT_WINDOW.taskframes.fill()
 
     def name_dialogue(self):
         """Task selection window."""
@@ -291,11 +294,20 @@ class TaskFrame(tk.Frame):
                 self.timer_stop()
                 # If there is open task, we remove it from running tasks set:
                 GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
+                if self in GLOBAL_OPTIONS["paused"]:
+                    GLOBAL_OPTIONS["paused"].remove(self)
+                    self.add_timestamp(core.LOG_EVENTS["STOP"], "Another task opened in the frame.")
+                    if len(GLOBAL_OPTIONS["paused"]) == 0:
+                        ROOT_WINDOW.pause_all()
             self.get_restored_task_name(task_id)
         else:
             # If selected task is already opened in another frame:
-            if self.task["id"] != task_id:
-                showinfo("Task exists", "Task is already opened.")
+            message = "Task exists", "Task is already opened."
+            if not self.task:
+                showinfo(*message)
+            else:
+                if self.task["id"] != task_id:
+                    showinfo(*message)
 
     def get_restored_task_name(self, taskid):
         # Preparing new task:
@@ -326,13 +338,14 @@ class TaskFrame(tk.Frame):
 
     def configure_indicator(self):
         """Configure timer indicator depending on time displaying options value."""
-        if GLOBAL_OPTIONS["show_today"]:
-            current_spent = self.task["spent_today"]
-        else:
-            current_spent = self.task["spent_total"]
-        self.timer_label.config(text=core.time_format(
-            current_spent if current_spent < 86400
-            else self.task["spent_today"]))
+        if self.task:
+            if GLOBAL_OPTIONS["show_today"]:
+                current_spent = self.task["spent_today"]
+            else:
+                current_spent = self.task["spent_total"]
+            self.timer_label.config(text=core.time_format(
+                current_spent if current_spent < 86400
+                else self.task["spent_today"]))
 
     def task_update(self):
         """Updates time in the database."""
