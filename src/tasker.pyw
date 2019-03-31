@@ -164,7 +164,7 @@ class TaskFrame(tk.Frame):
             opacity='left')
         self.start_button.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
-        self.timer_label = TaskLabel(self, width=10, state='disabled')
+        self.timer_label = TaskLabel(self, width=16, state='disabled')
         elements.big_font(self.timer_label, size=20)
         self.timer_label.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = elements.CanvasButton(
@@ -296,7 +296,8 @@ class TaskFrame(tk.Frame):
                 GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
                 if self in GLOBAL_OPTIONS["paused"]:
                     GLOBAL_OPTIONS["paused"].remove(self)
-                    self.add_timestamp(core.LOG_EVENTS["STOP"], "Another task opened in the frame.")
+                    self.add_timestamp(core.LOG_EVENTS["STOP"],
+                                       "Another task opened in the frame.")
                     if len(GLOBAL_OPTIONS["paused"]) == 0:
                         ROOT_WINDOW.pause_all()
             self.get_restored_task_name(task_id)
@@ -340,12 +341,10 @@ class TaskFrame(tk.Frame):
         """Configure timer indicator depending on time displaying options value."""
         if self.task:
             if GLOBAL_OPTIONS["show_today"]:
-                current_spent = self.task["spent_today"]
+                spent = self.task["spent_today"]
             else:
-                current_spent = self.task["spent_total"]
-            self.timer_label.config(text=core.time_format(
-                current_spent if current_spent < 86400
-                else self.task["spent_today"]))
+                spent = self.task["spent_total"]
+            self.timer_label.config(text=core.time_format(spent))
 
     def task_update(self):
         """Updates time in the database."""
@@ -651,7 +650,7 @@ class TaskSelectionWindow(Window):
                                                               pady=5, padx=5,
                                                               sticky='w')
         # Summarized time of all tasks in the table:
-        self.fulltime_frame = TaskLabel(self, width=13, anchor='center')
+        self.fulltime_frame = TaskLabel(self, width=16, anchor='center')
         self.fulltime_frame.grid(row=3, column=1, padx=6, pady=5, sticky='e')
         # Selected task description:
         self.description_area = Description(self, height=4)
@@ -1016,7 +1015,7 @@ class TaskEditWindow(Window):
                                                             padx=5, pady=5,
                                                             sticky='w')
         # Frame containing time:
-        TaskLabel(self, width=11,
+        TaskLabel(self, width=16,
                   text='{}'.format(
                       core.time_format(self.task["spent_total"]))).grid(
                             row=6, column=1, pady=5, padx=5, sticky='w')

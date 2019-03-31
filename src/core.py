@@ -405,14 +405,15 @@ def write_to_disk(filename, text):
 
 def time_format(sec):
     """Returns time string in readable format."""
-    if sec < 86400:
-        return time.strftime("%H:%M:%S", time.gmtime(sec))
-    else:
-        day = int(sec // 86400)
-        if day == 1:
-            return "1 day"
-        else:
-            return "{} days".format(day)
+    days = int(sec // 86400)
+    time_ = time.strftime("%H:%M:%S", time.gmtime(sec % 86400))
+    prefix = "%d days, " % days
+    if days == 0:
+        prefix = ''
+    elif str(days).endswith("1"):
+        if days != 11:
+            prefix = "{} day, ".format(days)
+    return "{}{}".format(prefix, time_)
 
 
 def date_format(date, template=DATE_TEMPLATE):
