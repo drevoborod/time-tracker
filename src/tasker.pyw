@@ -192,6 +192,7 @@ class TaskFrame(tk.Frame):
                                                 command=self.clear)
         self.clear_button.grid(row=3, column=5, sticky='e', padx=5)
         self.running = False
+        self.paused = False
 
     def normal_interface(self):
         """Creates elements which are visible only in full interface mode."""
@@ -249,7 +250,6 @@ class TaskFrame(tk.Frame):
             self.timer_stop()
         else:
             self.timer_start()
-        GLOBAL_OPTIONS["paused"].discard(self)
 
     def properties_window(self):
         """Task properties window."""
@@ -263,11 +263,10 @@ class TaskFrame(tk.Frame):
         """Recreation of frame contents."""
         message = "Task frame cleared."
         self.timer_stop(log_message=message)
-        if self in GLOBAL_OPTIONS["paused"]:
-            GLOBAL_OPTIONS["paused"].remove(self)
+        if self.paused:
             self.add_timestamp(core.LOG_EVENTS["STOP"], message)
-            if len(GLOBAL_OPTIONS["paused"]) == 0:
-                ROOT_WINDOW.pause_all()
+            if len(get_paused_taskframes()) == 0:
+                ROOT_WINDOW.change_paused_state()
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
             if GLOBAL_OPTIONS["preserve_tasks"]:
@@ -294,12 +293,12 @@ class TaskFrame(tk.Frame):
                 self.timer_stop()
                 # If there is open task, we remove it from running tasks set:
                 GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
-                if self in GLOBAL_OPTIONS["paused"]:
-                    GLOBAL_OPTIONS["paused"].remove(self)
+                if self.paused:
+                    self.paused = False
                     self.add_timestamp(core.LOG_EVENTS["STOP"],
                                        "Another task opened in the frame.")
-                    if len(GLOBAL_OPTIONS["paused"]) == 0:
-                        ROOT_WINDOW.pause_all()
+                    if len(get_paused_taskframes()) == 0:
+                        ROOT_WINDOW.change_paused_state()
             self.get_restored_task_name(task_id)
         else:
             # If selected task is already opened in another frame:
@@ -373,32 +372,42 @@ class TaskFrame(tk.Frame):
 
     def timer_start(self, log=True, stop_all=True):
         """Counter start."""
-        self.current_date = core.date_format(datetime.datetime.now())
         if not self.running:
-            if GLOBAL_OPTIONS["toggle_tasks"]:
-                if stop_all:
-                    ROOT_WINDOW.stop_all()
-            GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
-            # Setting current timestamp:
-            self.start_time = time.time()
-            self.running = True
             self.start_button.config(
                 image=os.curdir + '/resource/stop.png' if tk.TkVersion >= 8.6
                 else os.curdir + '/resource/stop.pgm')
             self.startstop_var.set("Stop")
+            was_paused = False
             if log:
-                if self in GLOBAL_OPTIONS["paused"]:
+                if self.paused:
                     event_id = core.LOG_EVENTS["RESUME"]
                     comment = "Task resumed."
+                    was_paused = True
                 else:
                     event_id = core.LOG_EVENTS["START"]
                     comment = "Task started."
                 self.add_timestamp(event_id, comment)
-                self.task_update()
+            if GLOBAL_OPTIONS["toggle_tasks"]:
+                if stop_all and not was_paused:
+                    ROOT_WINDOW.stop_all()
+            GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
+            self.current_date = core.date_format(datetime.datetime.now())
+            self.task_update()
+            # Setting current timestamp:
+            self.start_time = time.time()
+            self.running = True
+            self.paused = False
+            if not get_paused_taskframes():
+                ROOT_WINDOW.change_paused_state()
             self.timer_update()
 
-    def timer_stop(self, log=True, log_message=None):
+    def timer_stop(self, log=True, log_message=None, paused=False):
         """Stop counter and save its value to database."""
+        event_id = core.LOG_EVENTS["STOP"]
+        comment = "Task stopped." if not log_message else log_message
+        if self.paused:
+            if log:
+                self.add_timestamp(event_id, comment)
         if self.running:
             # after_cancel() stops execution of callback with given ID.
             self.timer_label.after_cancel(self.timer)
@@ -407,19 +416,17 @@ class TaskFrame(tk.Frame):
             # Writing value into database:
             self.task_update()
             self.update_description()
-            if log:
-                if self in GLOBAL_OPTIONS["paused"]:
-                    event_id = core.LOG_EVENTS["PAUSE"]
-                    comment = "Task paused."
-                else:
-                    event_id = core.LOG_EVENTS["STOP"]
-                    comment = "Task stopped." if not log_message else log_message
-                self.add_timestamp(event_id, comment)
+            if paused:
+                event_id = core.LOG_EVENTS["PAUSE"]
+                comment = "Task paused."
             self.start_button.config(
                 image=os.curdir + '/resource/start_normal.png'
                 if tk.TkVersion >= 8.6
                 else os.curdir + '/resource/start_normal.pgm')
             self.startstop_var.set("Start")
+            if log:
+                self.add_timestamp(event_id, comment)
+        self.paused = paused
 
     def update_description(self):
         """Update text in "Description" field."""
@@ -433,8 +440,7 @@ class TaskFrame(tk.Frame):
         """Closes frame and writes counter value into database."""
         message = "Task stopped on application exit."
         self.timer_stop(log_message=message)
-        if self in GLOBAL_OPTIONS["paused"]:
-            GLOBAL_OPTIONS["paused"].remove(self)
+        if self.paused:
             self.add_timestamp(core.LOG_EVENTS["STOP"], message)
         if self.task:
             GLOBAL_OPTIONS["tasks"].pop(self.task["id"])
@@ -1536,7 +1542,6 @@ class MainFrame(elements.ScrolledCanvas):
             for w in self.content_frame.winfo_children():
                 if hasattr(w, 'task'):
                     w.clear()
-            GLOBAL_OPTIONS["paused"].clear()
             self.fill()
 
     def frames_timer_indicator_update(self):
@@ -1581,22 +1586,16 @@ class MainFrame(elements.ScrolledCanvas):
     def pause_all(self):
         for frame in self.frames:
             if frame.running:
-                GLOBAL_OPTIONS["paused"].add(frame)
-                frame.timer_stop()
+                frame.timer_stop(paused=True)
 
     def resume_all(self):
-        for frame in GLOBAL_OPTIONS["paused"]:
-            frame.timer_start(stop_all=False)
-        if GLOBAL_OPTIONS["toggle_tasks"]:
-            GLOBAL_OPTIONS["paused"].clear()
+        for frame in self.frames:
+            if frame.paused:
+                frame.timer_start(stop_all=False)
 
     def stop_all(self):
         for frame in self.frames:
-            if frame.running:
-                frame.timer_stop()
-            if frame in GLOBAL_OPTIONS["paused"]:
-                frame.add_timestamp(core.LOG_EVENTS["STOP"], "Task stopped.")
-        GLOBAL_OPTIONS["paused"].clear()
+            frame.timer_stop()
 
 
 class MainMenu(tk.Menu):
@@ -1675,13 +1674,14 @@ class MainMenu(tk.Menu):
             ROOT_WINDOW.taskframes.fill()
             ROOT_WINDOW.taskframes.frames_timer_indicator_update()
             # Stop all tasks if exclusive run method has been enabled:
-            if params['toggle_tasks'] and params['toggle_tasks'] != toggle and\
-                    len([x for x in GLOBAL_OPTIONS["tasks"].values() if x]) > 1:
-                ROOT_WINDOW.stop_all()
-            if params['toggle_tasks'] and params['toggle_tasks'] != toggle and\
-                    len(GLOBAL_OPTIONS["paused"]) > 1:
-                GLOBAL_OPTIONS["paused"].clear()
-                ROOT_WINDOW.pause_all()
+            if params['toggle_tasks'] and params['toggle_tasks'] != toggle:
+                if len([x for x in GLOBAL_OPTIONS["tasks"].values() if x]) != 1:
+                    ROOT_WINDOW.stop_all()
+                paused = get_paused_taskframes()
+                if len(paused) > 1:
+                    ROOT_WINDOW.change_paused_state()
+                    for x in paused:
+                        x.paused = False
         ROOT_WINDOW.lift()
 
     def change_parameter(self, paramdict):
@@ -1917,24 +1917,28 @@ class MainWindow(tk.Tk):
             widget.destroy()
         self.taskframes.change_interface('small')
 
+    def change_paused_state(self, paused=False):
+        self.paused = paused
+        if not GLOBAL_OPTIONS["compact_interface"]:
+            if paused:
+                title = "Resume all"
+            else:
+                title = "Pause all"
+            self.pause_all_var.set(title)
+
     def pause_all(self):
         if self.paused:
-            if not GLOBAL_OPTIONS["compact_interface"]:
-                self.pause_all_var.set("Pause all")
             self.taskframes.resume_all()
-            self.paused = False
+            self.change_paused_state()
         else:
-            if not GLOBAL_OPTIONS["compact_interface"]:
-                self.pause_all_var.set("Resume all")
             self.taskframes.pause_all()
-            self.paused = True
+            self.change_paused_state(True)
 
     def stop_all(self):
         """Stop all running timers."""
         self.taskframes.stop_all()
         self.paused = False
-        if not GLOBAL_OPTIONS["compact_interface"]:
-            self.pause_all_var.set("Pause all")
+        self.change_paused_state()
 
     def destroy(self):
         answer = askyesno("Quit confirmation", "Do you really want to quit?")
@@ -1952,6 +1956,15 @@ class MainWindow(tk.Tk):
             db.update_preserved_tasks(tasks)
             db.con.close()
             super().destroy()
+
+
+def get_paused_taskframes():
+    res = []
+    for widget in ROOT_WINDOW.taskframes.content_frame.winfo_children():
+        if hasattr(widget, "paused"):
+            if widget.paused:
+                res.append(widget)
+    return res
 
 
 def helpwindow(parent=None, text=None):
@@ -2013,8 +2026,7 @@ if __name__ == "__main__":
     GLOBAL_OPTIONS["selected_widget"] = None
     GLOBAL_OPTIONS.update({"MAX_TASKS": MAX_TASKS,
                            "TIMER_INTERVAL": TIMER_INTERVAL,
-                           "SAVE_INTERVAL": SAVE_INTERVAL,
-                           "paused": set()})
+                           "SAVE_INTERVAL": SAVE_INTERVAL})
     # Main window:
     ROOT_WINDOW = MainWindow()
     ROOT_WINDOW.mainloop()
