@@ -320,7 +320,6 @@ class TaskFrame(tk.Frame):
         # Adding task id and state to dictionary of running tasks:
         GLOBAL_OPTIONS["tasks"][task["id"]] = False
         self.task = task
-        self.current_date = core.date_format(datetime.datetime.now())
         self.configure_indicator()
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
@@ -374,6 +373,7 @@ class TaskFrame(tk.Frame):
 
     def timer_start(self, log=True, stop_all=True):
         """Counter start."""
+        self.current_date = core.date_format(datetime.datetime.now())
         if not self.running:
             if GLOBAL_OPTIONS["toggle_tasks"]:
                 if stop_all:
