@@ -9,10 +9,8 @@ from collections import OrderedDict
 try:
     import tkinter as tk
 except ModuleNotFoundError:
-    import sys
-    sys.exit(
-        "Unable to start GUI. Please install Tk for Python: "
-        "https://docs.python.org/3/library/tkinter.html.")
+    exit("Unable to start GUI. Please install Tk for Python:\n"
+         "https://docs.python.org/3/library/tkinter.html.")
 
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno, showinfo
@@ -316,6 +314,7 @@ class TaskFrame(tk.Frame):
 
     def prepare_task(self, task):
         """Prepares frame elements to work with."""
+        self.current_date = core.today()
         # Adding task id and state to dictionary of running tasks:
         GLOBAL_OPTIONS["tasks"][task["id"]] = False
         self.task = task
@@ -391,8 +390,8 @@ class TaskFrame(tk.Frame):
                 if stop_all and not was_paused:
                     ROOT_WINDOW.stop_all()
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
-            self.current_date = core.date_format(datetime.datetime.now())
             self.task_update()
+            self.current_date = core.today()
             # Setting current timestamp:
             self.start_time = time.time()
             self.running = True

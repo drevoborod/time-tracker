@@ -133,7 +133,7 @@ class Db:
         res = None
         if field == 'spent_time':
             now = datetime.datetime.now()
-            current_date = date_format(now)
+            current_date = today()
             daterow = self.check_task_activity_exists(task_id, prev_date)
             if current_date == prev_date:
                 if daterow:
@@ -424,6 +424,10 @@ def date_format(date, template=DATE_TEMPLATE):
 def str_to_date(string, template=DATE_TEMPLATE):
     """Returns datetime from string."""
     return datetime.datetime.strptime(string, template)
+
+
+def today():
+    return date_format(datetime.datetime.now())
 
 
 def table_date_format(string, template=DATE_FULL_HUMAN_READABLE_TEMPLATE):
