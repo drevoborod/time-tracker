@@ -1692,7 +1692,7 @@ class MainMenu(tk.Menu):
         self.db.con.close()
 
     def aboutwindow(self):
-        showinfo("About Tasker",
+        showinfo("About %s" % core.TITLE,
                  core.ABOUT_MESSAGE.format(
                      GLOBAL_OPTIONS['version'],
                      core.CREATOR_NAME,
@@ -1845,7 +1845,7 @@ class MainWindow(tk.Tk):
         super().__init__(**options)
         # Default widget colour:
         GLOBAL_OPTIONS["colour"] = self.cget('bg')
-        self.title("Tasker")
+        self.title(core.TITLE)
         self.minsize(height=75, width=0)
         self.resizable(width=0, height=1)
         main_menu = MainMenu(self)  # Create main menu.

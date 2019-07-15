@@ -477,7 +477,8 @@ def apply_script(scripts_list, db_connection):
 
 
 CREATOR_NAME = "Alexey Kallistov"
-ABOUT_MESSAGE = "Tasker {0}\nCopyright (c)\n{1},\n{2}"
+TITLE = "Time tracker"
+ABOUT_MESSAGE = "Time tracker {0}\nCopyright (c)\n{1},\n{2}"
 HELP_TEXT = get_help()
 TABLE_FILE = 'tasks.db'
 LOG_EVENTS = {
