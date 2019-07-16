@@ -309,15 +309,18 @@ class TaskFrame(tk.Frame):
 
     def get_restored_task_name(self, taskid):
         # Preparing new task:
-        self.prepare_task(
-            self.db.select_task(taskid))  # Task parameters from database
+        self.set_task_data(taskid)
+        self.prepare_task()
 
-    def prepare_task(self, task):
+    def set_task_data(self, taskid):
+        """Get task data from database"""
+        self.task = self.db.select_task(taskid) # Task parameters from database
+
+    def prepare_task(self):
         """Prepares frame elements to work with."""
         self.current_date = core.today()
         # Adding task id and state to dictionary of running tasks:
-        GLOBAL_OPTIONS["tasks"][task["id"]] = False
-        self.task = task
+        GLOBAL_OPTIONS["tasks"][self.task["id"]] = False
         self.configure_indicator()
         self.task_label.config(text=self.task["name"])
         self.start_button.config(state='normal')
@@ -349,8 +352,8 @@ class TaskFrame(tk.Frame):
                                   value=self.task["spent_today"],
                                   prev_date=self.current_date)
         if res:
-            self.current_date = res["current_date"]
-            self.task["spent_today"] = res["remainder"]
+            self.current_date = res.current_date
+            self.task["spent_today"] = res.remained
 
     def timer_update(self, counter=0):
         """Renewal of the counter."""
@@ -390,8 +393,9 @@ class TaskFrame(tk.Frame):
                 if stop_all and not was_paused:
                     ROOT_WINDOW.stop_all()
             GLOBAL_OPTIONS["tasks"][self.task["id"]] = True
-            self.task_update()
             self.current_date = core.today()
+            self.set_task_data(self.task["id"])
+            self.configure_indicator()
             # Setting current timestamp:
             self.start_time = time.time()
             self.running = True
@@ -962,14 +966,14 @@ class TaskSelectionWindow(Window):
         """Record filter parameters to database and apply it."""
         update = self.filter_query()
         self.db.update('filter_operating_mode', field='value',
-                       value=operating_mode, table='options', updfiled='name')
+                       value=operating_mode, table='options', updfield='name')
         self.db.update('filter', field='value', value=script, table='options',
-                       updfiled='name')
+                       updfield='name')
         self.db.update('filter_tags', field='value',
                        value=','.join([str(x) for x in tags]), table='options',
-                       updfiled='name')
+                       updfield='name')
         self.db.update('filter_dates', field='value', value=','.join(dates),
-                       table='options', updfiled='name')
+                       table='options', updfield='name')
         if update != self.filter_query():
             self.update_table()
 
@@ -1687,7 +1691,7 @@ class MainMenu(tk.Menu):
         """Change option in the database."""
         for key, value in paramdict.items():
             self.db.update(table='options', field='value', value=value,
-                      field_id=key, updfiled='name')
+                           field_id=key, updfield='name')
             GLOBAL_OPTIONS[key] = value
         self.db.con.close()
 
@@ -1949,7 +1953,7 @@ class MainWindow(tk.Tk):
                         GLOBAL_OPTIONS["tasks"]):
                     db.update(table='options', field='value',
                               value=len(GLOBAL_OPTIONS["tasks"]),
-                              field_id='timers_count', updfiled='name')
+                              field_id='timers_count', updfield='name')
             else:
                 tasks = ''
             db.update_preserved_tasks(tasks)

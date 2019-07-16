@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import datetime
 import os
 import sqlite3
@@ -110,17 +110,17 @@ class Db:
             self.insert("tasks_tags", ("tag_id", "task_id"), (1, task_id))
             return task_id
 
-    def update(self, field_id, field, value, table="tasks", updfiled="id"):
+    def update(self, field_id, field, value, table="tasks", updfield="id"):
         """Updates provided field in provided table with provided id
         using provided value """
         self.exec_script(
             "UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field,
-                                                          field_id, updfiled),
+                                                          field_id, updfield),
             value)
 
     def check_task_activity_exists(self, task_id, date):
         """Returns rowid of row with task activity for provided date
-        if such activity exists"""
+        if such activity exists, otherwise returns None"""
         self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
                          " AND date='{1}'".format(task_id, date))
         try:
@@ -137,7 +137,7 @@ class Db:
             daterow = self.check_task_activity_exists(task_id, prev_date)
             if current_date == prev_date:
                 if daterow:
-                    self.update(daterow, table='activity', updfiled='rowid',
+                    self.update(daterow, table='activity', updfield='rowid',
                                 field=field, value=value)
                 else:
                     self.insert_task_activity(task_id, value, prev_date)
@@ -146,13 +146,13 @@ class Db:
                     hours=now.hour, minutes=now.minute,
                     seconds=now.second).total_seconds()
                 if daterow:
-                    self.update(daterow, table='activity', updfiled='rowid',
-                                field=field, value=value - today_secs)
+                    self.update(daterow, table='activity', updfield='rowid',
+                                field=field, value=value - today_secs if value > today_secs else value)
                 else:
                     self.insert_task_activity(task_id, value - today_secs,
                                               prev_date)
                 self.insert_task_activity(task_id, today_secs, current_date)
-                res = {"remainder": today_secs, "current_date": current_date}
+                res = namedtuple("res", "remained,current_date")(today_secs, current_date)
         else:
             self.update(task_id, field=field, value=value)
         return res
@@ -167,7 +167,7 @@ class Db:
         if type(tasks) is not str:
             tasks = ','.join(map(str, tasks))
         self.update(table='options', field='value', value=tasks,
-                    field_id='tasks', updfiled='name')
+                    field_id='tasks', updfield='name')
 
     def delete(self, table="tasks", **field_values):
         """Removes several records using multiple "field in (values)" clauses.
