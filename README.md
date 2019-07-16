@@ -1,4 +1,4 @@
-# tasker
+# Time tracker
 __Description__
 
 A program for logging time spent on different tasks.
@@ -12,7 +12,7 @@ Filtered tasks list can be exported as .csv.
 __Installation__
 
 To run application, you need Python 3 with Tkinter framework to be installed. It can be found on https://www.python.org/downloads/ (tkinter is by default included) or in your repository if your operating system is Linux or *BSD.
-After Python interpreter installation, just extract archive with the application and execute tasker.pyw.
+After Python interpreter installation, just extract archive with the application and execute tracker.pyw.
 
 
 __License__
