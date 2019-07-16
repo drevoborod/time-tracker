@@ -147,7 +147,7 @@ class Db:
                     seconds=now.second).total_seconds()
                 if daterow:
                     self.update(daterow, table='activity', updfield='rowid',
-                                field=field, value=value - today_secs if value > today_secs else value)
+                                field=field, value=value - today_secs)
                 else:
                     self.insert_task_activity(task_id, value - today_secs,
                                               prev_date)
