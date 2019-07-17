@@ -145,7 +145,7 @@ class TaskFrame(tk.Frame):
             self.normal_interface()
         # Task name field:
         self.task_label = TaskLabel(self, width=50, anchor='w')
-        elements.big_font(self.task_label, size=14)
+        elements.big_font(self.task_label, size=elements.FONTSIZE + 3)
         self.task_label.grid(row=1, column=0, columnspan=5, padx=5, pady=5,
                              sticky='w')
         self.open_button = elements.TaskButton(self, text="Task...",
@@ -153,7 +153,7 @@ class TaskFrame(tk.Frame):
         self.open_button.grid(row=1, column=5, padx=5, pady=5, sticky='e')
         self.start_button = elements.CanvasButton(
             self, state='disabled',
-            fontsize=14,
+            fontsize=elements.FONTSIZE + 4,
             command=self.start_stop,
             variable=self.startstop_var,
             image=os.curdir + '/resource/start_disabled.png'
@@ -163,7 +163,7 @@ class TaskFrame(tk.Frame):
         self.start_button.grid(row=3, column=0, sticky='wsn', padx=5)
         # Counter frame:
         self.timer_label = TaskLabel(self, width=16, state='disabled')
-        elements.big_font(self.timer_label, size=20)
+        elements.big_font(self.timer_label, size=elements.FONTSIZE + 8)
         self.timer_label.grid(row=3, column=1, pady=5)
         self.add_timestamp_button = elements.CanvasButton(
             self,
@@ -196,7 +196,7 @@ class TaskFrame(tk.Frame):
         """Creates elements which are visible only in full interface mode."""
         # 'Task name' text:
         self.l1 = tk.Label(self, text='Task name:')
-        elements.big_font(self.l1, size=12)
+        elements.big_font(self.l1, size=elements.FONTSIZE + 2)
         self.l1.grid(row=0, column=1, columnspan=3)
         # Task description field:
         self.description_area = Description(self, width=60, height=3)
@@ -460,7 +460,7 @@ class TimestampCommentWindow(Window):
         self.comment_var = comment_var
         self.apply_var = apply_var
         self.title("Timestamp comment")
-        elements.SimpleLabel(self, text="Enter comment:", fontsize=10).grid(
+        elements.SimpleLabel(self, text="Enter comment:", fontsize=elements.FONTSIZE + 1).grid(
             row=0, column=0, columnspan=2, pady=5, padx=5, sticky='we')
         self.comment_area = elements.SimpleEntry(self)
         self.comment_area.config(state='normal', bg='white')
@@ -995,14 +995,14 @@ class TaskEditWindow(Window):
         self.title("Task properties: {}".format(
             self.db.find_by_clause('tasks', 'id', taskid, 'name')[0][0]))
         self.minsize(width=400, height=300)
-        elements.SimpleLabel(self, text="Task name:", fontsize=10).grid(
+        elements.SimpleLabel(self, text="Task name:", fontsize=elements.FONTSIZE + 1).grid(
             row=0, column=0, pady=5, padx=5, sticky='w')
         # Frame containing task name:
         TaskLabel(self, width=60, height=1, bg=GLOBAL_OPTIONS["colour"],
                   text=self.task["name"],
                   anchor='w').grid(row=1, columnspan=5, sticky='ew', padx=6)
         tk.Frame(self, height=30).grid(row=2)
-        elements.SimpleLabel(self, text="Description:", fontsize=10).grid(
+        elements.SimpleLabel(self, text="Description:", fontsize=elements.FONTSIZE + 1).grid(
             row=3, column=0, pady=5, padx=5, sticky='w')
         # Task description frame. Editable:
         self.description_area = Description(self, paste_menu=True, width=60,
@@ -1278,7 +1278,7 @@ class HelpWindow(Window):
         super().__init__(master=parent, **options)
         self.title("Help")
         main_frame = tk.Frame(self)
-        self.help_area = Description(main_frame, fontsize=13)
+        self.help_area = Description(main_frame, fontsize=elements.FONTSIZE + 2)
         self.help_area.insert(text)
         self.help_area.config(state='disabled')
         self.help_area.grid(row=0, column=0, sticky='news')
@@ -1611,16 +1611,16 @@ class MainMenu(tk.Menu):
                          underline=0)
         file.add_separator()
         file.add_command(label="Exit", command=self.exit, underline=1)
-        elements.big_font(file, 10)
+        elements.big_font(file, elements.FONTSIZE + 1)
         self.add_cascade(label="Main menu", menu=file, underline=0)
         helpmenu = tk.Menu(self, tearoff=0)
         helpmenu.add_command(label="Help...",
                              command=lambda: helpwindow(parent=ROOT_WINDOW,
                                                         text=core.HELP_TEXT))
         helpmenu.add_command(label="About...", command=self.aboutwindow)
-        elements.big_font(helpmenu, 10)
+        elements.big_font(helpmenu, elements.FONTSIZE + 1)
         self.add_cascade(label="Help", menu=helpmenu)
-        elements.big_font(self, 10)
+        elements.big_font(self, elements.FONTSIZE + 1)
 
     def options_window(self):
         """Open options window."""
@@ -1719,7 +1719,7 @@ class Options(Window):
         elements.SimpleLabel(self, text="Task frames in main window: ").grid(
             row=0, column=0, sticky='w')
         counter_frame = tk.Frame(self)
-        fontsize = 9
+        fontsize = elements.FONTSIZE
         elements.CanvasButton(counter_frame, text='<', command=self.decrease,
                               fontsize=fontsize, height=fontsize * 3).grid(
             row=0, column=0)
@@ -1797,7 +1797,7 @@ class ExportWindow(Window):
         self.title("Export parameters")
         self.task_ids = [x["id"] for x in data.values()]
         self.operating_mode_var = tk.IntVar(self)
-        elements.SimpleLabel(self, text="Export mode", fontsize=10).grid(
+        elements.SimpleLabel(self, text="Export mode", fontsize=elements.FONTSIZE + 1).grid(
             row=0, column=0, columnspan=2, sticky='ns', pady=5)
         elements.SimpleRadiobutton(self, text="Task-based",
                                    variable=self.operating_mode_var,

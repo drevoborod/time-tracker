@@ -3,8 +3,11 @@
 import tkinter as tk
 
 
+FONTSIZE = 9
+
+
 class Text(tk.Widget):
-    def __init__(self, fontsize=11, **kwargs):
+    def __init__(self, fontsize=FONTSIZE, **kwargs):
         super().__init__(**kwargs)
         big_font(self, fontsize)
 
@@ -45,7 +48,7 @@ class CanvasButton(Text, tk.Canvas):
 
     def __init__(self, master=None, image=None, text=None, variable=None,
                  width=None, height=None, textwidth=None,
-                 textheight=None, fontsize=11, opacity=None, relief='raised',
+                 textheight=None, fontsize=FONTSIZE, opacity=None, relief='raised',
                  bg=None, bd=2, state='normal',
                  takefocus=True, command=None):
         super().__init__(master=master)
@@ -256,7 +259,7 @@ class ScrolledCanvas(tk.Frame):
         self.canvbox.config(height=self.content_frame.winfo_height())
 
 
-def big_font(unit, size=9):
+def big_font(unit, size=FONTSIZE):
     """Font size of a given unit change."""
     fontname = tk.font.Font(font=unit['font']).actual()['family']
     unit.config(font=(fontname, size))
