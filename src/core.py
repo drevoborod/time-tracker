@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 
-from collections import OrderedDict as odict
+from collections import OrderedDict, namedtuple
 import datetime
 import os
 import sqlite3
 import time
+
+
+DATE_TEMPLATE = "%Y-%m-%d"
+DATE_STORAGE_TEMPLATE = "%Y-%m-%dT%H:%M:%S.%f"
+DATE_FULL_HUMAN_READABLE_TEMPLATE = "%Y-%m-%d %H:%M:%S"
 
 
 class DbErrors(Exception):
@@ -93,38 +98,76 @@ class Db:
 
     def insert_task(self, name):
         """Insert task into database."""
-        date = date_format(datetime.datetime.now())
         try:
             rowid = self.insert('tasks', ('name', 'creation_date'),
-                                (name, date))
+                                (name, date_format(datetime.datetime.now(),
+                                                   DATE_STORAGE_TEMPLATE)))
         except sqlite3.IntegrityError:
             raise DbErrors("Task name already exists")
         else:
             task_id = self.find_by_clause("tasks", "rowid", rowid, "id")[0][0]
-            self.insert("activity", ("date", "task_id", "spent_time"),
-                        (date, task_id, 0))
+            self.insert_task_activity(task_id, 0)
             self.insert("tasks_tags", ("tag_id", "task_id"), (1, task_id))
             return task_id
 
-    def update(self, field_id, field, value, table="tasks", updfiled="id"):
+    def update(self, field_id, field, value, table="tasks", updfield="id"):
         """Updates provided field in provided table with provided id
         using provided value """
         self.exec_script(
             "UPDATE {0} SET {1}=? WHERE {3}='{2}'".format(table, field,
-                                                          field_id, updfiled),
+                                                          field_id, updfield),
             value)
 
-    def update_task(self, task_id, field="spent_time", value=0):
+    def check_task_activity_exists(self, task_id, date):
+        """Returns rowid of row with task activity for provided date
+        if such activity exists, otherwise returns None"""
+        self.exec_script("SELECT rowid FROM activity WHERE task_id={0}"
+                         " AND date='{1}'".format(task_id, date))
+        try:
+            return self.cur.fetchone()[0]
+        except TypeError:
+            return
+
+    def update_task(self, task_id, field="spent_time", value=0, prev_date=None):
         """Updates some fields for given task id."""
+        res = None
         if field == 'spent_time':
-            self.exec_script("SELECT rowid FROM activity WHERE task_id={0} "
-                             "AND date='{1}'".format(task_id, date_format(
-                datetime.datetime.now())))
-            daterow = self.cur.fetchone()[0]
-            self.update(daterow, table='activity', updfiled='rowid',
-                        field=field, value=value)
+            now = datetime.datetime.now()
+            current_date = today()
+            daterow = self.check_task_activity_exists(task_id, prev_date)
+            if current_date == prev_date:
+                if daterow:
+                    self.update(daterow, table='activity', updfield='rowid',
+                                field=field, value=value)
+                else:
+                    self.insert_task_activity(task_id, value, prev_date)
+            else:
+                today_secs = datetime.timedelta(
+                    hours=now.hour, minutes=now.minute,
+                    seconds=now.second).total_seconds()
+                if daterow:
+                    self.update(daterow, table='activity', updfield='rowid',
+                                field=field, value=value - today_secs)
+                else:
+                    self.insert_task_activity(task_id, value - today_secs,
+                                              prev_date)
+                self.insert_task_activity(task_id, today_secs, current_date)
+                res = namedtuple("res", "remained,current_date")(today_secs, current_date)
         else:
             self.update(task_id, field=field, value=value)
+        return res
+
+    def insert_task_activity(self, task_id, spent_time, date=None):
+        self.insert("activity", ("date", "task_id", "spent_time"),
+                    (date if date else date_format(datetime.datetime.now()),
+                     task_id,
+                     spent_time))
+
+    def update_preserved_tasks(self, tasks):
+        if type(tasks) is not str:
+            tasks = ','.join(map(str, tasks))
+        self.update(table='options', field='value', value=tasks,
+                    field_id='tasks', updfield='name')
 
     def delete(self, table="tasks", **field_values):
         """Removes several records using multiple "field in (values)" clauses.
@@ -163,7 +206,7 @@ class Db:
         db_response = [{"name": item[0], "descr": item[1] if item[1] else '',
                         "date": item[2], "spent_time": item[3]}
                        for item in self.cur.fetchall()]
-        prepared_data = odict()
+        prepared_data = OrderedDict()
         for item in db_response:
             if item["name"] in prepared_data:
                 prepared_data[item["name"]]["dates"].append(
@@ -209,7 +252,7 @@ class Db:
                         "descr": item[2] if item[2] else '',
                         "spent_time": item[3]} for item in self.cur.fetchall()]
 
-        prepared_data = odict()
+        prepared_data = OrderedDict()
         for item in db_response:
             if item["date"] in prepared_data:
                 prepared_data[item["date"]]["tasks"].append({
@@ -356,31 +399,40 @@ def check_database():
 
 def write_to_disk(filename, text):
     """Creates file and fills it with given text."""
-    expfile = open(filename, 'w')
-    expfile.write(text)
-    expfile.close()
+    with open(filename, 'w') as expfile:
+        expfile.write(text)
 
 
 def time_format(sec):
     """Returns time string in readable format."""
-    if sec < 86400:
-        return time.strftime("%H:%M:%S", time.gmtime(sec))
-    else:
-        day = int(sec // 86400)
-        if day == 1:
-            return "1 day"
-        else:
-            return "{} days".format(day)
+    days = int(sec // 86400)
+    time_ = time.strftime("%H:%M:%S", time.gmtime(sec % 86400))
+    prefix = "%d days, " % days
+    if days == 0:
+        prefix = ''
+    elif str(days).endswith("1"):
+        if days != 11:
+            prefix = "{} day, ".format(days)
+    return "{}{}".format(prefix, time_)
 
 
-def date_format(date, template='%Y-%m-%d'):
+def date_format(date, template=DATE_TEMPLATE):
     """Returns formatted date (str). Accepts datetime."""
     return datetime.datetime.strftime(date, template)
 
 
-def str_to_date(string, template='%Y-%m-%d'):
+def str_to_date(string, template=DATE_TEMPLATE):
     """Returns datetime from string."""
     return datetime.datetime.strptime(string, template)
+
+
+def today():
+    return date_format(datetime.datetime.now())
+
+
+def table_date_format(string, template=DATE_FULL_HUMAN_READABLE_TEMPLATE):
+    """Formats date stored in database to more human-readable"""
+    return date_format(str_to_date(string, DATE_STORAGE_TEMPLATE), template)
 
 
 def get_help():
@@ -399,7 +451,7 @@ def patch_database():
     cur = con.cursor()
     cur.execute("SELECT value FROM options WHERE name='patch_ver';")
     res = cur.fetchone()
-    key = '0'
+    key = 0
     if not res:
         for key in sorted(PATCH_SCRIPTS):
             apply_script(PATCH_SCRIPTS[key], con)
@@ -410,8 +462,7 @@ def patch_database():
                 apply_script(PATCH_SCRIPTS[key], con)
     if res[0] != key:
         con.executescript(
-            "UPDATE options SET value='{0}' WHERE name='patch_ver';".format(
-                str(key)))
+            "UPDATE options SET value={0} WHERE name='patch_ver';".format(key))
         con.commit()
     con.close()
 
@@ -425,8 +476,18 @@ def apply_script(scripts_list, db_connection):
             pass
 
 
+CREATOR_NAME = "Alexey Kallistov"
+TITLE = "Time tracker"
+ABOUT_MESSAGE = "Time tracker {0}\nCopyright (c)\n{1},\n{2}"
 HELP_TEXT = get_help()
 TABLE_FILE = 'tasks.db'
+LOG_EVENTS = {
+    "START": 0,
+    "STOP": 1,
+    "PAUSE": 2,
+    "RESUME": 3,
+    "CUSTOM": 9
+}
 TABLE_STRUCTURE = """\
                 CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE,
@@ -437,27 +498,25 @@ TABLE_STRUCTURE = """\
                 spent_time INT);
                 CREATE TABLE tasks_tags (task_id INT,
                 tag_id INT);
-                CREATE TABLE timestamps (timestamp INT,
-                task_id INT);
+                CREATE TABLE timestamps (timestamp INT, task_id INT, 
+                event_type INT, datetime TEXT, comment TEXT);
                 CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE);
-                CREATE TABLE options (name TEXT UNIQUE,
-                value TEXT);
+                CREATE TABLE options (name TEXT UNIQUE, value NUMERIC);
                 INSERT INTO tags VALUES (1, 'default');
                 INSERT INTO options (name) VALUES ('filter');
                 INSERT INTO options VALUES ('filter_tags', '');
                 INSERT INTO options VALUES ('filter_dates', '');
                 INSERT INTO options VALUES ('filter_operating_mode', 'AND');
-                INSERT INTO options VALUES ('patch_ver', '0');
-                INSERT INTO options VALUES ('timers_count', '3');
-                INSERT INTO options VALUES ('minimize_to_tray', '0');
-                INSERT INTO options VALUES ('always_on_top', '0');
-                INSERT INTO options VALUES ('preserve_tasks', '0');
-                INSERT INTO options VALUES ('show_today', '0');
-                INSERT INTO options VALUES ('toggle_tasks', '0');
+                INSERT INTO options VALUES ('patch_ver', 0);
+                INSERT INTO options VALUES ('timers_count', 3);
+                INSERT INTO options VALUES ('always_on_top', 0);
+                INSERT INTO options VALUES ('preserve_tasks', 0);
+                INSERT INTO options VALUES ('show_today', 0);
+                INSERT INTO options VALUES ('toggle_tasks', 0);
                 INSERT INTO options VALUES ('tasks', '');
-                INSERT INTO options VALUES ('compact_interface', '0');
-                INSERT INTO options VALUES ('version', '1.5.1');
+                INSERT INTO options VALUES ('compact_interface', 0);
+                INSERT INTO options VALUES ('version', '1.5.2');
                 INSERT INTO options VALUES ('install_time', datetime('now'));
                 """
 # PATCH_SCRIPTS = {
