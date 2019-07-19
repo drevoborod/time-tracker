@@ -147,7 +147,7 @@ class TaskFrame(tk.Frame):
         self.task_label = TaskLabel(self, width=50, anchor='w')
         elements.big_font(self.task_label, size=elements.FONTSIZE + 3)
         self.task_label.grid(row=1, column=0, columnspan=5, padx=5, pady=5,
-                             sticky='w')
+                             sticky='ew')
         self.open_button = elements.TaskButton(self, text="Task...",
                                                command=self.name_dialogue)
         self.open_button.grid(row=1, column=5, padx=5, pady=5, sticky='e')
