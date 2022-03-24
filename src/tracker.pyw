@@ -1328,12 +1328,10 @@ class FilterWindow(Window):
         # Operating mode of the filter: "AND", "OR".
         self.operating_mode_var = tk.StringVar()
         # Lists of stored filter parameters:
-        stored_dates = \
-        self.db.find_by_clause('options', 'name', 'filter_dates', 'value')[0][
-            0].split(',')
-        stored_tags = \
-        self.db.find_by_clause('options', 'name', 'filter_tags', 'value')[0][
-            0].split(',')
+        stored_dates = self.db.find_by_clause(
+            'options', 'name', 'filter_dates', 'value')[0][0].split(',')
+        stored_tags = str(self.db.find_by_clause(
+            'options', 'name', 'filter_tags', 'value')[0][0]).split(',')
         if stored_tags[0]:  # stored_tags[0] is string.
             stored_tags = list(map(int, stored_tags))
         # Dates list:
