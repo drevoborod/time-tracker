@@ -258,6 +258,13 @@ class ScrolledCanvas(tk.Frame):
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
         self.canvbox.config(height=self.content_frame.winfo_height())
 
+    def mouse_vertical_scroll(self, event):
+        if event.num == 4 or event.delta > 0:
+            delta = -1
+        else:
+            delta = 1
+        self.canvbox.yview_scroll(delta, 'units')
+
 
 def big_font(unit, size=FONTSIZE):
     """Font size of a given unit change."""
