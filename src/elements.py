@@ -252,18 +252,22 @@ class ScrolledCanvas(tk.Frame):
         self.canvbox.bind("<Configure>", self.reconf_canvas)
         self.canvbox.pack(fill="x" if orientation == "horizontal" else "both",
                           expand=1)
+        self.orientation = orientation
 
     def reconf_canvas(self, event):
         """Resizing of canvas scrollable region."""
         self.canvbox.configure(scrollregion=self.canvbox.bbox('all'))
         self.canvbox.config(height=self.content_frame.winfo_height())
 
-    def mouse_vertical_scroll(self, event):
+    def mouse_scroll(self, event):
         if event.num == 4 or event.delta > 0:
             delta = -1
         else:
             delta = 1
-        self.canvbox.yview_scroll(delta, 'units')
+        if self.orientation == 'vertical':
+            self.canvbox.yview_scroll(delta, 'units')
+        else:
+            self.canvbox.xview_scroll(delta, 'units')
 
 
 def big_font(unit, size=FONTSIZE):

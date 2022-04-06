@@ -1315,6 +1315,11 @@ class Tagslist(elements.ScrolledCanvas):
                     anchor='w')
             # Setting dynamic variable value to previously saved state:
             item[1][0].set(state)
+        interface_items = [self.canvbox, *get_all_widget_children(self.content_frame, [])]
+        for item in interface_items:
+            item.bind("<MouseWheel>", self.mouse_scroll)   # for Windows/OS X
+            item.bind("<Button-4>", self.mouse_scroll)     # for Linux
+            item.bind("<Button-5>", self.mouse_scroll)
 
 
 class FilterWindow(Window):
@@ -1575,9 +1580,9 @@ class MainFrame(elements.ScrolledCanvas):
         self.content_frame.config(bg='#cfcfcf')
         interface_items = [self.content_frame, *get_all_widget_children(self.content_frame, [])]
         for item in interface_items:
-            item.bind("<MouseWheel>", self.mouse_vertical_scroll)   # for Windows/OS X
-            item.bind("<Button-4>", self.mouse_vertical_scroll)     # for Linux
-            item.bind("<Button-5>", self.mouse_vertical_scroll)
+            item.bind("<MouseWheel>", self.mouse_scroll)   # for Windows/OS X
+            item.bind("<Button-4>", self.mouse_scroll)     # for Linux
+            item.bind("<Button-5>", self.mouse_scroll)
 
     def change_interface(self, interface):
         """Change interface type. Accepts keywords 'normal' and 'small'."""
