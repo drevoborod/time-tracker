@@ -5,6 +5,7 @@ import datetime
 import os
 import time
 from collections import OrderedDict
+from contextlib import suppress
 
 try:
     import tkinter as tk
@@ -1314,6 +1315,11 @@ class Tagslist(elements.ScrolledCanvas):
                     anchor='w')
             # Setting dynamic variable value to previously saved state:
             item[1][0].set(state)
+        interface_items = [self.canvbox, *get_all_widget_children(self.content_frame, [])]
+        for item in interface_items:
+            item.bind("<MouseWheel>", self.mouse_scroll)   # for Windows/OS X
+            item.bind("<Button-4>", self.mouse_scroll)     # for Linux
+            item.bind("<Button-5>", self.mouse_scroll)
 
 
 class FilterWindow(Window):
@@ -1572,17 +1578,20 @@ class MainFrame(elements.ScrolledCanvas):
                 GLOBAL_OPTIONS['timers_count']:
             self.clear()
         self.content_frame.config(bg='#cfcfcf')
+        interface_items = [self.content_frame, *get_all_widget_children(self.content_frame, [])]
+        for item in interface_items:
+            item.bind("<MouseWheel>", self.mouse_scroll)   # for Windows/OS X
+            item.bind("<Button-4>", self.mouse_scroll)     # for Linux
+            item.bind("<Button-5>", self.mouse_scroll)
 
     def change_interface(self, interface):
         """Change interface type. Accepts keywords 'normal' and 'small'."""
         for widget in self.content_frame.winfo_children():
-            try:
+            with suppress(TclError):
                 if interface == 'normal':
                     widget.normal_interface()
                 elif interface == 'small':
                     widget.small_interface()
-            except TclError:
-                pass
 
     def pause_all(self):
         for frame in self.frames:
@@ -1957,6 +1966,14 @@ class MainWindow(tk.Tk):
             db.update_preserved_tasks(tasks)
             db.con.close()
             super().destroy()
+
+
+def get_all_widget_children(widget, children_list):
+    children = widget.winfo_children()
+    for child in children:
+        children_list.append(child)
+        get_all_widget_children(child, children_list)
+    return children_list
 
 
 def get_paused_taskframes():
