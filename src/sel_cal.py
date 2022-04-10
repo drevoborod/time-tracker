@@ -34,13 +34,14 @@ try:
 
     from Tkconstants import CENTER, LEFT, N, E, W, S
     from Tkinter import StringVar
-except ImportError: # py3k
+except ImportError:  # py3k
     import tkinter as Tkinter
     import tkinter.font as tkFont
     import tkinter.ttk as ttk
 
     from tkinter.constants import CENTER, LEFT, N, E, W, S
     from tkinter import StringVar
+
 import elements
 
 
@@ -56,7 +57,12 @@ class Calendar(ttk.Frame):
     datetime = calendar.datetime.datetime
     timedelta = calendar.datetime.timedelta
 
-    def __init__(self, master=None, year=None, month=None, firstweekday=calendar.MONDAY, locale=None, activebackground='#b1dcfb', activeforeground='black', selectbackground='#003eff', selectforeground='white', command=None, borderwidth=1, relief="solid", on_click_month_button=None):
+    def __init__(self, master=None, year=None, month=None,
+                 firstweekday=calendar.MONDAY, locale=None,
+                 activebackground='#b1dcfb', activeforeground='black',
+                 selectbackground='#003eff', selectforeground='white',
+                 command=None, borderwidth=1, relief="solid",
+                 on_click_month_button=None):
         """
         WIDGET OPTIONS
 
@@ -84,10 +90,13 @@ class Calendar(ttk.Frame):
         self._selection_is_visible = False
         self._command = command
 
-        ttk.Frame.__init__(self, master, borderwidth=borderwidth, relief=relief)
+        ttk.Frame.__init__(self, master, borderwidth=borderwidth,
+                           relief=relief)
 
-        self.bind("<FocusIn>", lambda event:self.event_generate('<<DatePickerFocusIn>>'))
-        self.bind("<FocusOut>", lambda event:self.event_generate('<<DatePickerFocusOut>>'))
+        self.bind("<FocusIn>",
+                  lambda event: self.event_generate('<<DatePickerFocusIn>>'))
+        self.bind("<FocusOut>",
+                  lambda event: self.event_generate('<<DatePickerFocusOut>>'))
 
         self._cal = get_calendar(locale, firstweekday)
 
@@ -106,13 +115,16 @@ class Calendar(ttk.Frame):
 
         # header frame and its widgets
         hframe = ttk.Frame(self)
-        lbtn = ttk.Button(hframe, style='L.TButton', command=self._on_press_left_button)
+        lbtn = ttk.Button(hframe, style='L.TButton',
+                          command=self._on_press_left_button)
         lbtn.pack(side=LEFT)
 
-        self._header = elements.SimpleLabel(hframe, width=15, anchor=CENTER, textvariable=self._header_var)
+        self._header = elements.SimpleLabel(hframe, width=15, anchor=CENTER,
+                                            textvariable=self._header_var)
         self._header.pack(side=LEFT, padx=12)
 
-        rbtn = ttk.Button(hframe, style='R.TButton', command=self._on_press_right_button)
+        rbtn = ttk.Button(hframe, style='R.TButton',
+                          command=self._on_press_right_button)
         rbtn.pack(side=LEFT)
         hframe.grid(columnspan=7, pady=4)
 
@@ -121,15 +133,20 @@ class Calendar(ttk.Frame):
         days_of_the_week = self._cal.formatweekheader(3).split()
 
         for i, day_of_the_week in enumerate(days_of_the_week):
-            elements.SimpleLabel(self, text=day_of_the_week, background='grey90').grid(row=1, column=i, sticky=N+E+W+S)
+            elements.SimpleLabel(self, text=day_of_the_week,
+                                 background='grey90').grid(row=1, column=i,
+                                                           sticky=N + E + W + S)
 
         for i in range(6):
             for j in range(7):
-                self._day_labels[i,j] = label = elements.SimpleLabel(self, background = "white")
+                self._day_labels[i, j] = label = elements.SimpleLabel(self,
+                                                                      background="white")
 
-                label.grid(row=i+2, column=j, sticky=N+E+W+S)
-                label.bind("<Enter>", lambda event: event.widget.configure(background=self._act_bg, foreground=self._act_fg))
-                label.bind("<Leave>", lambda event: event.widget.configure(background="white"))
+                label.grid(row=i + 2, column=j, sticky=N + E + W + S)
+                label.bind("<Enter>", lambda event: event.widget.configure(
+                    background=self._act_bg, foreground=self._act_fg))
+                label.bind("<Leave>", lambda event: event.widget.configure(
+                    background="white"))
 
                 label.bind("<1>", self._pressed)
 
@@ -146,7 +163,7 @@ class Calendar(ttk.Frame):
         self._build_calendar(year, month)
 
     def _build_calendar(self, year, month):
-        if not( self._year == year and self._month == month):
+        if not (self._year == year and self._month == month):
             self._year = year
             self._month = month
 
@@ -163,26 +180,31 @@ class Calendar(ttk.Frame):
                 fmt_week = [('%02d' % day) if day else '' for day in week]
 
                 for j, day_number in enumerate(fmt_week):
-                    self._day_labels[i,j]["text"] = day_number
+                    self._day_labels[i, j]["text"] = day_number
 
             if len(cal) < 6:
                 for j in range(7):
-                    self._day_labels[5,j]["text"] = ""
+                    self._day_labels[5, j]["text"] = ""
 
-        if self._selected_date is not None and self._selected_date.year == self._year and self._selected_date.month == self._month:
+        if self._selected_date is not None \
+                and self._selected_date.year == self._year \
+                and self._selected_date.month == self._month:
             self._show_selection()
 
     def _find_label_coordinates(self, date):
-         first_weekday_of_the_month = (date.weekday() - date.day) % 7
+        first_weekday_of_the_month = (date.weekday() - date.day) % 7
 
-         return divmod((first_weekday_of_the_month - self._cal.firstweekday)%7 + date.day, 7)
+        return divmod((
+                        first_weekday_of_the_month - self._cal.firstweekday)
+                      % 7 + date.day, 7
+                      )
 
     def _show_selection(self):
         """Show a new selection."""
 
-        i,j = self._find_label_coordinates(self._selected_date)
+        i, j = self._find_label_coordinates(self._selected_date)
 
-        label = self._day_labels[i,j]
+        label = self._day_labels[i, j]
 
         label.configure(background=self._sel_bg, foreground=self._sel_fg)
 
@@ -193,13 +215,15 @@ class Calendar(ttk.Frame):
 
     def _clear_selection(self):
         """Show a new selection."""
-        i,j = self._find_label_coordinates(self._selected_date)
+        i, j = self._find_label_coordinates(self._selected_date)
 
-        label = self._day_labels[i,j]
-        label.configure(background= "white", foreground="black")
+        label = self._day_labels[i, j]
+        label.configure(background="white", foreground="black")
 
-        label.bind("<Enter>", lambda event: event.widget.configure(background=self._act_bg, foreground=self._act_fg))
-        label.bind("<Leave>", lambda event: event.widget.configure(background="white"))
+        label.bind("<Enter>", lambda event: event.widget.configure(
+            background=self._act_bg, foreground=self._act_fg))
+        label.bind("<Leave>",
+                   lambda event: event.widget.configure(background="white"))
 
         self._selection_is_visible = False
 
@@ -215,7 +239,8 @@ class Calendar(ttk.Frame):
 
         day_number = int(text)
 
-        new_selected_date = datetime.datetime(self._year, self._month, day_number)
+        new_selected_date = datetime.datetime(self._year, self._month,
+                                              day_number)
         if self._selected_date != new_selected_date:
             if self._selected_date is not None:
                 self._clear_selection()
@@ -247,7 +272,8 @@ class Calendar(ttk.Frame):
             self._clear_selection()
             self._selected_date = self._selected_date - self.timedelta(days=1)
 
-        self._build_calendar(self._selected_date.year, self._selected_date.month) # reconstruct calendar
+        self._build_calendar(self._selected_date.year,
+                             self._selected_date.month)  # reconstruct calendar
 
     def select_next_day(self):
         """Update calendar to show the next day."""
@@ -258,8 +284,8 @@ class Calendar(ttk.Frame):
             self._clear_selection()
             self._selected_date = self._selected_date + self.timedelta(days=1)
 
-        self._build_calendar(self._selected_date.year, self._selected_date.month) # reconstruct calendar
-
+        self._build_calendar(self._selected_date.year,
+                             self._selected_date.month)  # reconstruct calendar
 
     def select_prev_week_day(self):
         """Updated calendar to show the previous week."""
@@ -269,7 +295,8 @@ class Calendar(ttk.Frame):
             self._clear_selection()
             self._selected_date = self._selected_date - self.timedelta(days=7)
 
-        self._build_calendar(self._selected_date.year, self._selected_date.month) # reconstruct calendar
+        self._build_calendar(self._selected_date.year,
+                             self._selected_date.month)  # reconstruct calendar
 
     def select_next_week_day(self):
         """Update calendar to show the next week."""
@@ -279,44 +306,50 @@ class Calendar(ttk.Frame):
             self._clear_selection()
             self._selected_date = self._selected_date + self.timedelta(days=7)
 
-        self._build_calendar(self._selected_date.year, self._selected_date.month) # reconstruct calendar
+        self._build_calendar(self._selected_date.year,
+                             self._selected_date.month)  # reconstruct calendar
 
     def select_current_date(self):
         """Update calendar to current date."""
         if self._selection_is_visible: self._clear_selection()
 
         self._selected_date = datetime.datetime.now()
-        self._build_calendar(self._selected_date.year, self._selected_date.month)
+        self._build_calendar(self._selected_date.year,
+                             self._selected_date.month)
 
     def prev_month(self):
         """Updated calendar to show the previous week."""
         if self._selection_is_visible: self._clear_selection()
 
-        date = self.datetime(self._year, self._month, 1) - self.timedelta(days=1)
-        self._build_calendar(date.year, date.month) # reconstuct calendar
+        date = self.datetime(self._year, self._month, 1) - self.timedelta(
+            days=1)
+        self._build_calendar(date.year, date.month)  # reconstuct calendar
 
     def next_month(self):
         """Update calendar to show the next month."""
         if self._selection_is_visible: self._clear_selection()
 
         date = self.datetime(self._year, self._month, 1) + \
-            self.timedelta(days=calendar.monthrange(self._year, self._month)[1] + 1)
+               self.timedelta(
+                   days=calendar.monthrange(self._year, self._month)[1] + 1)
 
-        self._build_calendar(date.year, date.month) # reconstuct calendar
+        self._build_calendar(date.year, date.month)  # reconstuct calendar
 
     def prev_year(self):
         """Updated calendar to show the previous year."""
 
         if self._selection_is_visible: self._clear_selection()
 
-        self._build_calendar(self._year-1, self._month) # reconstruct calendar
+        self._build_calendar(self._year - 1,
+                             self._month)  # reconstruct calendar
 
     def next_year(self):
         """Update calendar to show the next year."""
 
         if self._selection_is_visible: self._clear_selection()
 
-        self._build_calendar(self._year+1, self._month) # reconstruct calendar
+        self._build_calendar(self._year + 1,
+                             self._month)  # reconstruct calendar
 
     def get_selection(self):
         """Return a datetime representing the current selected date."""
@@ -331,13 +364,20 @@ class Calendar(ttk.Frame):
 
         self._selected_date = date
 
-        self._build_calendar(date.year, date.month) # reconstruct calendar
+        self._build_calendar(date.year, date.month)  # reconstruct calendar
+
 
 # see this URL for date format information:
 #     https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
 
 class Datepicker(elements.SimpleTtkEntry):
-    def __init__(self, master, current_month=None, current_year=None, entrywidth=None, entrystyle=None, datevar=None, dateformat="%Y-%m-%d", onselect=None, firstweekday=calendar.MONDAY, locale=None, activebackground='#b1dcfb', activeforeground='black', selectbackground='#003eff', selectforeground='white', borderwidth=1, relief="solid"):
+    def __init__(self, master, current_month=None, current_year=None,
+                 entrywidth=None, entrystyle=None, datevar=None,
+                 dateformat="%Y-%m-%d", onselect=None,
+                 firstweekday=calendar.MONDAY, locale=None,
+                 activebackground='#b1dcfb', activeforeground='black',
+                 selectbackground='#003eff', selectforeground='white',
+                 borderwidth=1, relief="solid"):
 
         if datevar is not None:
             self.date_var = datevar
@@ -351,57 +391,79 @@ class Datepicker(elements.SimpleTtkEntry):
         if entrystyle is not None:
             entry_config["style"] = entrystyle
 
-        elements.SimpleTtkEntry.__init__(self, master, textvariable=self.date_var, **entry_config)
+        elements.SimpleTtkEntry.__init__(self, master,
+                                         textvariable=self.date_var,
+                                         **entry_config)
 
         self.date_format = dateformat
 
         self._is_calendar_visible = False
         self._on_select_date_command = onselect
 
-        self.calendar_frame = Calendar(self.winfo_toplevel(), month=current_month, year=current_year, firstweekday=firstweekday, locale=locale, activebackground=activebackground, activeforeground=activeforeground, selectbackground=selectbackground, selectforeground=selectforeground, command=self._on_selected_date, on_click_month_button=lambda: self.focus())
+        self.calendar_frame = Calendar(self.winfo_toplevel(),
+                                       month=current_month, year=current_year,
+                                       firstweekday=firstweekday,
+                                       locale=locale,
+                                       activebackground=activebackground,
+                                       activeforeground=activeforeground,
+                                       selectbackground=selectbackground,
+                                       selectforeground=selectforeground,
+                                       command=self._on_selected_date,
+                                       on_click_month_button=lambda: self.focus())
 
         self.bind_all("<1>", self._on_click, "+")
 
         self.bind("<FocusOut>", lambda event: self._on_entry_focus_out())
         self.bind("<Escape>", lambda event: self.hide_calendar())
-        self.calendar_frame.bind("<<DatePickerFocusOut>>", lambda event: self._on_calendar_focus_out())
-
+        self.calendar_frame.bind("<<DatePickerFocusOut>>",
+                                 lambda event: self._on_calendar_focus_out())
 
         # CTRL + PAGE UP: Move to the previous month.
-        self.bind("<Control-Prior>", lambda event: self.calendar_frame.prev_month())
+        self.bind("<Control-Prior>",
+                  lambda event: self.calendar_frame.prev_month())
 
         # CTRL + PAGE DOWN: Move to the next month.
-        self.bind("<Control-Next>", lambda event: self.calendar_frame.next_month())
+        self.bind("<Control-Next>",
+                  lambda event: self.calendar_frame.next_month())
 
         # CTRL + SHIFT + PAGE UP: Move to the previous year.
-        self.bind("<Control-Shift-Prior>", lambda event: self.calendar_frame.prev_year())
+        self.bind("<Control-Shift-Prior>",
+                  lambda event: self.calendar_frame.prev_year())
 
         # CTRL + SHIFT + PAGE DOWN: Move to the next year.
-        self.bind("<Control-Shift-Next>", lambda event: self.calendar_frame.next_year())
+        self.bind("<Control-Shift-Next>",
+                  lambda event: self.calendar_frame.next_year())
 
         # CTRL + LEFT: Move to the previous day.
-        self.bind("<Control-Left>", lambda event: self.calendar_frame.select_prev_day())
+        self.bind("<Control-Left>",
+                  lambda event: self.calendar_frame.select_prev_day())
 
         # CTRL + RIGHT: Move to the next day.
-        self.bind("<Control-Right>", lambda event: self.calendar_frame.select_next_day())
+        self.bind("<Control-Right>",
+                  lambda event: self.calendar_frame.select_next_day())
 
         # CTRL + UP: Move to the previous week.
-        self.bind("<Control-Up>", lambda event: self.calendar_frame.select_prev_week_day())
+        self.bind("<Control-Up>",
+                  lambda event: self.calendar_frame.select_prev_week_day())
 
         # CTRL + DOWN: Move to the next week.
-        self.bind("<Control-Down>", lambda event: self.calendar_frame.select_next_week_day())
+        self.bind("<Control-Down>",
+                  lambda event: self.calendar_frame.select_next_week_day())
 
         # CTRL + END: Close the datepicker and erase the date.
         self.bind("<Control-End>", lambda event: self.erase())
 
         # CTRL + HOME: Move to the current month.
-        self.bind("<Control-Home>", lambda event: self.calendar_frame.select_current_date())
+        self.bind("<Control-Home>",
+                  lambda event: self.calendar_frame.select_current_date())
 
         # CTRL + SPACE: Show date on calendar
-        self.bind("<Control-space>", lambda event: self.show_date_on_calendar())
+        self.bind("<Control-space>",
+                  lambda event: self.show_date_on_calendar())
 
         # CTRL + Return: Set to entry current selection
-        self.bind("<Control-Return>", lambda event: self.set_date_from_calendar())
+        self.bind("<Control-Return>",
+                  lambda event: self.set_date_from_calendar())
 
     def set_date_from_calendar(self):
         if self.is_calendar_visible:
@@ -426,7 +488,8 @@ class Datepicker(elements.SimpleTtkEntry):
     @property
     def current_date(self):
         try:
-            date = datetime.datetime.strptime(self.date_var.get(), self.date_format)
+            date = datetime.datetime.strptime(self.date_var.get(),
+                                              self.date_format)
             return date
         except ValueError:
             return None
@@ -492,7 +555,8 @@ class Datepicker(elements.SimpleTtkEntry):
             if not self._is_calendar_visible:
                 self.show_date_on_calendar()
         else:
-            if not str_widget.startswith(str(self.calendar_frame)) and self._is_calendar_visible:
+            if not str_widget.startswith(
+                    str(self.calendar_frame)) and self._is_calendar_visible:
                 self.hide_calendar()
 
 
@@ -507,10 +571,10 @@ if __name__ == "__main__":
     root = Tk()
     root.geometry("500x600")
 
-    main =Frame(root, pady =15, padx=15)
+    main = Frame(root, pady=15, padx=15)
     main.pack(expand=True, fill="both")
 
-    Label(main, justify="left", text=__doc__).pack(anchor="w", pady=(0,15))
+    Label(main, justify="left", text=__doc__).pack(anchor="w", pady=(0, 15))
 
     Datepicker(main).pack(anchor="w")
 
